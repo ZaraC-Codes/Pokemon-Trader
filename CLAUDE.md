@@ -799,6 +799,33 @@ const handlePokemonClick = (spawn: PokemonSpawn) => {
 
 **Note:** This modal only initiates the throw transaction. The VRNG result (caught/escaped) should be handled by the parent component via contract event listeners.
 
+**App.tsx Integration (already wired):**
+The CatchAttemptModal is integrated in App.tsx via:
+1. `GameCanvas` emits `pokemon-clicked` event with `PokemonClickData`
+2. `App.tsx` (AppContent) listens via `onPokemonClick` prop
+3. State `selectedPokemon` controls modal open/close
+4. `useActiveWeb3React()` provides `account` for playerAddress
+
+```typescript
+// GameCanvas emits:
+interface PokemonClickData {
+  pokemonId: bigint;
+  slotIndex: number;
+  attemptCount: number;
+  x: number;
+  y: number;
+}
+
+// App.tsx handles:
+const handlePokemonClick = (data: PokemonClickData) => {
+  setSelectedPokemon({
+    pokemonId: data.pokemonId,
+    slotIndex: data.slotIndex,
+    attemptsRemaining: 3 - data.attemptCount,
+  });
+};
+```
+
 ### useTokenBalances Hook
 Shared hooks for APE and USDC.e token balances:
 

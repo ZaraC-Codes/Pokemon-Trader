@@ -3,15 +3,24 @@ import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { config } from './services/apechainConfig';
-import GameCanvas from './components/GameCanvas';
+import GameCanvas, { type PokemonClickData } from './components/GameCanvas';
 import WalletConnector from './components/WalletConnector';
 import TradeModal from './components/TradeModal';
 import VolumeToggle from './components/VolumeToggle';
 import InventoryTerminal from './components/InventoryTerminal';
 import { GameHUD } from './components/PokeBallShop';
+import { CatchAttemptModal } from './components/CatchAttemptModal';
+import { useActiveWeb3React } from './hooks/useActiveWeb3React';
 import { contractService } from './services/contractService';
 import type { TradeListing } from './services/contractService';
 import '@rainbow-me/rainbowkit/styles.css';
+
+/** State for the selected Pokemon to catch */
+interface SelectedPokemon {
+  pokemonId: bigint;
+  slotIndex: number;
+  attemptsRemaining: number;
+}
 
 const queryClient = new QueryClient();
 
@@ -27,10 +36,13 @@ declare global {
   }
 }
 
-function App() {
+/** Inner app component that uses hooks requiring WagmiProvider context */
+function AppContent() {
+  const { account } = useActiveWeb3React();
   const [selectedTrade, setSelectedTrade] = useState<TradeListing | null>(null);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [musicVolume, setMusicVolume] = useState(0.5);
+  const [selectedPokemon, setSelectedPokemon] = useState<SelectedPokemon | null>(null);
   // Music disabled
   // const [isMusicPlaying, setIsMusicPlaying] = useState(true);
 
@@ -255,66 +267,97 @@ function App() {
     });
   }, []);
 
+  // Handle Pokemon click from Phaser scene
+  const handlePokemonClick = useCallback((data: PokemonClickData) => {
+    // Max attempts is 3, so attemptsRemaining = 3 - attemptCount
+    setSelectedPokemon({
+      pokemonId: data.pokemonId,
+      slotIndex: data.slotIndex,
+      attemptsRemaining: 3 - data.attemptCount,
+    });
+  }, []);
+
+  const handleCloseCatchModal = useCallback(() => {
+    setSelectedPokemon(null);
+  }, []);
+
+  return (
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        position: 'relative',
+        overflow: 'hidden',
+        margin: 0,
+        padding: 0,
+        backgroundColor: '#000',
+      }}
+    >
+      <WalletConnector />
+      <GameCanvas onTradeClick={handleTradeClick} onPokemonClick={handlePokemonClick} />
+      <GameHUD />
+      {selectedTrade && (
+        <TradeModal listing={selectedTrade} onClose={handleCloseModal} />
+      )}
+
+      {/* Catch Attempt Modal */}
+      <CatchAttemptModal
+        isOpen={selectedPokemon !== null}
+        onClose={handleCloseCatchModal}
+        playerAddress={account}
+        pokemonId={selectedPokemon?.pokemonId ?? BigInt(0)}
+        slotIndex={selectedPokemon?.slotIndex ?? 0}
+        attemptsRemaining={selectedPokemon?.attemptsRemaining ?? 0}
+      />
+
+      {/* Inventory Button */}
+      <button
+        onClick={handleInventoryOpen}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '20px',
+          zIndex: 1000,
+          padding: '12px 20px',
+          backgroundColor: '#4a4',
+          color: '#fff',
+          border: '3px solid #fff',
+          cursor: 'pointer',
+          fontFamily: 'Courier New, monospace',
+          fontSize: '14px',
+          textTransform: 'uppercase',
+          fontWeight: 'bold',
+          imageRendering: 'pixelated',
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.backgroundColor = '#6a6';
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.backgroundColor = '#4a4';
+        }}
+      >
+        <i className="fas fa-box" style={{ marginRight: '8px' }}></i>
+        INVENTORY
+      </button>
+
+      {/* Volume Toggle */}
+      <VolumeToggle onVolumeChange={handleVolumeChange} initialVolume={musicVolume} />
+
+      {/* Inventory Terminal */}
+      <InventoryTerminal isOpen={isInventoryOpen} onClose={handleInventoryClose} />
+
+      {/* Music disabled */}
+    </div>
+  );
+}
+
+/** Root App component with providers */
+function App() {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
-          <div
-            style={{
-              width: '100vw',
-              height: '100vh',
-              position: 'relative',
-              overflow: 'hidden',
-              margin: 0,
-              padding: 0,
-              backgroundColor: '#000',
-            }}
-          >
-            <WalletConnector />
-            <GameCanvas onTradeClick={handleTradeClick} />
-            <GameHUD />
-            {selectedTrade && (
-              <TradeModal listing={selectedTrade} onClose={handleCloseModal} />
-            )}
-            
-            {/* Inventory Button */}
-            <button
-              onClick={handleInventoryOpen}
-              style={{
-                position: 'fixed',
-                bottom: '20px',
-                left: '20px',
-                zIndex: 1000,
-                padding: '12px 20px',
-                backgroundColor: '#4a4',
-                color: '#fff',
-                border: '3px solid #fff',
-                cursor: 'pointer',
-                fontFamily: 'Courier New, monospace',
-                fontSize: '14px',
-                textTransform: 'uppercase',
-                fontWeight: 'bold',
-                imageRendering: 'pixelated',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = '#6a6';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.backgroundColor = '#4a4';
-              }}
-            >
-              <i className="fas fa-box" style={{ marginRight: '8px' }}></i>
-              INVENTORY
-            </button>
-            
-            {/* Volume Toggle */}
-            <VolumeToggle onVolumeChange={handleVolumeChange} initialVolume={musicVolume} />
-            
-            {/* Inventory Terminal */}
-            <InventoryTerminal isOpen={isInventoryOpen} onClose={handleInventoryClose} />
-            
-            {/* Music disabled */}
-          </div>
+          <AppContent />
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

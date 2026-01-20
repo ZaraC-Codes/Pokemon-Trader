@@ -1,24 +1,39 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import { GameScene } from '../game/scenes/GameScene';
 import { gameConfig } from '../game/config/gameConfig';
 import type { TradeListing } from '../services/contractService';
 
+/** Data emitted when a Pokemon is clicked in the Phaser scene */
+export interface PokemonClickData {
+  pokemonId: bigint;
+  slotIndex: number;
+  attemptCount: number;
+  x: number;
+  y: number;
+}
+
 interface GameCanvasProps {
   onTradeClick?: (listing: TradeListing) => void;
+  onPokemonClick?: (data: PokemonClickData) => void;
   // Music disabled
   // onMusicToggle?: () => void;
 }
 
-export default function GameCanvas({ onTradeClick }: GameCanvasProps) {
+export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onTradeClickRef = useRef(onTradeClick);
+  const onPokemonClickRef = useRef(onPokemonClick);
 
-  // Keep the callback ref updated without causing re-renders
+  // Keep the callback refs updated without causing re-renders
   useEffect(() => {
     onTradeClickRef.current = onTradeClick;
   }, [onTradeClick]);
+
+  useEffect(() => {
+    onPokemonClickRef.current = onPokemonClick;
+  }, [onPokemonClick]);
 
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
@@ -46,7 +61,14 @@ export default function GameCanvas({ onTradeClick }: GameCanvasProps) {
           onTradeClickRef.current(listing);
         }
       });
-      
+
+      // Listen for Pokemon clicks from the scene
+      gameScene.events.on('pokemon-clicked', (data: PokemonClickData) => {
+        if (onPokemonClickRef.current) {
+          onPokemonClickRef.current(data);
+        }
+      });
+
       // Music disabled
     }
 

@@ -423,11 +423,6 @@ export function CatchAttemptModal({
     inventory.ultraBalls > 0 ||
     inventory.masterBalls > 0;
 
-  // Filter to only show balls the player owns
-  const availableBallTypes = ALL_BALL_TYPES.filter(
-    (ballType) => getBallCount(ballType) > 0
-  );
-
   // Handle throw
   const handleThrow = useCallback(
     (ballType: BallType) => {
