@@ -71,7 +71,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   │   ├── BikeShop.ts          # Interactive bike shop
 │   │   │   ├── BikeShopOwner.ts     # Bike shop NPC
 │   │   │   └── TradingOutpost.ts    # Trading building
-│   │   ├── managers/                # MapManager, NPCManager, TradeIconManager, PokemonSpawnManager, BallInventoryManager
+│   │   ├── managers/                # MapManager, NPCManager, TradeIconManager, PokemonSpawnManager, BallInventoryManager, CatchMechanicsManager
 │   │   ├── utils/                   # Music utilities (chiptune, mp3)
 │   │   └── config/                  # Game configuration
 │   │
@@ -514,6 +514,94 @@ Test UI for ball purchasing:
 - USDC.e / APE payment toggle
 - Purchase transaction handling
 - Error display and loading states
+
+### CatchMechanicsManager (Frontend)
+Manages the Pokemon catching flow, state machine, and animations:
+
+**Location:** `src/game/managers/CatchMechanicsManager.ts`
+
+**State Machine:**
+```
+idle → throwing → awaiting_result → success/failure → idle
+```
+
+**Catch States:**
+- `idle` - Ready for new catch attempt
+- `throwing` - Ball animation in progress
+- `awaiting_result` - Waiting for VRNG callback
+- `success` - Catch successful, playing celebration
+- `failure` - Catch failed, playing escape animation
+
+**Handler Callbacks (set by React layer):**
+```typescript
+type BallSelectionHandler = (pokemonId: bigint) => Promise<BallType | null>;
+type ContractThrowHandler = (pokemonId: bigint, ballType: BallType) => Promise<void>;
+type StateChangeHandler = (state: CatchState, pokemonId?: bigint) => void;
+type ErrorHandler = (error: string, pokemonId?: bigint) => void;
+```
+
+**Configuration Methods:**
+- `setPlayerPosition(x, y)` - Update player position (for range checks)
+- `setBallSelectionHandler(handler)` - UI ball picker callback
+- `setContractThrowHandler(handler)` - Blockchain transaction callback
+- `setStateChangeHandler(handler)` - State change notifications
+- `setErrorHandler(handler)` - Error notifications
+
+**Catch Flow Methods:**
+- `onPokemonClicked(pokemonId)` - Start catch flow (validates state, range, inventory)
+- `initiateThrow(pokemonId, ballType)` - Execute throw (decrements ball, plays animation)
+- `handleCatchResult(caught, pokemonId)` - Process VRNG result
+- `onPokemonRelocated(...)` - Handle Pokemon relocation
+
+**Animation Methods:**
+- `playThrowAnimation(ballType, targetX, targetY)` - Ball arc toward Pokemon
+- `playSuccessAnimation(x, y)` - Sparkles and "CAUGHT!" text
+- `playFailAnimation(x, y)` - Ball fragments and "ESCAPED!" shake
+- `playRelocateAnimation(fromX, fromY, toX, toY)` - Teleport fade effect
+
+**Phaser Events Emitted:**
+- `catch-state-changed` - State transition with oldState, newState, pokemonId
+- `catch-error` - Error occurred with message
+- `catch-out-of-range` - Player too far from Pokemon
+- `catch-success` - Successful catch with pokemonId, ballType
+- `catch-failure` - Failed catch with attemptsRemaining
+- `catch-transaction-failed` - Contract call failed
+- `pokemon-relocate-animated` - Relocation animation complete
+
+**Animation Configuration:**
+```typescript
+CATCH_CONFIG = {
+  THROW_ANIMATION_DURATION: 500,   // Ball flight time
+  WOBBLE_DURATION: 300,             // Ball wobble timing
+  WOBBLE_COUNT: 3,                  // Wobbles before result
+  SUCCESS_ANIMATION_DURATION: 800,  // Celebration effect
+  FAILURE_ANIMATION_DURATION: 400,  // Escape shake
+  RELOCATE_ANIMATION_DURATION: 600, // Teleport effect
+  RESULT_RESET_DELAY: 1500,         // Time before idle
+  BALL_COLORS: { 0: 0xff4444, 1: 0x4488ff, 2: 0xffcc00, 3: 0xaa44ff }
+}
+```
+
+**Integration Example:**
+```typescript
+// In GameScene.create():
+this.catchMechanicsManager = new CatchMechanicsManager(this, this.pokemonSpawnManager);
+
+// Set handlers from React:
+catchMechanicsManager.setBallSelectionHandler(async (pokemonId) => {
+  return showBallPickerModal(pokemonId); // Returns BallType or null
+});
+
+catchMechanicsManager.setContractThrowHandler(async (pokemonId, ballType) => {
+  await writeContract({ functionName: 'throwBall', args: [pokemonId, ballType] });
+});
+
+// In update loop:
+catchMechanicsManager.setPlayerPosition(player.x, player.y);
+
+// When VRNG callback arrives (React event listener):
+catchMechanicsManager.handleCatchResult(caught, pokemonId);
+```
 
 ### UUPS Proxy Pattern
 
