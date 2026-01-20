@@ -8,6 +8,7 @@ import WalletConnector from './components/WalletConnector';
 import TradeModal from './components/TradeModal';
 import VolumeToggle from './components/VolumeToggle';
 import InventoryTerminal from './components/InventoryTerminal';
+import { GameHUD } from './components/PokeBallShop';
 import { contractService } from './services/contractService';
 import type { TradeListing } from './services/contractService';
 import '@rainbow-me/rainbowkit/styles.css';
@@ -271,6 +272,7 @@ function App() {
           >
             <WalletConnector />
             <GameCanvas onTradeClick={handleTradeClick} />
+            <GameHUD />
             {selectedTrade && (
               <TradeModal listing={selectedTrade} onClose={handleCloseModal} />
             )}

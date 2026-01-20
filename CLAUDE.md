@@ -54,7 +54,11 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── InventoryTerminal.tsx    # NFT inventory UI
 │   │   ├── VolumeToggle.tsx         # Music volume control
 │   │   ├── BikeRentalModal.tsx      # Bike rental UI (2x speed boost)
-│   │   └── BallShop.tsx             # Ball purchase UI (PokeballGame)
+│   │   ├── BallShop.tsx             # Ball purchase UI (legacy)
+│   │   └── PokeBallShop/            # PokeBall shop components
+│   │       ├── index.ts                 # Barrel export
+│   │       ├── PokeBallShop.tsx         # Shop modal (buy balls)
+│   │       └── GameHUD.tsx              # HUD overlay (inventory + shop button)
 │   │
 │   ├── game/                    # Phaser game code
 │   │   ├── scenes/
@@ -91,7 +95,8 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── useLMBuyPositions.tsx    # Liquidity manager positions
 │   │   ├── useMysteryBox.ts         # Mystery box contract
 │   │   ├── usePokeballGame.ts       # PokeballGame contract integration (legacy)
-│   │   ├── useTokenBalance.ts       # Token balance queries
+│   │   ├── useTokenBalance.ts       # Token balance queries (generic)
+│   │   ├── useTokenBalances.ts      # APE/USDC.e balance hooks
 │   │   ├── useNFTExists.tsx         # NFT existence check
 │   │   ├── useAllNftPositions.tsx   # All NFT positions
 │   │   ├── useNFTBalances/          # NFT balance queries (IPFS, LM, NFT)
@@ -642,7 +647,7 @@ const { events: catches } = useCaughtPokemonEvents();
 }
 ```
 
-### BallShop Component
+### BallShop Component (Legacy)
 Test UI for ball purchasing:
 
 **Location:** `src/components/BallShop.tsx`
@@ -659,6 +664,92 @@ Test UI for ball purchasing:
 - USDC.e / APE payment toggle
 - Purchase transaction handling
 - Error display and loading states
+
+### PokeBallShop Component (New)
+Production-ready shop modal for purchasing PokeBalls:
+
+**Location:** `src/components/PokeBallShop/PokeBallShop.tsx`
+
+**Props:**
+```typescript
+interface PokeBallShopProps {
+  isOpen: boolean;
+  onClose: () => void;
+  playerAddress?: `0x${string}`;
+}
+```
+
+**Usage:**
+```tsx
+import { PokeBallShop } from './components/PokeBallShop';
+
+<PokeBallShop
+  isOpen={shopOpen}
+  onClose={() => setShopOpen(false)}
+  playerAddress={account}
+/>
+```
+
+**Features:**
+- Displays all 4 ball types with name, price, catch rate
+- APE / USDC.e payment toggle
+- Shows current APE and USDC.e balances
+- Player inventory display (color-coded balls)
+- Quantity input per ball type
+- Insufficient balance warning per row
+- Transaction loading state with wallet prompt
+- Success message with transaction hash
+- Error display with dismiss button
+- No wallet connected warning
+
+**Hooks Used:**
+- `usePurchaseBalls()` - Contract write
+- `usePlayerBallInventory(address)` - Read inventory
+- `useApeBalance(address)` - APE balance
+- `useUsdcBalance(address)` - USDC.e balance
+
+### GameHUD Component
+Heads-up display overlay for the game:
+
+**Location:** `src/components/PokeBallShop/GameHUD.tsx`
+
+**Usage:**
+```tsx
+import { GameHUD } from './components/PokeBallShop';
+
+// In App.tsx (already integrated)
+<GameCanvas />
+<GameHUD />
+```
+
+**Features:**
+- Fixed position (top-right corner)
+- Ball inventory display (2x2 grid with color-coded dots)
+- "SHOP" button opens PokeBallShop modal
+- "Connect Wallet" message if not connected
+- Uses `useActiveWeb3React()` for wallet state
+- Uses `usePlayerBallInventory()` for ball counts
+
+### useTokenBalances Hook
+Shared hooks for APE and USDC.e token balances:
+
+**Location:** `src/hooks/useTokenBalances.ts`
+
+**Usage:**
+```typescript
+import { useApeBalance, useUsdcBalance, useTokenBalances } from '../hooks/useTokenBalances';
+
+// Individual hooks
+const { balance, raw, isLoading, refetch } = useApeBalance(address);
+const { balance, raw, isLoading, refetch } = useUsdcBalance(address);
+
+// Combined hook
+const { ape, usdc, isLoading, refetchAll } = useTokenBalances(address);
+```
+
+**Token Addresses (ApeChain Mainnet):**
+- USDC.e: `0xF1815bd50389c46847f0Bda824eC8da914045D14` (6 decimals)
+- APE: `0x4d224452801aced8b2f0aebe155379bb5d594381` (18 decimals)
 
 ### CatchMechanicsManager (Frontend)
 Manages the Pokemon catching flow, state machine, and animations:
