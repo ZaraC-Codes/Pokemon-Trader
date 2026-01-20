@@ -295,7 +295,7 @@ function AppContent() {
     >
       <WalletConnector />
       <GameCanvas onTradeClick={handleTradeClick} onPokemonClick={handlePokemonClick} />
-      <GameHUD />
+      <GameHUD playerAddress={account} />
       {selectedTrade && (
         <TradeModal listing={selectedTrade} onClose={handleCloseModal} />
       )}

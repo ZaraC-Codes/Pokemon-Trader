@@ -715,26 +715,54 @@ import { PokeBallShop } from './components/PokeBallShop';
 - `useUsdcBalance(address)` - USDC.e balance
 
 ### GameHUD Component
-Heads-up display overlay for the game:
+Heads-up display overlay for the game, showing real-time inventory and spawn info:
 
 **Location:** `src/components/PokeBallShop/GameHUD.tsx`
+
+**Props:**
+```typescript
+interface GameHUDProps {
+  playerAddress?: `0x${string}`;
+}
+```
 
 **Usage:**
 ```tsx
 import { GameHUD } from './components/PokeBallShop';
 
-// In App.tsx (already integrated)
-<GameCanvas />
-<GameHUD />
+function AppContent() {
+  const { account } = useActiveWeb3React();
+
+  return (
+    <div>
+      <GameCanvas />
+      <GameHUD playerAddress={account} />
+    </div>
+  );
+}
 ```
 
 **Features:**
-- Fixed position (top-right corner)
-- Ball inventory display (2x2 grid with color-coded dots)
+- Fixed position (top-right corner), non-intrusive design
+- Ball inventory display (2x2 grid with color-coded dots and counts)
+- Active Pokemon count with attempt indicators per spawn
 - "SHOP" button opens PokeBallShop modal
 - "Connect Wallet" message if not connected
-- Uses `useActiveWeb3React()` for wallet state
-- Uses `usePlayerBallInventory()` for ball counts
+- Real-time updates via polling hooks (5s for spawns, 10s for inventory)
+- Mobile-responsive layout (horizontal on desktop, stacks vertically on ≤768px)
+
+**Sub-Components:**
+- `BallInventorySection` - 2x2 grid showing ball counts by type
+- `PokemonSpawnsSection` - Active Pokemon count with spawn badges
+- `AttemptDots` - Visual indicator (green=remaining, red=used) for catch attempts
+
+**Ball Colors:**
+| Ball Type | Color |
+|-----------|-------|
+| Poke Ball (0) | Red `#ff4444` |
+| Great Ball (1) | Blue `#4488ff` |
+| Ultra Ball (2) | Yellow `#ffcc00` |
+| Master Ball (3) | Purple `#aa44ff` |
 
 ### CatchAttemptModal Component
 Modal for selecting and throwing a PokeBall at a specific Pokemon:
