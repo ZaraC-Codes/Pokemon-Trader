@@ -108,8 +108,10 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0
 │   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
 │   ├── deployment/
-│   │   ├── deploy_PokeballGame.js   # PokeballGame deployment
-│   │   └── deploy_SlabNFTManager.js # SlabNFTManager deployment
+│   │   ├── deployProxies.js         # Unified proxy deployment (both contracts)
+│   │   ├── deploy_PokeballGame.js   # PokeballGame standalone deployment
+│   │   ├── deploy_SlabNFTManager.js # SlabNFTManager standalone deployment
+│   │   └── upgrade_PokeballGame.js  # UUPS upgrade example script
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -119,6 +121,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   ├── implementation_plan.md   # Development roadmap
 │   ├── pop_vrng_integration.md  # POP VRNG integration guide
 │   ├── WALLET_CONFIG.md         # Wallet setup guide
+│   ├── UUPS_UPGRADE_GUIDE.md    # UUPS proxy upgrade documentation
 │   └── claude_agents.md         # Claude agent integration
 │
 └── [root files]
@@ -142,8 +145,11 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 | `contracts/SlabNFTManager.sol` | NFT inventory and auto-purchase manager |
 | `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 for frontend |
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
+| `contracts/deployment/deployProxies.js` | Unified deployment script for both proxies |
+| `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
+| `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
 
 ## Architecture Patterns
 
@@ -346,6 +352,32 @@ PokeballGame → SlabNFTManager.awardNFTToWinner(player)
 SlabNFTManager → Player (NFT transfer)
 ```
 
+### UUPS Proxy Pattern
+
+Both contracts use OpenZeppelin's UUPS (Universal Upgradeable Proxy Standard):
+
+**Why UUPS:**
+- No separate ProxyAdmin contract needed
+- Upgrade logic embedded in implementation via `_authorizeUpgrade()`
+- Lower gas costs than transparent proxy
+- Owner-controlled upgrades
+
+**Upgrade Process:**
+1. Create new implementation contract (e.g., `PokeballGameV2.sol`)
+2. Ensure storage layout compatibility (no removed/reordered variables)
+3. Run upgrade script: `npx hardhat run contracts/deployment/upgrade_PokeballGame.js --network apechain`
+4. Verify state preservation after upgrade
+
+**Who Can Upgrade:**
+- Only the contract owner (`0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06`)
+- Controlled by `onlyOwner` modifier in `_authorizeUpgrade()`
+
+**Storage Gap:**
+- Both contracts reserve `uint256[49-50] private __gap` for future state variables
+- Reduce gap size when adding new variables
+
+See `docs/UUPS_UPGRADE_GUIDE.md` for complete upgrade documentation.
+
 ### Mystery Box System
 - `useMysteryBox.ts` hook for mystery box contract interactions
 - Randomness-dependent NFT mechanics
@@ -366,4 +398,5 @@ Comprehensive documentation available in `docs/`:
 - `implementation_plan.md` - Development roadmap
 - `pop_vrng_integration.md` - POP VRNG integration guide
 - `WALLET_CONFIG.md` - Wallet setup instructions
+- `UUPS_UPGRADE_GUIDE.md` - UUPS proxy upgrade guide
 - `claude_agents.md` - Claude agent integration
