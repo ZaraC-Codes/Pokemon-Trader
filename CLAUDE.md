@@ -61,6 +61,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── entities/                # Game objects
 │   │   │   ├── Player.ts            # Player character
 │   │   │   ├── NPC.ts               # Generic NPC
+│   │   │   ├── Pokemon.ts           # Wild Pokemon entity (PokeballGame)
 │   │   │   ├── DialogBubble.ts      # Dialog display
 │   │   │   ├── TradeIcon.ts         # OTC listing icon
 │   │   │   ├── Building.ts          # Generic building
@@ -69,7 +70,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   │   ├── BikeShop.ts          # Interactive bike shop
 │   │   │   ├── BikeShopOwner.ts     # Bike shop NPC
 │   │   │   └── TradingOutpost.ts    # Trading building
-│   │   ├── managers/                # MapManager, NPCManager, TradeIconManager
+│   │   ├── managers/                # MapManager, NPCManager, TradeIconManager, PokemonSpawnManager
 │   │   ├── utils/                   # Music utilities (chiptune, mp3)
 │   │   └── config/                  # Game configuration
 │   │
@@ -351,6 +352,81 @@ PokeballGame → SlabNFTManager.awardNFTToWinner(player)
     ↓
 SlabNFTManager → Player (NFT transfer)
 ```
+
+### PokemonSpawnManager (Frontend)
+Phaser manager for tracking active Pokemon spawns in the game world:
+
+**Location:** `src/game/managers/PokemonSpawnManager.ts`
+
+**Data Structure:**
+```typescript
+interface PokemonSpawn {
+  id: bigint;           // Contract Pokemon ID (uint256)
+  x: number;            // Pixel X position
+  y: number;            // Pixel Y position
+  attemptCount: number; // Throws so far (0-3)
+  timestamp: number;    // Spawn time (ms)
+  entity?: Pokemon;     // Visual Phaser sprite
+}
+```
+
+**Contract Sync Methods (called from React/Web3 listeners):**
+- `syncFromContract(initialSpawns)` - Initialize on scene start
+- `onSpawnAdded(spawn)` - Handle PokemonSpawned event
+- `onPokemonRelocated(pokemonId, newX, newY)` - Handle PokemonRelocated event
+- `onCaughtPokemon(pokemonId)` - Handle CaughtPokemon event
+- `onFailedCatch(pokemonId, attemptsRemaining)` - Handle FailedCatch event
+
+**Query Methods:**
+- `getSpawnAt(x, y)` - Find spawn near position (distance-based)
+- `getAllSpawns()` - Get all active spawns
+- `getPokemonInCatchRange(playerX, playerY)` - Find nearest catchable Pokemon
+- `isPlayerInCatchRange(...)` - Check if player can throw
+- `getRemainingAttempts(pokemonId)` - Get attempts left
+
+**Phaser Events Emitted:**
+- `pokemon-spawns-synced` - After initial contract sync
+- `pokemon-spawn-added` - New Pokemon appeared
+- `pokemon-relocated` - Pokemon moved to new position
+- `pokemon-caught` - Successful catch (for celebration animation)
+- `pokemon-catch-failed` - Failed attempt (for shake animation)
+- `pokemon-spawn-effects` - For GrassRustle integration
+
+**Configuration:**
+```typescript
+SPAWN_CONFIG = {
+  MAX_ACTIVE_SPAWNS: 3,    // Max Pokemon at once
+  MAX_ATTEMPTS: 3,          // Throws before relocate
+  CATCH_RANGE_PIXELS: 48,   // Interaction distance
+  SPAWN_QUERY_RADIUS: 32,   // Click detection radius
+}
+```
+
+**Integration Example:**
+```typescript
+// In GameScene.create():
+this.pokemonSpawnManager = new PokemonSpawnManager(this);
+
+// From React Web3 listener:
+pokemonSpawnManager.syncFromContract(contractSpawns);
+pokemonSpawnManager.onCaughtPokemon(BigInt(pokemonId));
+
+// Listen for events in React:
+scene.events.on('pokemon-caught', (data) => {
+  showCelebrationModal(data.pokemonId);
+});
+```
+
+### Pokemon Entity (Frontend)
+Visual representation of wild Pokemon in the game world:
+
+**Location:** `src/game/entities/Pokemon.ts`
+
+**Methods:**
+- `playSpawnAnimation()` - Fade in with bounce effect
+- `playDespawnAnimation()` - Fade out and self-destroy
+- `playRelocationAnimation(newX, newY)` - Teleport effect
+- `update(delta)` - Frame update (stub for idle animation)
 
 ### UUPS Proxy Pattern
 

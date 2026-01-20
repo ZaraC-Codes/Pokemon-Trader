@@ -3,6 +3,7 @@ import { Player } from '../entities/Player';
 import { MapManager } from '../managers/MapManager';
 import { TradeIconManager } from '../managers/TradeIconManager';
 import { NPCManager } from '../managers/NPCManager';
+import { PokemonSpawnManager } from '../managers/PokemonSpawnManager';
 import { House } from '../entities/House';
 import { Building, type BuildingType } from '../entities/Building';
 import { Tree } from '../entities/Tree';
@@ -26,6 +27,7 @@ export class GameScene extends Scene {
   private mapManager?: MapManager;
   private tradeIconManager?: TradeIconManager;
   private npcManager?: NPCManager;
+  private pokemonSpawnManager?: PokemonSpawnManager;
   private backgroundMusic?: ChiptuneMusic;
   private mp3Music?: MP3Music;
   private houses: House[] = [];
@@ -909,6 +911,9 @@ export class GameScene extends Scene {
 
     // Initialize NPC manager
     this.npcManager = new NPCManager(this, this.mapManager);
+
+    // Initialize Pokemon spawn manager (for PokeballGame integration)
+    this.pokemonSpawnManager = new PokemonSpawnManager(this);
     // Spawn NPCs with listings (async)
     this.time.delayedCall(2000, async () => {
       if (this.npcManager && this.loadingSubtext) {
