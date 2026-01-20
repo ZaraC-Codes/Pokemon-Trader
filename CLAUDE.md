@@ -90,11 +90,21 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── useBridgeListing.tsx     # Cross-chain bridge
 │   │   ├── useLMBuyPositions.tsx    # Liquidity manager positions
 │   │   ├── useMysteryBox.ts         # Mystery box contract
-│   │   ├── usePokeballGame.ts       # PokeballGame contract integration
+│   │   ├── usePokeballGame.ts       # PokeballGame contract integration (legacy)
 │   │   ├── useTokenBalance.ts       # Token balance queries
 │   │   ├── useNFTExists.tsx         # NFT existence check
 │   │   ├── useAllNftPositions.tsx   # All NFT positions
-│   │   └── useNFTBalances/          # NFT balance queries (IPFS, LM, NFT)
+│   │   ├── useNFTBalances/          # NFT balance queries (IPFS, LM, NFT)
+│   │   └── pokeballGame/            # PokeballGame Wagmi hooks (modular)
+│   │       ├── index.ts                 # Barrel export
+│   │       ├── pokeballGameConfig.ts    # Shared config, ABI, types
+│   │       ├── usePurchaseBalls.ts      # Buy balls (APE/USDC.e)
+│   │       ├── useThrowBall.ts          # Throw ball at Pokemon
+│   │       ├── useGetPokemonSpawns.ts   # Read active spawns
+│   │       ├── usePlayerBallInventory.ts # Read player inventory
+│   │       ├── useContractEvents.ts     # Event subscriptions
+│   │       ├── useSetOwnerWallet.ts     # Transfer ownership (owner)
+│   │       └── useSetTreasuryWallet.ts  # Update treasury (owner)
 │   │
 │   ├── config/                  # Static configuration
 │   │   ├── knownListings.ts         # Pre-identified listing IDs
@@ -550,11 +560,87 @@ const {
 - Reads inventory via `getAllPlayerBalls()`
 - Watches `BallPurchased` events for real-time updates
 - Syncs to BallInventoryManager singleton
-- Requires `REACT_APP_POKEBALL_GAME_ADDRESS` env var
+- Requires `VITE_POKEBALL_GAME_ADDRESS` env var (Vite uses `VITE_` prefix)
 
 **Utility Hooks:**
 - `useBallPrice(ballType)` - Get ball price from contract
 - `useHasBall(ballType)` - Check if player has a ball type
+
+### PokeballGame Modular Hooks (New)
+Reusable Wagmi hooks for PokeballGame contract interactions:
+
+**Location:** `src/hooks/pokeballGame/`
+
+**Import Pattern:**
+```typescript
+import {
+  usePurchaseBalls,
+  useThrowBall,
+  useGetPokemonSpawns,
+  usePlayerBallInventory,
+  useContractEvents,
+  type BallType,
+  type PokemonSpawn,
+} from '../hooks/pokeballGame';
+```
+
+**Available Hooks:**
+
+| Hook | Purpose |
+|------|---------|
+| `usePurchaseBalls()` | Buy balls with APE or USDC.e |
+| `useThrowBall()` | Throw ball at Pokemon slot, returns requestId |
+| `useGetPokemonSpawns()` | Read active Pokemon (polls every 5s) |
+| `usePlayerBallInventory(address)` | Read player's ball counts |
+| `useContractEvents(eventName)` | Subscribe to contract events |
+| `useSetOwnerWallet()` | Transfer ownership (owner only) |
+| `useSetTreasuryWallet()` | Update treasury address (owner only) |
+
+**Specialized Event Hooks:**
+- `useBallPurchasedEvents()` - Ball purchase events
+- `useCaughtPokemonEvents()` - Successful catch events
+- `useFailedCatchEvents()` - Failed catch events
+- `usePokemonSpawnedEvents()` - New spawn events
+- `usePokemonRelocatedEvents()` - Relocation events
+- `useAllGameEvents()` - All game events combined
+
+**Usage Example:**
+```typescript
+const { account } = useActiveWeb3React();
+
+// Read hooks
+const { data: spawns } = useGetPokemonSpawns();
+const { pokeBalls, greatBalls } = usePlayerBallInventory(account);
+
+// Write hooks
+const { write: purchase, isPending } = usePurchaseBalls();
+const { write: throwBall, requestId } = useThrowBall();
+
+// Actions (always null-check write functions)
+purchase?.(0, 5, false);              // Buy 5 Poké Balls with USDC.e
+throwBall?.(spawns[0].slotIndex, 0);  // Throw Poké Ball at first spawn
+
+// Event listeners
+const { events: catches } = useCaughtPokemonEvents();
+```
+
+**Configuration:**
+- Contract address: `VITE_POKEBALL_GAME_ADDRESS` env var
+- Chain: ApeChain Mainnet (33139)
+- ABI: `contracts/abi/abi_PokeballGame.json`
+
+**Return Shape (write hooks):**
+```typescript
+{
+  write: ((args...) => void) | undefined;  // undefined if not configured
+  isLoading: boolean;      // Transaction processing
+  isPending: boolean;      // Waiting for submission
+  error: Error | undefined;
+  hash: `0x${string}` | undefined;
+  receipt: TransactionReceipt | undefined;
+  reset: () => void;
+}
+```
 
 ### BallShop Component
 Test UI for ball purchasing:
