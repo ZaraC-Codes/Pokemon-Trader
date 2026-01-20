@@ -100,13 +100,16 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   └── utilities/               # Common helpers
 │
 ├── contracts/               # Smart contract files
-│   ├── PokeballGame.sol         # Main game contract (UUPS upgradeable)
+│   ├── PokeballGame.sol         # Main game contract v1.1.0 (UUPS)
+│   ├── SlabNFTManager.sol       # NFT inventory manager (UUPS)
 │   ├── interfaces/
 │   │   └── IPOPVRNG.sol         # POP VRNG interface (randomness)
 │   ├── abi/
-│   │   └── abi_PokeballGame.json # Contract ABI for frontend
+│   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0
+│   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
 │   ├── deployment/
-│   │   └── deploy_PokeballGame.js # Hardhat deployment script
+│   │   ├── deploy_PokeballGame.js   # PokeballGame deployment
+│   │   └── deploy_SlabNFTManager.js # SlabNFTManager deployment
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -135,8 +138,10 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 | `src/hooks/useAllListings.tsx` | Core hook for fetching listings |
 | `contracts/addresses.json` | All contract addresses and token config |
 | `contracts/wallets.json` | Wallet configuration (owner, treasury, NFT revenue) |
-| `contracts/PokeballGame.sol` | Main game smart contract |
-| `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI for frontend |
+| `contracts/PokeballGame.sol` | Main game smart contract v1.1.0 |
+| `contracts/SlabNFTManager.sol` | NFT inventory and auto-purchase manager |
+| `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 for frontend |
+| `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 
@@ -265,7 +270,7 @@ Update `src/services/config.ts` or add to `src/config/abis/`
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract
+### PokeballGame Contract (v1.1.0)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Ball System:**
@@ -280,8 +285,8 @@ Pokemon catching mini-game with provably fair mechanics:
 - UUPS upgradeable proxy pattern
 - Dual token payment (USDC.e and APE)
 - POP VRNG integration for fair randomness
-- 97% revenue to NFT pool, 3% platform fee
-- Auto-purchase NFT when revenue >= $51 USDC.e
+- 97% revenue sent to SlabNFTManager, 3% platform fee
+- Delegates NFT management to SlabNFTManager
 - Up to 3 active Pokemon spawns
 - Max 3 throw attempts per Pokemon before relocation
 
@@ -291,10 +296,55 @@ Pokemon catching mini-game with provably fair mechanics:
 - `randomNumberCallback(requestId, randomNumber)` - VRNG callback
 - `getAllPlayerBalls(player)` - Get player inventory
 - `getAllActivePokemons()` - Get spawned Pokemon
+- `setSlabNFTManager(address)` - Set NFT manager (owner only)
+- `getNFTInventoryCount()` - Query NFT inventory via manager
 
 **Events for Frontend:**
 - `BallPurchased`, `ThrowAttempted`, `CaughtPokemon`
 - `FailedCatch`, `PokemonRelocated`, `WalletUpdated`
+- `RevenueSentToManager` - When revenue deposited to SlabNFTManager
+
+### SlabNFTManager Contract
+NFT inventory management and auto-purchase from SlabMachine:
+
+**Features:**
+- UUPS upgradeable proxy pattern
+- Max 10 NFTs in inventory
+- Auto-purchase when USDC.e balance >= $51
+- Awards NFTs to Pokemon catchers
+- Integrates with SlabMachine for NFT purchasing
+- ERC721Receiver for receiving NFTs
+
+**Key Functions:**
+- `depositRevenue(amount)` - Receive USDC.e from PokeballGame
+- `checkAndPurchaseNFT()` - Trigger auto-purchase if threshold met
+- `awardNFTToWinner(winner)` - Transfer NFT to winner
+- `getInventoryCount()` - Get current NFT count
+- `getInventory()` - Get all NFT token IDs
+- `setPokeballGame(address)` - Set PokeballGame address (owner only)
+
+**Events for Frontend:**
+- `RevenueDeposited` - When revenue received
+- `NFTPurchaseTriggered` - When SlabMachine purchase initiated
+- `NFTAddedToInventory` - When NFT received
+- `NFTAwardedToWinner` - When NFT sent to winner
+
+**Contract Integration Flow:**
+```
+Player → PokeballGame.purchaseBalls()
+    ↓
+PokeballGame → SlabNFTManager.depositRevenue(97%)
+    ↓
+SlabNFTManager → SlabMachine.pull() (when >= $51)
+    ↓
+SlabMachine → SlabNFTManager (NFT via callback)
+    ↓
+Player catches Pokemon → PokeballGame._handleSuccessfulCatch()
+    ↓
+PokeballGame → SlabNFTManager.awardNFTToWinner(player)
+    ↓
+SlabNFTManager → Player (NFT transfer)
+```
 
 ### Mystery Box System
 - `useMysteryBox.ts` hook for mystery box contract interactions

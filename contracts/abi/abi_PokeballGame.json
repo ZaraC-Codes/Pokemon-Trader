@@ -1,5 +1,6 @@
 {
   "contractName": "PokeballGame",
+  "version": "1.1.0",
   "abi": [
     {
       "inputs": [],
@@ -130,6 +131,11 @@
       "type": "error"
     },
     {
+      "inputs": [],
+      "name": "SlabNFTManagerNotSet",
+      "type": "error"
+    },
+    {
       "inputs": [
         { "internalType": "uint8", "name": "slot", "type": "uint8" }
       ],
@@ -246,16 +252,6 @@
     {
       "anonymous": false,
       "inputs": [
-        { "indexed": false, "internalType": "uint256", "name": "requestId", "type": "uint256" },
-        { "indexed": false, "internalType": "address", "name": "recipient", "type": "address" },
-        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
-      ],
-      "name": "NFTPurchaseTriggered",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
         { "indexed": true, "internalType": "address", "name": "previousOwner", "type": "address" },
         { "indexed": true, "internalType": "address", "name": "newOwner", "type": "address" }
       ],
@@ -294,10 +290,9 @@
     {
       "anonymous": false,
       "inputs": [
-        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" },
-        { "indexed": false, "internalType": "uint256", "name": "newTotal", "type": "uint256" }
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
       ],
-      "name": "RevenueAdded",
+      "name": "RevenueSentToManager",
       "type": "event"
     },
     {
@@ -397,13 +392,6 @@
       "inputs": [],
       "name": "MAX_THROW_ATTEMPTS",
       "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "NFT_PURCHASE_THRESHOLD",
-      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
       "stateMutability": "view",
       "type": "function"
     },
@@ -622,17 +610,6 @@
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "getRevenuePoolStatus",
-      "outputs": [
-        { "internalType": "uint256", "name": "poolBalance", "type": "uint256" },
-        { "internalType": "uint256", "name": "threshold", "type": "uint256" },
-        { "internalType": "bool", "name": "canPurchase", "type": "bool" }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [
         { "internalType": "address", "name": "_owner", "type": "address" },
         { "internalType": "address", "name": "_treasury", "type": "address" },
@@ -640,20 +617,12 @@
         { "internalType": "address", "name": "_usdce", "type": "address" },
         { "internalType": "address", "name": "_ape", "type": "address" },
         { "internalType": "address", "name": "_vrng", "type": "address" },
-        { "internalType": "address", "name": "_slabMachine", "type": "address" },
         { "internalType": "address", "name": "_slabNFT", "type": "address" },
         { "internalType": "uint256", "name": "_initialAPEPrice", "type": "uint256" }
       ],
       "name": "initialize",
       "outputs": [],
       "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-      "name": "nftInventory",
-      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -668,18 +637,6 @@
       "name": "nextPokemonId",
       "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
       "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        { "internalType": "address", "name": "", "type": "address" },
-        { "internalType": "address", "name": "", "type": "address" },
-        { "internalType": "uint256", "name": "tokenId", "type": "uint256" },
-        { "internalType": "bytes", "name": "", "type": "bytes" }
-      ],
-      "name": "onERC721Received",
-      "outputs": [{ "internalType": "bytes4", "name": "", "type": "bytes4" }],
-      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -700,13 +657,6 @@
       "inputs": [],
       "name": "paused",
       "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-      "name": "pendingNFTRecipients",
-      "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
       "stateMutability": "view",
       "type": "function"
     },
@@ -790,6 +740,13 @@
       "type": "function"
     },
     {
+      "inputs": [{ "internalType": "address", "name": "_slabNFTManager", "type": "address" }],
+      "name": "setSlabNFTManager",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "inputs": [{ "internalType": "address", "name": "newTreasury", "type": "address" }],
       "name": "setTreasuryWallet",
       "outputs": [],
@@ -798,15 +755,15 @@
     },
     {
       "inputs": [],
-      "name": "slabMachine",
-      "outputs": [{ "internalType": "contract ISlabMachine", "name": "", "type": "address" }],
+      "name": "slabNFT",
+      "outputs": [{ "internalType": "contract IERC721", "name": "", "type": "address" }],
       "stateMutability": "view",
       "type": "function"
     },
     {
       "inputs": [],
-      "name": "slabNFT",
-      "outputs": [{ "internalType": "contract IERC721", "name": "", "type": "address" }],
+      "name": "slabNFTManager",
+      "outputs": [{ "internalType": "contract ISlabNFTManager", "name": "", "type": "address" }],
       "stateMutability": "view",
       "type": "function"
     },

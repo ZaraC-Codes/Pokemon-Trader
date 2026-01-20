@@ -8,7 +8,7 @@ pragma solidity 0.8.26;
  * @author Z33Fi ("Z33Fi Made It")
  * @custom:artist-signature Z33Fi Made It
  * @custom:network ApeChain Mainnet (Chain ID: 33139)
- * @custom:version 1.0.0
+ * @custom:version 1.1.0
  */
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -36,33 +36,35 @@ interface IPOPVRNG {
 }
 
 /**
- * @dev Interface for SlabMachine NFT vending
- * @notice Used for auto-purchasing NFTs when revenue threshold is met
+ * @dev Interface for SlabNFTManager
+ * @notice Manages NFT inventory and auto-purchasing from SlabMachine
  */
-interface ISlabMachine {
+interface ISlabNFTManager {
     /**
-     * @notice Pull an NFT from the machine
-     * @param _amount Amount of USDC.e to spend (typically ~50e6)
-     * @param _recipient Address to receive the NFT
-     * @return requestId The ID of the pull request
+     * @notice Award an NFT from inventory to a winner
+     * @param winner Address to receive the NFT
+     * @return tokenId The token ID awarded (0 if inventory empty)
      */
-    function pull(uint256 _amount, address _recipient) external returns (uint256 requestId);
+    function awardNFTToWinner(address winner) external returns (uint256 tokenId);
 
     /**
-     * @notice Get machine configuration including pull price
-     * @return usdcPullPrice Price in USDC.e to pull one NFT
-     * @return apePullPrice Price in APE to pull one NFT
-     * @return maxPulls Maximum number of pulls allowed
-     * @return totalPulls Total pulls executed so far
-     * @return isActive Whether the machine is active
+     * @notice Check and trigger NFT purchase if threshold met
+     * @return purchased Whether a purchase was initiated
+     * @return requestId The SlabMachine request ID
      */
-    function machineConfig() external view returns (
-        uint256 usdcPullPrice,
-        uint256 apePullPrice,
-        uint256 maxPulls,
-        uint256 totalPulls,
-        bool isActive
-    );
+    function checkAndPurchaseNFT() external returns (bool purchased, uint256 requestId);
+
+    /**
+     * @notice Get current NFT inventory count
+     * @return count Number of NFTs in inventory
+     */
+    function getInventoryCount() external view returns (uint256 count);
+
+    /**
+     * @notice Deposit USDC.e revenue into the manager
+     * @param amount Amount of USDC.e to deposit (6 decimals)
+     */
+    function depositRevenue(uint256 amount) external;
 }
 
 /**
@@ -137,9 +139,6 @@ contract PokeballGame is
     /// @notice Basis points denominator
     uint256 public constant BPS_DENOMINATOR = 10000;
 
-    /// @notice Threshold for auto-purchasing NFT ($51 USDC.e = 51e6)
-    uint256 public constant NFT_PURCHASE_THRESHOLD = 51 * 1e6;
-
     /// @notice USDC.e decimals
     uint8 public constant USDC_DECIMALS = 6;
 
@@ -183,7 +182,6 @@ contract PokeballGame is
     IERC20 public usdce;
     IERC20 public ape;
     IPOPVRNG public vrng;
-    ISlabMachine public slabMachine;
     IERC721 public slabNFT;
 
     // Wallet addresses
@@ -191,9 +189,9 @@ contract PokeballGame is
     address public nftRevenueWallet;
 
     // Revenue tracking
-    uint256 public totalRevenuePool;      // Accumulated 97% for NFT purchases
+    uint256 public totalRevenuePool;      // Accumulated 97% for NFT purchases (legacy, now sent to manager)
     uint256 public totalPlatformFees;     // Accumulated 3% fees
-    uint256 public totalNFTsPurchased;    // Count of auto-purchased NFTs
+    uint256 public totalNFTsPurchased;    // Count of auto-purchased NFTs (legacy counter)
 
     // Player ball balances: player => ballType => quantity
     mapping(address => mapping(BallType => uint256)) public playerBalls;
@@ -211,15 +209,14 @@ contract PokeballGame is
     // Counter for generating unique trace IDs
     uint256 private _traceIdCounter;
 
-    // NFT inventory held for winners
-    uint256[] public nftInventory;
-
-    // Pending NFT requests from SlabMachine
-    mapping(uint256 => address) public pendingNFTRecipients;
-
     // APE price in USD (8 decimals, e.g., 1.50 USD = 150000000)
     // This should be updated via oracle or admin
     uint256 public apePriceUSD;
+
+    // ============ New State Variables (v1.1.0) ============
+
+    /// @notice SlabNFTManager contract for NFT inventory and purchases
+    ISlabNFTManager public slabNFTManager;
 
     // ============ Events ============
 
@@ -255,7 +252,7 @@ contract PokeballGame is
      * @notice Emitted when a Pokemon is successfully caught
      * @param catcher Address of the successful player
      * @param pokemonId ID of the caught Pokemon
-     * @param nftTokenId Token ID of the awarded NFT
+     * @param nftTokenId Token ID of the awarded NFT (0 if none available)
      */
     event CaughtPokemon(
         address indexed catcher,
@@ -288,10 +285,10 @@ contract PokeballGame is
     );
 
     /**
-     * @notice Emitted when a wallet address is updated
-     * @param walletType Type of wallet ("treasury", "nftRevenue", "owner")
-     * @param oldAddress Previous wallet address
-     * @param newAddress New wallet address
+     * @notice Emitted when a wallet or manager address is updated
+     * @param walletType Type of address ("treasury", "nftRevenue", "slabNFTManager")
+     * @param oldAddress Previous address
+     * @param newAddress New address
      */
     event WalletUpdated(
         string walletType,
@@ -300,23 +297,10 @@ contract PokeballGame is
     );
 
     /**
-     * @notice Emitted when revenue is added to the pool
-     * @param amount Amount added in USDC.e (6 decimals)
-     * @param newTotal New total revenue pool balance
+     * @notice Emitted when revenue is sent to SlabNFTManager
+     * @param amount Amount sent in USDC.e (6 decimals)
      */
-    event RevenueAdded(uint256 amount, uint256 newTotal);
-
-    /**
-     * @notice Emitted when an NFT purchase is triggered
-     * @param requestId SlabMachine request ID
-     * @param recipient Address to receive the NFT
-     * @param amount USDC.e amount spent
-     */
-    event NFTPurchaseTriggered(
-        uint256 requestId,
-        address recipient,
-        uint256 amount
-    );
+    event RevenueSentToManager(uint256 amount);
 
     /**
      * @notice Emitted when a new Pokemon spawns
@@ -363,6 +347,7 @@ contract PokeballGame is
     error TransferFailed();
     error NoFeesToWithdraw();
     error SlotOccupied(uint8 slot);
+    error SlabNFTManagerNotSet();
 
     // ============ Modifiers ============
 
@@ -387,11 +372,10 @@ contract PokeballGame is
      * @notice Initialize the contract (replaces constructor for UUPS)
      * @param _owner Owner wallet address
      * @param _treasury Treasury wallet for platform fees
-     * @param _nftRevenue NFT revenue wallet for Slab purchases
+     * @param _nftRevenue NFT revenue wallet (legacy, now using SlabNFTManager)
      * @param _usdce USDC.e token address
      * @param _ape APE token address
      * @param _vrng POP VRNG contract address
-     * @param _slabMachine SlabMachine contract address
      * @param _slabNFT Slab NFT contract address
      * @param _initialAPEPrice Initial APE price in USD (8 decimals)
      */
@@ -402,7 +386,6 @@ contract PokeballGame is
         address _usdce,
         address _ape,
         address _vrng,
-        address _slabMachine,
         address _slabNFT,
         uint256 _initialAPEPrice
     ) external initializer {
@@ -413,7 +396,6 @@ contract PokeballGame is
         if (_usdce == address(0)) revert ZeroAddress();
         if (_ape == address(0)) revert ZeroAddress();
         if (_vrng == address(0)) revert ZeroAddress();
-        if (_slabMachine == address(0)) revert ZeroAddress();
         if (_slabNFT == address(0)) revert ZeroAddress();
         if (_initialAPEPrice == 0) revert InvalidPrice();
 
@@ -427,7 +409,6 @@ contract PokeballGame is
         usdce = IERC20(_usdce);
         ape = IERC20(_ape);
         vrng = IPOPVRNG(_vrng);
-        slabMachine = ISlabMachine(_slabMachine);
         slabNFT = IERC721(_slabNFT);
 
         // Set wallets
@@ -448,7 +429,7 @@ contract PokeballGame is
 
     /**
      * @notice Purchase balls using USDC.e or APE tokens
-     * @dev 97% goes to revenue pool, 3% to treasury
+     * @dev 97% goes to SlabNFTManager for NFT purchases, 3% to platform fees
      * @param ballType Type of ball to purchase (0-3)
      * @param quantity Number of balls to purchase
      * @param useAPE True to pay with APE, false for USDC.e
@@ -475,9 +456,6 @@ contract PokeballGame is
         playerBalls[msg.sender][ball] += quantity;
 
         emit BallPurchased(msg.sender, ballType, quantity, useAPE);
-
-        // Check if we should auto-purchase an NFT
-        _checkAndTriggerNFTPurchase();
     }
 
     // ============ External Functions - Game Mechanics ============
@@ -641,6 +619,20 @@ contract PokeballGame is
     // ============ External Functions - Wallet Management ============
 
     /**
+     * @notice Set the SlabNFTManager contract address
+     * @dev Only callable by owner
+     * @param _slabNFTManager New SlabNFTManager address
+     */
+    function setSlabNFTManager(address _slabNFTManager) external onlyOwner {
+        if (_slabNFTManager == address(0)) revert ZeroAddress();
+
+        address oldManager = address(slabNFTManager);
+        slabNFTManager = ISlabNFTManager(_slabNFTManager);
+
+        emit WalletUpdated("slabNFTManager", oldManager, _slabNFTManager);
+    }
+
+    /**
      * @notice Update the treasury wallet address
      * @dev Only callable by owner
      * @param newTreasury New treasury wallet address
@@ -655,8 +647,8 @@ contract PokeballGame is
     }
 
     /**
-     * @notice Update the NFT revenue wallet address
-     * @dev Only callable by owner
+     * @notice Update the NFT revenue wallet address (legacy)
+     * @dev Only callable by owner; prefer using SlabNFTManager
      * @param newNFTRevenue New NFT revenue wallet address
      */
     function setNFTRevenueWallet(address newNFTRevenue) external onlyOwner {
@@ -783,29 +775,14 @@ contract PokeballGame is
     }
 
     /**
-     * @notice Get current revenue pool status
-     * @return poolBalance Current revenue pool balance
-     * @return threshold NFT purchase threshold
-     * @return canPurchase Whether threshold is met
-     */
-    function getRevenuePoolStatus() external view returns (
-        uint256 poolBalance,
-        uint256 threshold,
-        bool canPurchase
-    ) {
-        return (
-            totalRevenuePool,
-            NFT_PURCHASE_THRESHOLD,
-            totalRevenuePool >= NFT_PURCHASE_THRESHOLD
-        );
-    }
-
-    /**
-     * @notice Get NFT inventory count
-     * @return count Number of NFTs held
+     * @notice Get NFT inventory count from SlabNFTManager
+     * @return count Number of NFTs available
      */
     function getNFTInventoryCount() external view returns (uint256 count) {
-        return nftInventory.length;
+        if (address(slabNFTManager) == address(0)) {
+            return 0;
+        }
+        return slabNFTManager.getInventoryCount();
     }
 
     /**
@@ -858,6 +835,7 @@ contract PokeballGame is
 
     /**
      * @dev Process payment in USDC.e
+     * @notice 97% sent to SlabNFTManager, 3% kept as platform fees
      * @param totalCostUSDC Total cost in USDC.e (6 decimals)
      */
     function _processUSDCPayment(uint256 totalCostUSDC) internal {
@@ -873,21 +851,34 @@ contract PokeballGame is
             revert InsufficientBalance(address(usdce), totalCostUSDC, balance);
         }
 
-        // Transfer from user
+        // Transfer from user to this contract
         usdce.safeTransferFrom(msg.sender, address(this), totalCostUSDC);
 
-        // Split: 97% to revenue pool, 3% to platform fees
+        // Split: 97% to SlabNFTManager, 3% to platform fees
         uint256 platformFee = (totalCostUSDC * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
         uint256 revenueAmount = totalCostUSDC - platformFee;
 
+        // Accumulate platform fees (withdrawn by owner later)
         totalPlatformFees += platformFee;
-        totalRevenuePool += revenueAmount;
 
-        emit RevenueAdded(revenueAmount, totalRevenuePool);
+        // Send 97% revenue to SlabNFTManager and trigger auto-purchase check
+        if (address(slabNFTManager) != address(0) && revenueAmount > 0) {
+            // Approve SlabNFTManager to pull the revenue
+            usdce.safeIncreaseAllowance(address(slabNFTManager), revenueAmount);
+
+            // Deposit revenue to manager
+            slabNFTManager.depositRevenue(revenueAmount);
+
+            // Trigger auto-purchase check
+            slabNFTManager.checkAndPurchaseNFT();
+
+            emit RevenueSentToManager(revenueAmount);
+        }
     }
 
     /**
      * @dev Process payment in APE (converted from USDC value)
+     * @notice For APE payments, we track USDC equivalent and handle revenue flow
      * @param totalCostUSDC Total cost in USDC.e equivalent (6 decimals)
      */
     function _processAPEPayment(uint256 totalCostUSDC) internal {
@@ -909,46 +900,24 @@ contract PokeballGame is
         // Transfer APE from user
         ape.safeTransferFrom(msg.sender, address(this), apeAmount);
 
-        // For APE payments, we need to swap to USDC.e or track differently
-        // For now, we track the USDC equivalent value
-        // In production, integrate DEX swap here
-
+        // Calculate fee split (in USDC terms for tracking)
         uint256 platformFee = (totalCostUSDC * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
-        uint256 revenueAmount = totalCostUSDC - platformFee;
 
+        // For APE payments, platform fee stays in APE (transferred to treasury)
+        // Revenue portion would need DEX swap to USDC.e for SlabNFTManager
+        // For now, we accumulate APE and handle conversion separately
+
+        // Track platform fee in USDC equivalent (will need manual conversion)
         totalPlatformFees += platformFee;
-        totalRevenuePool += revenueAmount;
 
-        emit RevenueAdded(revenueAmount, totalRevenuePool);
-    }
-
-    /**
-     * @dev Check if NFT purchase threshold is met and trigger purchase
-     */
-    function _checkAndTriggerNFTPurchase() internal {
-        if (totalRevenuePool >= NFT_PURCHASE_THRESHOLD) {
-            // Get SlabMachine pull price
-            (uint256 pullPrice, , , , bool isActive) = slabMachine.machineConfig();
-
-            if (isActive && totalRevenuePool >= pullPrice) {
-                // Deduct from revenue pool
-                totalRevenuePool -= pullPrice;
-
-                // Approve SlabMachine to spend USDC.e
-                usdce.safeIncreaseAllowance(address(slabMachine), pullPrice);
-
-                // Pull NFT - it will be sent to nftRevenueWallet
-                uint256 requestId = slabMachine.pull(pullPrice, nftRevenueWallet);
-
-                totalNFTsPurchased++;
-
-                emit NFTPurchaseTriggered(requestId, nftRevenueWallet, pullPrice);
-            }
-        }
+        // Note: In production, integrate DEX swap here to convert APE -> USDC.e
+        // Then send to SlabNFTManager like in _processUSDCPayment
+        // For now, APE revenue stays in this contract for manual handling
     }
 
     /**
      * @dev Handle successful Pokemon catch
+     * @notice Awards NFT via SlabNFTManager if available
      * @param catcher Address of the successful player
      * @param pokemon The caught Pokemon
      * @param slot Slot index
@@ -963,18 +932,14 @@ contract PokeballGame is
         // Deactivate the Pokemon
         pokemon.isActive = false;
 
-        // Try to transfer an NFT from inventory if available
+        // Award NFT via SlabNFTManager
         uint256 nftTokenId = 0;
-        if (nftInventory.length > 0) {
-            nftTokenId = nftInventory[nftInventory.length - 1];
-            nftInventory.pop();
-
-            // Transfer NFT to catcher
-            slabNFT.safeTransferFrom(address(this), catcher, nftTokenId);
+        if (address(slabNFTManager) != address(0)) {
+            // SlabNFTManager.awardNFTToWinner returns 0 if no NFT available
+            nftTokenId = slabNFTManager.awardNFTToWinner(catcher);
         }
-        // If no NFT in inventory, the catch is still successful
-        // NFT will be awarded when next SlabMachine pull completes
 
+        // Emit event (nftTokenId will be 0 if no NFT was available)
         emit CaughtPokemon(catcher, pokemonId, nftTokenId);
 
         // Auto-respawn Pokemon at new location
@@ -1072,25 +1037,6 @@ contract PokeballGame is
         )));
     }
 
-    // ============ ERC721 Receiver ============
-
-    /**
-     * @notice Handle receiving ERC721 NFTs
-     * @dev Required for safeTransferFrom to this contract
-     */
-    function onERC721Received(
-        address,
-        address,
-        uint256 tokenId,
-        bytes calldata
-    ) external returns (bytes4) {
-        // Only accept NFTs from SlabNFT contract
-        if (msg.sender == address(slabNFT)) {
-            nftInventory.push(tokenId);
-        }
-        return this.onERC721Received.selector;
-    }
-
     // ============ UUPS Upgrade Authorization ============
 
     /**
@@ -1107,5 +1053,5 @@ contract PokeballGame is
      * @dev Reserved storage gap for future upgrades
      * @notice Allows adding new state variables without breaking storage layout
      */
-    uint256[50] private __gap;
+    uint256[49] private __gap;
 }
