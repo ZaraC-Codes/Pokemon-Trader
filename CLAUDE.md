@@ -59,9 +59,12 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   ├── PokeBallShop.tsx         # Shop modal (buy balls)
 │   │   │   └── GameHUD.tsx              # HUD overlay (inventory + shop button)
-│   │   └── CatchAttemptModal/       # Pokemon catching modal
+│   │   ├── CatchAttemptModal/       # Pokemon catching modal
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   └── CatchAttemptModal.tsx    # Ball selection + throw UI
+│   │   └── CatchResultModal/        # Catch result feedback modal
 │   │       ├── index.ts                 # Barrel export
-│   │       └── CatchAttemptModal.tsx    # Ball selection + throw UI
+│   │       └── CatchResultModal.tsx     # Success/failure UI + animations
 │   │
 │   ├── game/                    # Phaser game code
 │   │   ├── scenes/
@@ -824,6 +827,94 @@ const handlePokemonClick = (data: PokemonClickData) => {
     attemptsRemaining: 3 - data.attemptCount,
   });
 };
+```
+
+### CatchResultModal Component
+Modal for displaying catch attempt results (success or failure):
+
+**Location:** `src/components/CatchResultModal/CatchResultModal.tsx`
+
+**Types:**
+```typescript
+type CatchResultState =
+  | {
+      type: 'success';
+      pokemonId: bigint;
+      tokenId: bigint;           // NFT token ID
+      imageUrl?: string;         // Optional Pokemon sprite
+      txHash?: `0x${string}`;
+    }
+  | {
+      type: 'failure';
+      pokemonId: bigint;
+      attemptsRemaining: number;
+      txHash?: `0x${string}`;
+    };
+
+interface CatchResultModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onTryAgain?: () => void;       // Reopen CatchAttemptModal
+  result: CatchResultState | null;
+}
+```
+
+**Usage:**
+```tsx
+import { CatchResultModal, type CatchResultState } from './components/CatchResultModal';
+
+const [catchResult, setCatchResult] = useState<CatchResultState | null>(null);
+
+// Set from contract events:
+// useCaughtPokemonEvents() -> setCatchResult({ type: 'success', ... })
+// useFailedCatchEvents() -> setCatchResult({ type: 'failure', ... })
+
+<CatchResultModal
+  isOpen={catchResult !== null}
+  onClose={() => setCatchResult(null)}
+  onTryAgain={() => {
+    // Reopen CatchAttemptModal for same Pokemon
+    if (catchResult?.type === 'failure') {
+      setSelectedPokemon({ ... });
+      setCatchResult(null);
+    }
+  }}
+  result={catchResult}
+/>
+```
+
+**Success State Features:**
+- Confetti animation (CSS-based, 50 pieces)
+- Bounce animation on icon
+- Pokemon ID and NFT token ID display
+- Optional Pokemon image
+- "View NFT" button (links to Apescan)
+- Transaction hash link
+
+**Failure State Features:**
+- Shake animation on modal
+- "The Pokemon broke free!" message
+- Attempts remaining with color coding
+- Visual progress bar (3 segments)
+- "Try Again" button (calls onTryAgain)
+- Disabled state when attemptsRemaining <= 0
+- "Pokemon has relocated" warning
+
+**Animations (CSS keyframes):**
+- `fadeIn` - Modal entrance
+- `shake` - Failure effect
+- `bounce` - Success icon
+- `confettiFall` - Confetti pieces
+
+**Integration Flow:**
+```
+throwBall() → VRNG callback → CaughtPokemon/FailedCatch event
+    ↓
+Event listener sets catchResult state
+    ↓
+CatchResultModal opens with result
+    ↓
+User clicks "Try Again" → onTryAgain → CatchAttemptModal reopens
 ```
 
 ### useTokenBalances Hook
