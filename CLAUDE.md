@@ -582,12 +582,27 @@ CATCH_CONFIG = {
 }
 ```
 
-**Integration Example:**
+**GameScene Integration (already wired):**
 ```typescript
 // In GameScene.create():
+this.pokemonSpawnManager = new PokemonSpawnManager(this);
 this.catchMechanicsManager = new CatchMechanicsManager(this, this.pokemonSpawnManager);
+this.setupPokemonClickHandler();
 
-// Set handlers from React:
+// setupPokemonClickHandler() listens for:
+// - 'pointerdown' on game world → checks getSpawnAt() → calls onPokemonClicked()
+// - 'pokemon-clicked' event from Pokemon entities
+
+// In GameScene.update():
+this.catchMechanicsManager.setPlayerPosition(this.player.x, this.player.y);
+
+// In GameScene.destroy():
+this.catchMechanicsManager.destroy();
+```
+
+**React Integration (to be wired):**
+```typescript
+// Set handlers from React component:
 catchMechanicsManager.setBallSelectionHandler(async (pokemonId) => {
   return showBallPickerModal(pokemonId); // Returns BallType or null
 });
@@ -596,10 +611,7 @@ catchMechanicsManager.setContractThrowHandler(async (pokemonId, ballType) => {
   await writeContract({ functionName: 'throwBall', args: [pokemonId, ballType] });
 });
 
-// In update loop:
-catchMechanicsManager.setPlayerPosition(player.x, player.y);
-
-// When VRNG callback arrives (React event listener):
+// When VRNG callback arrives (via contract event listener):
 catchMechanicsManager.handleCatchResult(caught, pokemonId);
 ```
 

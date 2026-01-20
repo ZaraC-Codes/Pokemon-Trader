@@ -4,6 +4,7 @@ import { MapManager } from '../managers/MapManager';
 import { TradeIconManager } from '../managers/TradeIconManager';
 import { NPCManager } from '../managers/NPCManager';
 import { PokemonSpawnManager } from '../managers/PokemonSpawnManager';
+import { CatchMechanicsManager } from '../managers/CatchMechanicsManager';
 import { House } from '../entities/House';
 import { Building, type BuildingType } from '../entities/Building';
 import { Tree } from '../entities/Tree';
@@ -28,6 +29,7 @@ export class GameScene extends Scene {
   private tradeIconManager?: TradeIconManager;
   private npcManager?: NPCManager;
   private pokemonSpawnManager?: PokemonSpawnManager;
+  private catchMechanicsManager?: CatchMechanicsManager;
   private backgroundMusic?: ChiptuneMusic;
   private mp3Music?: MP3Music;
   private houses: House[] = [];
@@ -914,6 +916,12 @@ export class GameScene extends Scene {
 
     // Initialize Pokemon spawn manager (for PokeballGame integration)
     this.pokemonSpawnManager = new PokemonSpawnManager(this);
+
+    // Initialize catch mechanics manager (for Pokemon catching flow)
+    this.catchMechanicsManager = new CatchMechanicsManager(this, this.pokemonSpawnManager);
+
+    // Set up Pokemon click handler
+    this.setupPokemonClickHandler();
     // Spawn NPCs with listings (async)
     this.time.delayedCall(2000, async () => {
       if (this.npcManager && this.loadingSubtext) {
@@ -1041,6 +1049,38 @@ export class GameScene extends Scene {
     const ownerX = shopX; // Center of shop (where door is)
     const ownerY = shopY + TILE_SIZE * 1.5; // Just in front of the shop
     this.bikeShopOwner = new BikeShopOwner(this, ownerX, ownerY);
+  }
+
+  /**
+   * Set up click handler for Pokemon sprites.
+   * When player clicks near a Pokemon, attempts to initiate catch flow.
+   */
+  private setupPokemonClickHandler(): void {
+    // Listen for pointer clicks on the game world
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.pokemonSpawnManager || !this.catchMechanicsManager) return;
+
+      // Convert screen coordinates to world coordinates
+      const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+
+      // Check if click is near a Pokemon spawn
+      const spawn = this.pokemonSpawnManager.getSpawnAt(worldPoint.x, worldPoint.y);
+
+      if (spawn) {
+        console.log('[GameScene] Pokemon clicked:', spawn.id.toString());
+        this.catchMechanicsManager.onPokemonClicked(spawn.id);
+      }
+    });
+
+    // Listen for pokemon-clicked events (emitted by Pokemon entities directly)
+    this.events.on('pokemon-clicked', (data: { pokemonId: bigint }) => {
+      if (this.catchMechanicsManager) {
+        console.log('[GameScene] Pokemon entity clicked:', data.pokemonId.toString());
+        this.catchMechanicsManager.onPokemonClicked(data.pokemonId);
+      }
+    });
+
+    console.log('[GameScene] Pokemon click handler set up');
   }
 
   private setupNPCInteractions(): void {
@@ -1870,9 +1910,14 @@ export class GameScene extends Scene {
     if (!this.areNPCsLoaded) {
       return;
     }
-    
+
     if (this.player) {
       this.player.update();
+
+      // Update catch mechanics manager with player position
+      if (this.catchMechanicsManager) {
+        this.catchMechanicsManager.setPlayerPosition(this.player.x, this.player.y);
+      }
     }
     if (this.tradeIconManager) {
       this.tradeIconManager.update();
@@ -1897,6 +1942,11 @@ export class GameScene extends Scene {
     }
     if (this.npcManager) {
       this.npcManager.clearNPCs();
+    }
+    // Clean up catch mechanics manager
+    if (this.catchMechanicsManager) {
+      this.catchMechanicsManager.destroy();
+      this.catchMechanicsManager = undefined;
     }
     // Clean up background music
     if (this.backgroundMusic) {
