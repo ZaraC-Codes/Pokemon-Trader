@@ -63,6 +63,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   │   ├── Player.ts            # Player character
 │   │   │   ├── NPC.ts               # Generic NPC
 │   │   │   ├── Pokemon.ts           # Wild Pokemon entity (PokeballGame)
+│   │   │   ├── GrassRustle.ts       # Grass rustle effect (follows Pokemon)
 │   │   │   ├── DialogBubble.ts      # Dialog display
 │   │   │   ├── TradeIcon.ts         # OTC listing icon
 │   │   │   ├── Building.ts          # Generic building
@@ -424,11 +425,62 @@ Visual representation of wild Pokemon in the game world:
 
 **Location:** `src/game/entities/Pokemon.ts`
 
+**Properties:**
+- `id: bigint` - Unique Pokemon ID from contract
+- `pokemonId: bigint` - Alias for id (backwards compatibility)
+- `attemptCount: number` - Catch attempts made (0-3)
+
+**Animation Methods (Promise-returning):**
+- `playSpawnAnimation()` - Fade in with bounce, shadow appears
+- `playDespawnAnimation()` - Fade out (for removal, not catch)
+- `playSuccessAnimation()` - Sparkles, scale bounce, shrink into capture
+- `playFailAnimation()` - Shake, red tint flash, escape hop
+- `playRelocateAnimation(toX, toY)` - Teleport with departure/arrival particles
+
+**Features:**
+- Idle bobbing animation (tween-based)
+- Shadow ellipse that follows Pokemon
+- Click interaction emits `pokemon-clicked` event
+- Sparkle/particle effects for animations
+
+**Configuration:**
+```typescript
+POKEMON_CONFIG = {
+  DEPTH: 10,
+  IDLE_BOB_AMPLITUDE: 2,
+  IDLE_BOB_DURATION: 1200,
+  SPAWN_DURATION: 400,
+  SUCCESS_DURATION: 600,
+  FAIL_DURATION: 400,
+  RELOCATE_FADE_OUT: 250,
+  RELOCATE_FADE_IN: 300,
+}
+```
+
+### GrassRustle Entity (Frontend)
+Animated grass rustle effect beneath wild Pokemon:
+
+**Location:** `src/game/entities/GrassRustle.ts`
+
+**Properties:**
+- `pokemonId: bigint` - Associated Pokemon ID
+- `followTarget: Pokemon | null` - Pokemon being followed
+
 **Methods:**
-- `playSpawnAnimation()` - Fade in with bounce effect
-- `playDespawnAnimation()` - Fade out and self-destroy
-- `playRelocationAnimation(newX, newY)` - Teleport effect
-- `update(delta)` - Frame update (stub for idle animation)
+- `playRustle()` - Start looping rustle animation with fade in
+- `stopRustle(immediate?)` - Stop animation with optional fade out
+- `pause()` / `resume()` - Pause/resume animation
+- `setFollowTarget(pokemon)` - Change follow target
+- `hasValidTarget()` - Check if following valid Pokemon
+
+**Features:**
+- Auto-follows Pokemon position via scene update listener
+- Fallback pulsing animation if sprite animation not defined
+- Renders below Pokemon (depth 8 vs 10)
+
+**Texture Requirements:**
+- `grass-rustle`: 4-frame sprite sheet (16x16 each)
+- Animation `grass-rustle-anim` created in GameScene
 
 ### BallInventoryManager (Frontend)
 Client-side manager for tracking player's PokeBall inventory:

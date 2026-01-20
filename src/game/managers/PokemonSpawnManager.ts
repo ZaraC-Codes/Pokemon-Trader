@@ -526,8 +526,8 @@ export class PokemonSpawnManager {
 
     try {
       // If entity has its own relocation method, use it
-      if (typeof spawn.entity.playRelocationAnimation === 'function') {
-        spawn.entity.playRelocationAnimation(newX, newY);
+      if (typeof spawn.entity.playRelocateAnimation === 'function') {
+        spawn.entity.playRelocateAnimation(newX, newY);
         return;
       }
 
