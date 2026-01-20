@@ -22,6 +22,12 @@ Pokemon Trader is a 2D pixel art game built on ApeChain that integrates Web3 fun
 - **RainbowKit 2.0.0** - Wallet connection UI
 - **TanStack Query 5.17.0** - Server state management
 
+### Smart Contracts
+- **Hardhat 2.28.x** - Solidity development framework
+- **OpenZeppelin Contracts 5.x** - Secure contract libraries
+- **OpenZeppelin Upgradeable** - UUPS proxy pattern
+- **Solidity 0.8.26** - Smart contract language
+
 ## Quick Start
 
 ```bash
@@ -30,6 +36,11 @@ npm run dev          # Start dev server (http://localhost:5173)
 npm run build        # Production build
 npm run lint         # Run ESLint
 npm run preview      # Preview production build
+
+# Smart Contract Commands
+npx hardhat compile  # Compile Solidity contracts
+npx hardhat test     # Run contract tests
+npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  # Deploy
 ```
 
 ## Project Structure
@@ -89,8 +100,13 @@ npm run preview      # Preview production build
 │   └── utilities/               # Common helpers
 │
 ├── contracts/               # Smart contract files
+│   ├── PokeballGame.sol         # Main game contract (UUPS upgradeable)
 │   ├── interfaces/
 │   │   └── IPOPVRNG.sol         # POP VRNG interface (randomness)
+│   ├── abi/
+│   │   └── abi_PokeballGame.json # Contract ABI for frontend
+│   ├── deployment/
+│   │   └── deploy_PokeballGame.js # Hardhat deployment script
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -104,7 +120,8 @@ npm run preview      # Preview production build
 │
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
-    └── abi_SlabMachine.json     # Slab Machine ABI
+    ├── abi_SlabMachine.json     # Slab Machine ABI
+    └── hardhat.config.cjs       # Hardhat configuration
 ```
 
 ## Key Files
@@ -118,7 +135,10 @@ npm run preview      # Preview production build
 | `src/hooks/useAllListings.tsx` | Core hook for fetching listings |
 | `contracts/addresses.json` | All contract addresses and token config |
 | `contracts/wallets.json` | Wallet configuration (owner, treasury, NFT revenue) |
+| `contracts/PokeballGame.sol` | Main game smart contract |
+| `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI for frontend |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
+| `hardhat.config.cjs` | Hardhat compilation and deployment config |
 
 ## Architecture Patterns
 
@@ -244,6 +264,37 @@ Update `src/services/config.ts` or add to `src/config/abis/`
 - New contract for NFT/token interactions
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
+
+### PokeballGame Contract
+Pokemon catching mini-game with provably fair mechanics:
+
+**Ball System:**
+| Ball Type | Price | Catch Rate |
+|-----------|-------|------------|
+| Poke Ball | $1.00 | 2% |
+| Great Ball | $10.00 | 20% |
+| Ultra Ball | $25.00 | 50% |
+| Master Ball | $49.90 | 99% |
+
+**Features:**
+- UUPS upgradeable proxy pattern
+- Dual token payment (USDC.e and APE)
+- POP VRNG integration for fair randomness
+- 97% revenue to NFT pool, 3% platform fee
+- Auto-purchase NFT when revenue >= $51 USDC.e
+- Up to 3 active Pokemon spawns
+- Max 3 throw attempts per Pokemon before relocation
+
+**Key Functions:**
+- `purchaseBalls(ballType, quantity, useAPE)` - Buy balls
+- `throwBall(pokemonSlot, ballType)` - Attempt catch
+- `randomNumberCallback(requestId, randomNumber)` - VRNG callback
+- `getAllPlayerBalls(player)` - Get player inventory
+- `getAllActivePokemons()` - Get spawned Pokemon
+
+**Events for Frontend:**
+- `BallPurchased`, `ThrowAttempted`, `CaughtPokemon`
+- `FailedCatch`, `PokemonRelocated`, `WalletUpdated`
 
 ### Mystery Box System
 - `useMysteryBox.ts` hook for mystery box contract interactions
