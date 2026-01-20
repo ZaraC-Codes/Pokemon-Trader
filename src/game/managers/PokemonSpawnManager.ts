@@ -1,5 +1,6 @@
 import type { GameScene } from '../scenes/GameScene';
 import { Pokemon } from '../entities/Pokemon';
+import { GrassRustle } from '../entities/GrassRustle';
 
 /**
  * Represents a Pokemon spawn in the game world.
@@ -18,6 +19,8 @@ export interface PokemonSpawn {
   timestamp: number;
   /** Visual Phaser entity (created when spawn is added) */
   entity?: Pokemon;
+  /** Grass rustle effect following the Pokemon */
+  grassRustle?: GrassRustle;
 }
 
 /**
@@ -482,17 +485,40 @@ export class PokemonSpawnManager {
       spawn.id
     );
 
+    // Create grass rustle effect to follow the Pokemon
+    this.createGrassRustle(spawn, entity);
+
     console.log('[PokemonSpawnManager] Created Pokemon entity for:', spawn.id.toString());
     return entity;
   }
 
   /**
-   * Destroy a Pokemon's visual entity.
+   * Create a grass rustle effect for a Pokemon spawn.
+   *
+   * @param spawn - Spawn to attach rustle to
+   * @param entity - Pokemon entity to follow
+   */
+  private createGrassRustle(spawn: PokemonSpawn, entity: Pokemon): void {
+    try {
+      const rustle = new GrassRustle(this.scene, entity);
+      spawn.grassRustle = rustle;
+      rustle.playRustle();
+      console.log('[PokemonSpawnManager] Created GrassRustle for:', spawn.id.toString());
+    } catch (error) {
+      console.warn('[PokemonSpawnManager] Failed to create GrassRustle:', error);
+    }
+  }
+
+  /**
+   * Destroy a Pokemon's visual entity and grass rustle effect.
    * Plays despawn animation before destruction.
    *
    * @param spawn - Spawn with entity to destroy
    */
   private destroyPokemonEntity(spawn: PokemonSpawn): void {
+    // Stop and destroy grass rustle first
+    this.destroyGrassRustle(spawn);
+
     if (!spawn.entity) return;
 
     try {
@@ -510,6 +536,25 @@ export class PokemonSpawnManager {
     } catch (error) {
       console.warn('[PokemonSpawnManager] Error destroying entity:', error);
       spawn.entity = undefined;
+    }
+  }
+
+  /**
+   * Destroy the grass rustle effect for a spawn.
+   *
+   * @param spawn - Spawn with rustle to destroy
+   */
+  private destroyGrassRustle(spawn: PokemonSpawn): void {
+    if (!spawn.grassRustle) return;
+
+    try {
+      spawn.grassRustle.stopRustle(true);
+      spawn.grassRustle.destroy();
+      spawn.grassRustle = undefined;
+      console.log('[PokemonSpawnManager] Destroyed GrassRustle for:', spawn.id.toString());
+    } catch (error) {
+      console.warn('[PokemonSpawnManager] Error destroying GrassRustle:', error);
+      spawn.grassRustle = undefined;
     }
   }
 
