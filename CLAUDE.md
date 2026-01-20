@@ -55,10 +55,13 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── VolumeToggle.tsx         # Music volume control
 │   │   ├── BikeRentalModal.tsx      # Bike rental UI (2x speed boost)
 │   │   ├── BallShop.tsx             # Ball purchase UI (legacy)
-│   │   └── PokeBallShop/            # PokeBall shop components
+│   │   ├── PokeBallShop/            # PokeBall shop components
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   ├── PokeBallShop.tsx         # Shop modal (buy balls)
+│   │   │   └── GameHUD.tsx              # HUD overlay (inventory + shop button)
+│   │   └── CatchAttemptModal/       # Pokemon catching modal
 │   │       ├── index.ts                 # Barrel export
-│   │       ├── PokeBallShop.tsx         # Shop modal (buy balls)
-│   │       └── GameHUD.tsx              # HUD overlay (inventory + shop button)
+│   │       └── CatchAttemptModal.tsx    # Ball selection + throw UI
 │   │
 │   ├── game/                    # Phaser game code
 │   │   ├── scenes/
@@ -729,6 +732,72 @@ import { GameHUD } from './components/PokeBallShop';
 - "Connect Wallet" message if not connected
 - Uses `useActiveWeb3React()` for wallet state
 - Uses `usePlayerBallInventory()` for ball counts
+
+### CatchAttemptModal Component
+Modal for selecting and throwing a PokeBall at a specific Pokemon:
+
+**Location:** `src/components/CatchAttemptModal/CatchAttemptModal.tsx`
+
+**Props:**
+```typescript
+interface CatchAttemptModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  playerAddress?: `0x${string}`;
+  pokemonId: bigint;        // On-chain Pokemon ID for display
+  slotIndex: number;        // 0-2, used as pokemonSlot in throwBall()
+  attemptsRemaining: number; // Attempts before Pokemon relocates
+}
+```
+
+**Usage:**
+```tsx
+import { CatchAttemptModal } from './components/CatchAttemptModal';
+
+// In parent component (e.g., GameScene wrapper):
+const [selectedPokemon, setSelectedPokemon] = useState<{
+  pokemonId: bigint;
+  slotIndex: number;
+  attemptsRemaining: number;
+} | null>(null);
+
+// When Phaser scene emits pokemon-clicked:
+const handlePokemonClick = (spawn: PokemonSpawn) => {
+  setSelectedPokemon({
+    pokemonId: spawn.id,
+    slotIndex: spawn.slotIndex,
+    attemptsRemaining: 3 - spawn.attemptCount,
+  });
+};
+
+<CatchAttemptModal
+  isOpen={selectedPokemon !== null}
+  onClose={() => setSelectedPokemon(null)}
+  playerAddress={account}
+  pokemonId={selectedPokemon?.pokemonId ?? BigInt(0)}
+  slotIndex={selectedPokemon?.slotIndex ?? 0}
+  attemptsRemaining={selectedPokemon?.attemptsRemaining ?? 0}
+/>
+```
+
+**Features:**
+- Shows Pokemon ID and attempts remaining (color-coded)
+- Lists only balls the player owns (filters empty types)
+- Displays ball name, price (~$X.XX), catch rate (Y%)
+- "Throw" button for each available ball type
+- Calls `useThrowBall().write(slotIndex, ballType)` on click
+- Disables all buttons during transaction pending
+- Shows "Throwing..." label on active button
+- Error display with dismiss button
+- "Connect wallet" warning if no address
+- "No attempts remaining" warning when attemptsRemaining <= 0
+- "No PokeBalls" message with shop hint if inventory empty
+
+**Hooks Used:**
+- `useThrowBall()` - Contract write for throwBall()
+- `usePlayerBallInventory(address)` - Read ball counts
+
+**Note:** This modal only initiates the throw transaction. The VRNG result (caught/escaped) should be handled by the parent component via contract event listeners.
 
 ### useTokenBalances Hook
 Shared hooks for APE and USDC.e token balances:
