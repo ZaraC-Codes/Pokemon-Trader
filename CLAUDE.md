@@ -53,7 +53,8 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── TradeModal.tsx           # Trade listing details
 │   │   ├── InventoryTerminal.tsx    # NFT inventory UI
 │   │   ├── VolumeToggle.tsx         # Music volume control
-│   │   └── BikeRentalModal.tsx      # Bike rental UI (2x speed boost)
+│   │   ├── BikeRentalModal.tsx      # Bike rental UI (2x speed boost)
+│   │   └── BallShop.tsx             # Ball purchase UI (PokeballGame)
 │   │
 │   ├── game/                    # Phaser game code
 │   │   ├── scenes/
@@ -70,7 +71,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   │   ├── BikeShop.ts          # Interactive bike shop
 │   │   │   ├── BikeShopOwner.ts     # Bike shop NPC
 │   │   │   └── TradingOutpost.ts    # Trading building
-│   │   ├── managers/                # MapManager, NPCManager, TradeIconManager, PokemonSpawnManager
+│   │   ├── managers/                # MapManager, NPCManager, TradeIconManager, PokemonSpawnManager, BallInventoryManager
 │   │   ├── utils/                   # Music utilities (chiptune, mp3)
 │   │   └── config/                  # Game configuration
 │   │
@@ -88,6 +89,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── useBridgeListing.tsx     # Cross-chain bridge
 │   │   ├── useLMBuyPositions.tsx    # Liquidity manager positions
 │   │   ├── useMysteryBox.ts         # Mystery box contract
+│   │   ├── usePokeballGame.ts       # PokeballGame contract integration
 │   │   ├── useTokenBalance.ts       # Token balance queries
 │   │   ├── useNFTExists.tsx         # NFT existence check
 │   │   ├── useAllNftPositions.tsx   # All NFT positions
@@ -427,6 +429,91 @@ Visual representation of wild Pokemon in the game world:
 - `playDespawnAnimation()` - Fade out and self-destroy
 - `playRelocationAnimation(newX, newY)` - Teleport effect
 - `update(delta)` - Frame update (stub for idle animation)
+
+### BallInventoryManager (Frontend)
+Client-side manager for tracking player's PokeBall inventory:
+
+**Location:** `src/game/managers/BallInventoryManager.ts`
+
+**Data Structure:**
+```typescript
+interface BallInventory {
+  pokeBalls: number;    // Type 0 - $1.00, 2% catch
+  greatBalls: number;   // Type 1 - $10.00, 20% catch
+  ultraBalls: number;   // Type 2 - $25.00, 50% catch
+  masterBalls: number;  // Type 3 - $49.90, 99% catch
+}
+```
+
+**Query Methods:**
+- `hasBall(ballType)` - Check if player has any of that type
+- `getBallCount(ballType)` - Get count for specific type
+- `getAllCounts()` - Get full inventory snapshot
+- `getBallPrice(ballType)` - Get USD price
+- `getBallCatchChance(ballType)` - Get catch percentage
+- `getBallName(ballType)` - Get display name
+
+**Modification Methods:**
+- `updateInventory(ballType, newCount)` - Set specific count
+- `decrementBall(ballType)` - Consume one ball (returns success)
+
+**Contract Sync Methods:**
+- `onBallPurchased(ballType, quantity)` - Handle BallPurchased event
+- `onInventorySynced(initial)` - Replace inventory from contract
+- `onBallConsumed(ballType)` - Handle ball consumption
+
+**Event Listener Pattern:**
+```typescript
+const manager = getBallInventoryManager(); // Singleton
+manager.addListener((inventory) => updateUI(inventory));
+manager.removeListener(listener);
+```
+
+### usePokeballGame Hook
+React hook for PokeballGame contract integration:
+
+**Location:** `src/hooks/usePokeballGame.ts`
+
+**Returns:**
+```typescript
+const {
+  inventory,           // Current BallInventory
+  isLoading,           // Initial load state
+  isPurchasing,        // Transaction pending
+  error,               // Last error message
+  purchaseBalls,       // (ballType, quantity, useAPE) => Promise<void>
+  refreshInventory,    // Manual refresh function
+  isContractConfigured // Is contract address set?
+} = usePokeballGame();
+```
+
+**Features:**
+- Reads inventory via `getAllPlayerBalls()`
+- Watches `BallPurchased` events for real-time updates
+- Syncs to BallInventoryManager singleton
+- Requires `REACT_APP_POKEBALL_GAME_ADDRESS` env var
+
+**Utility Hooks:**
+- `useBallPrice(ballType)` - Get ball price from contract
+- `useHasBall(ballType)` - Check if player has a ball type
+
+### BallShop Component
+Test UI for ball purchasing:
+
+**Location:** `src/components/BallShop.tsx`
+
+**Usage:**
+```tsx
+<BallShop isOpen={showShop} onClose={() => setShowShop(false)} />
+```
+
+**Features:**
+- Inventory display with colored ball icons
+- Ball type selection with price/catch info
+- Quantity selector (+/-, quick-select buttons)
+- USDC.e / APE payment toggle
+- Purchase transaction handling
+- Error display and loading states
 
 ### UUPS Proxy Pattern
 
