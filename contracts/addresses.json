@@ -1,0 +1,29 @@
+{
+  "apechain": {
+    "chainId": 33139,
+    "networkName": "ApeChain Mainnet"
+  },
+  "contracts": {
+    "slabMachine": "0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466",
+    "slabNFT": "0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7",
+    "popVRNG": "0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1",
+    "usdc": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+    "ape": "0x4d224452801aced8b2f0aebe155379bb5d594381"
+  },
+  "tokenDetails": {
+    "usdc": {
+      "name": "USDC.e",
+      "symbol": "USDC.e",
+      "decimals": 6,
+      "source": "Stargate Bridged USDC",
+      "verified": true
+    },
+    "ape": {
+      "name": "ApeCoin",
+      "symbol": "APE",
+      "decimals": 18,
+      "source": "Native ApeCoin",
+      "verified": true
+    }
+  }
+}
