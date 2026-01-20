@@ -370,6 +370,7 @@ interface PokemonSpawn {
   attemptCount: number; // Throws so far (0-3)
   timestamp: number;    // Spawn time (ms)
   entity?: Pokemon;     // Visual Phaser sprite
+  grassRustle?: GrassRustle; // Grass effect following Pokemon
 }
 ```
 
@@ -404,6 +405,12 @@ SPAWN_CONFIG = {
   SPAWN_QUERY_RADIUS: 32,   // Click detection radius
 }
 ```
+
+**GrassRustle Lifecycle (automatic):**
+- Created when Pokemon entity spawns (`createPokemonEntity`)
+- Starts playing immediately via `playRustle()`
+- Auto-follows Pokemon position via scene update
+- Destroyed when Pokemon is removed (`destroyPokemonEntity`)
 
 **Integration Example:**
 ```typescript
