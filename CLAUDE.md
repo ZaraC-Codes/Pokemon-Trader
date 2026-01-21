@@ -41,7 +41,7 @@ npm run preview      # Preview production build
 # Smart Contract Commands
 npx hardhat compile  # Compile Solidity contracts
 npx hardhat test     # Run contract tests
-npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  # Deploy
+npx hardhat run contracts/deployment/deployProxies.cjs --network apechain  # Deploy both contracts
 ```
 
 ## Project Structure
@@ -135,7 +135,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0
 │   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
 │   ├── deployment/
-│   │   ├── deployProxies.js         # Unified proxy deployment (both contracts)
+│   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
 │   │   ├── deploy_PokeballGame.js   # PokeballGame standalone deployment
 │   │   ├── deploy_SlabNFTManager.js # SlabNFTManager standalone deployment
 │   │   └── upgrade_PokeballGame.js  # UUPS upgrade example script
@@ -175,7 +175,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 | `contracts/SlabNFTManager.sol` | NFT inventory and auto-purchase manager |
 | `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 for frontend |
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
-| `contracts/deployment/deployProxies.js` | Unified deployment script for both proxies |
+| `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
@@ -202,6 +202,8 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 
 | Contract | Address |
 |----------|---------|
+| **PokeballGame (Proxy)** | `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f` |
+| **SlabNFTManager (Proxy)** | `0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71` |
 | **OTC Marketplace** | `0xe190E7cA0C7C7438CBaFca49457e1DCeE6c6CdAf` |
 | **Slab NFT / Pokemon Cards** | `0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7` |
 | **Slab Machine** | `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466` |
@@ -1179,9 +1181,9 @@ Required environment variables for the application:
 | `VITE_PUBLIC_RPC_URL` | No | Override default ApeChain RPC URL |
 | `VITE_WALLETCONNECT_PROJECT_ID` | No | WalletConnect project ID (has default) |
 
-Example `.env` file:
+Example `.env` file (see `.env.example` for full template):
 ```env
-VITE_POKEBALL_GAME_ADDRESS=0xYourPokeballGameProxy
+VITE_POKEBALL_GAME_ADDRESS=0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f
 VITE_THIRDWEB_CLIENT_ID=your_thirdweb_client_id
 ```
 
