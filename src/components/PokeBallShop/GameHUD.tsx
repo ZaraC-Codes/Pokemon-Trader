@@ -3,13 +3,12 @@
  *
  * Heads-up display overlay for the game, showing:
  * - Player's ball inventory (counts for each type)
- * - Active Pokemon count with attempt indicators
  * - Quick shop button
  *
  * Features:
- * - Real-time updates via polling hooks (5s for spawns, 10s for inventory)
+ * - Real-time updates via polling hooks (10s for inventory)
  * - Mobile-responsive layout (stacks vertically on small screens)
- * - Always visible, non-intrusive design in top-right corner
+ * - Positioned to the left of wallet connect button
  *
  * Usage:
  * ```tsx
@@ -31,7 +30,6 @@
 import { useState, useEffect } from 'react';
 import {
   usePlayerBallInventory,
-  useGetPokemonSpawns,
   getBallTypeName,
   type BallType,
 } from '../../hooks/pokeballGame';
@@ -48,9 +46,6 @@ export interface GameHUDProps {
 // ============================================================
 // CONSTANTS
 // ============================================================
-
-/** Maximum attempts before Pokemon relocates */
-const MAX_ATTEMPTS = 3;
 
 // Ball type colors
 const BALL_COLORS: Record<BallType, string> = {
@@ -136,11 +131,6 @@ const responsiveStyles = `
     .game-hud-ball-grid {
       grid-template-columns: repeat(4, 1fr) !important;
     }
-
-    .game-hud-spawns-list {
-      flex-direction: column !important;
-      gap: 4px !important;
-    }
   }
 
   /* ============================================================
@@ -220,54 +210,6 @@ const styles = {
   ballCount: {
     fontSize: '12px',
     fontWeight: 'bold',
-  },
-  // Pokemon spawns styles
-  spawnsContainer: {
-    minWidth: '100px',
-  },
-  spawnsCount: {
-    fontSize: '14px',
-    fontWeight: 'bold',
-    color: '#00ccff',
-    marginBottom: '6px',
-  },
-  spawnsList: {
-    display: 'flex',
-    flexDirection: 'row' as const,
-    gap: '6px',
-    flexWrap: 'wrap' as const,
-  },
-  spawnBadge: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    gap: '2px',
-    padding: '3px 5px',
-    backgroundColor: '#2a2a2a',
-    border: '1px solid #444',
-  },
-  spawnSlot: {
-    fontSize: '9px',
-    color: '#888',
-  },
-  attemptDots: {
-    display: 'flex',
-    gap: '2px',
-  },
-  attemptDot: {
-    width: '5px',
-    height: '5px',
-  },
-  attemptDotRemaining: {
-    backgroundColor: '#00ff00',
-  },
-  attemptDotUsed: {
-    backgroundColor: '#ff4444',
-  },
-  noSpawns: {
-    fontSize: '10px',
-    color: '#666',
-    fontStyle: 'italic' as const,
   },
   // Shop button styles
   shopButton: {
@@ -350,57 +292,6 @@ function BallInventorySection({
   );
 }
 
-/** Attempt dots indicator for a single spawn */
-function AttemptDots({ attemptCount }: { attemptCount: number }) {
-  const remaining = MAX_ATTEMPTS - attemptCount;
-
-  return (
-    <div style={styles.attemptDots} title={`${remaining} attempts left`}>
-      {Array.from({ length: MAX_ATTEMPTS }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            ...styles.attemptDot,
-            ...(i < attemptCount
-              ? styles.attemptDotUsed
-              : styles.attemptDotRemaining),
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** Active Pokemon spawns section */
-function PokemonSpawnsSection() {
-  const { data: spawns, isLoading } = useGetPokemonSpawns();
-
-  const activeCount = spawns?.length ?? 0;
-
-  return (
-    <div style={{ ...styles.section, ...styles.spawnsContainer }}>
-      <div style={styles.sectionTitle}>
-        Pokemon
-        {isLoading && (
-          <span style={styles.loadingDot} className="game-hud-loading-dot" />
-        )}
-      </div>
-      <div style={styles.spawnsCount}>{activeCount} Active</div>
-      {activeCount > 0 ? (
-        <div style={styles.spawnsList} className="game-hud-spawns-list">
-          {spawns!.map((spawn) => (
-            <div key={spawn.slotIndex} style={styles.spawnBadge}>
-              <span style={styles.spawnSlot}>S{spawn.slotIndex + 1}</span>
-              <AttemptDots attemptCount={spawn.attemptCount} />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={styles.noSpawns}>None nearby</div>
-      )}
-    </div>
-  );
-}
 
 // ============================================================
 // MAIN COMPONENT
@@ -437,9 +328,6 @@ export function GameHUD({ playerAddress }: GameHUDProps) {
       <div className="game-hud-container">
         {/* Ball Inventory */}
         <BallInventorySection inventory={inventory} />
-
-        {/* Active Pokemon */}
-        <PokemonSpawnsSection />
 
         {/* Shop Button */}
         <button

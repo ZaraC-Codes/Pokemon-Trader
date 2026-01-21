@@ -1090,7 +1090,7 @@ window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()?.set
 ```
 
 ### GameHUD Component
-Heads-up display overlay for the game, showing real-time inventory and spawn info:
+Minimal heads-up display overlay showing ball inventory and shop access:
 
 **Location:** `src/components/PokeBallShop/GameHUD.tsx`
 
@@ -1120,10 +1120,11 @@ function AppContent() {
 **Features:**
 - Responsive positioning coordinated with WalletConnector
 - Ball inventory display (2x2 grid with color-coded dots and counts)
-- Active Pokemon count with attempt indicators per spawn
 - "SHOP" button opens PokeBallShop modal
 - "Connect Wallet" message if not connected
-- Real-time updates via polling hooks (5s for spawns, 10s for inventory)
+- Real-time updates via polling hooks (10s for inventory)
+
+**Layout:** `[Balls Panel] [SHOP Button] ... [Wallet Connect]`
 
 **Responsive Layout (coordinated with WalletConnector):**
 | Breakpoint | Layout |
@@ -1139,8 +1140,6 @@ function AppContent() {
 
 **Sub-Components:**
 - `BallInventorySection` - 2x2 grid showing ball counts by type
-- `PokemonSpawnsSection` - Active Pokemon count with spawn badges
-- `AttemptDots` - Visual indicator (green=remaining, red=used) for catch attempts
 
 **Ball Colors:**
 | Ball Type | Color |
