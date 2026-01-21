@@ -551,6 +551,35 @@ SPAWN_CONFIG = {
 - Auto-follows Pokemon position via scene update
 - Returned to pool when Pokemon is removed (or destroyed if not pooled)
 
+**Debug Mode:**
+Visual debugging for spawn system testing:
+- `setDebugMode(true/false)` - Enable/disable debug visuals
+- `toggleDebugMode()` - Toggle debug on/off (returns new state)
+- `isDebugMode()` - Check if debug mode is enabled
+- `updateDebug()` - Call in scene update loop to update label positions
+- `printSpawnTable()` - Print formatted table to console
+- `getSummary()` - Get one-line status string
+
+**Debug Mode Features:**
+- **Slot Labels**: Yellow `[0]`, `[1]`, etc. above each Pokemon
+- **Stats Overlay**: Fixed panel showing active count, pool usage, occupied slots
+- **Console Logging**: Detailed spawn/remove events with position and ID
+
+**Debug Mode Usage:**
+```typescript
+// In GameScene.create():
+this.pokemonSpawnManager = new PokemonSpawnManager(this);
+this.pokemonSpawnManager.setDebugMode(true); // Enable on startup
+
+// Add F3 toggle key
+this.input.keyboard?.on('keydown-F3', () => {
+  this.pokemonSpawnManager?.toggleDebugMode();
+});
+
+// In GameScene.update():
+this.pokemonSpawnManager?.updateDebug();
+```
+
 **Integration Example:**
 ```typescript
 // In GameScene.create():
