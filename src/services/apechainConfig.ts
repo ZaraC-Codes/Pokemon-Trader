@@ -46,7 +46,8 @@ export const apeChainMainnet = defineChain({
   },
   contracts: {
     multicall3: {
-      address: '0xe190E7cA0C7C7438CBaFca49457e1DCeE6c6CdAf',
+      // Standard Multicall3 address (deployed at same address on most EVM chains)
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
       blockCreated: 0, // Unknown, but required
     },
   },

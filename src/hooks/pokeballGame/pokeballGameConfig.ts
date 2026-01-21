@@ -42,10 +42,18 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
 // ============================================================
 
 /**
- * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGame.json.
+ * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV2.json.
+ * The JSON file is an array directly (not { abi: [...] }), so we use it as-is.
  * Type assertion ensures Wagmi type inference works correctly.
  */
-export const POKEBALL_GAME_ABI = PokeballGameABI.abi as typeof PokeballGameABI.abi;
+export const POKEBALL_GAME_ABI = PokeballGameABI as typeof PokeballGameABI;
+
+// Startup diagnostic - verify ABI loaded correctly
+console.log('[pokeballGameConfig] ABI loaded, entry count:', POKEBALL_GAME_ABI?.length ?? 'undefined');
+console.log('[pokeballGameConfig] Contract address:', POKEBALL_GAME_ADDRESS ?? 'NOT SET');
+if (!Array.isArray(POKEBALL_GAME_ABI) || POKEBALL_GAME_ABI.length === 0) {
+  console.error('[pokeballGameConfig] ERROR: ABI is not a valid array! Check import.');
+}
 
 // ============================================================
 // CHAIN CONFIG

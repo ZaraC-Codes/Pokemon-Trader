@@ -223,8 +223,30 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | **Slab NFT / Pokemon Cards** | `0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7` |
 | **Slab Machine** | `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466` |
 | **POP VRNG** | `0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1` |
+| **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
 | **APE** | `0x4d224452801aced8b2f0aebe155379bb5d594381` |
+
+### Multicall3 Configuration
+
+Wagmi's `useReadContracts` hook batches multiple contract calls via Multicall3. The correct address for ApeChain is the canonical Multicall3 deployment at `0xcA11bde05977b3631167028862bE2a173976CA11` (same address on most EVM chains).
+
+**Configuration in `apechainConfig.ts`:**
+```typescript
+export const apeChainMainnet = defineChain({
+  // ... other config
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 0,
+    },
+  },
+});
+```
+
+**Common Multicall Errors:**
+- `aggregate3 returned no data ("0x")` - Wrong Multicall3 address configured
+- `execution reverted` - Address exists but isn't Multicall3 contract
 
 ### Wallet Addresses
 
@@ -312,6 +334,28 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 ### Caching
 - NFT data cached 30 seconds with React Query
 - Listings have 5-minute stale time
+
+### Troubleshooting
+
+**Contract calls fail with "execution reverted" or "aggregate3 returned no data":**
+1. Check Multicall3 address in `apechainConfig.ts` is `0xcA11bde05977b3631167028862bE2a173976CA11`
+2. Verify contract address is correct in `.env` (`VITE_POKEBALL_GAME_ADDRESS`)
+3. Check ABI is loaded correctly (console shows `ABI loaded, entry count: 110`)
+
+**ABI import returns undefined:**
+- Ensure JSON ABI files are arrays directly `[...]`, not objects `{abi: [...]}`
+- Use `import ABI from './abi.json'` then `ABI as typeof ABI` (not `ABI.abi`)
+
+**Pokemon spawns show 0 even though contract has data:**
+1. Check `[useGetPokemonSpawns] pokemonsResult status: success` in console
+2. Verify `isActive: true` on spawned Pokemon
+3. Check `[PokemonSpawnManager] Added spawn` logs appear
+4. Ensure scene is ready before syncing (check for "Scene not ready, buffering" logs)
+
+**Spawn sync race condition:**
+- `GameCanvas.tsx` buffers spawns in `pendingSpawnsRef` if scene not ready
+- Spawns are flushed after Phaser scene emits `create` event
+- Check for `[GameCanvas] Flushing X buffered spawns` in console
 
 ## External Services
 
