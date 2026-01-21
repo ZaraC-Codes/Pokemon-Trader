@@ -4,11 +4,27 @@
     "networkName": "ApeChain Mainnet"
   },
   "contracts": {
+    "pokeballGame": {
+      "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
+      "implementation": "0xb73A5eE21489c8b09f46538A5DA33146BD3E7D3e"
+    },
+    "slabNFTManager": {
+      "proxy": "0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71",
+      "implementation": "0x27f2c682668e966F98724c65E0abF8F9225a7194"
+    },
     "slabMachine": "0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466",
     "slabNFT": "0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7",
     "popVRNG": "0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1",
     "usdc": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
     "ape": "0x4d224452801aced8b2f0aebe155379bb5d594381"
+  },
+  "deployment": {
+    "timestamp": "2026-01-21T01:54:29.737Z",
+    "deployer": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "txHashes": {
+      "linkSlabNFTManager": "0xfba5ca1811cef002ff06c1794b1840f2eff4936f2732f89954d59ae31fb18511",
+      "linkPokeballGame": "0xe644b9eb18ac7a57a7322aa9ddbb6c51607009f89db67d5057100e92159dd34f"
+    }
   },
   "tokenDetails": {
     "usdc": {

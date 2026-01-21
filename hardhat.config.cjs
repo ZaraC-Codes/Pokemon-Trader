@@ -14,7 +14,9 @@ let rpcUrl = "https://apechain.calderachain.xyz/http";
 let apescanApiKey = "";
 
 try {
+  // Load .env first, then .env.local (local overrides)
   require("dotenv").config();
+  require("dotenv").config({ path: ".env.local", override: true });
   if (process.env.DEPLOYER_PRIVATE_KEY) {
     deployerKey = [process.env.DEPLOYER_PRIVATE_KEY];
   }
