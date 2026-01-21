@@ -12,9 +12,11 @@
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.0.0",
     "@tanstack/react-query": "^5.17.0",
+    "@thirdweb-dev/react": "^4.9.4",
     "phaser": "^3.80.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "thirdweb": "^5.118.0",
     "viem": "^2.5.0",
     "wagmi": "^2.5.0"
   },

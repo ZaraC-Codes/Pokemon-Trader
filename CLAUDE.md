@@ -21,6 +21,7 @@ Pokemon Trader is a 2D pixel art game built on ApeChain that integrates Web3 fun
 - **Viem 2.5.0** - Low-level Ethereum library
 - **RainbowKit 2.0.0** - Wallet connection UI
 - **TanStack Query 5.17.0** - Server state management
+- **ThirdWeb SDK v5** - Crypto checkout/payment widgets
 
 ### Smart Contracts
 - **Hardhat 2.28.x** - Solidity development framework
@@ -90,6 +91,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   │   ├── apechainConfig.ts        # Network & wallet config
 │   │   ├── contractService.ts       # Contract interactions
 │   │   ├── config.ts                # Contract addresses & ABIs
+│   │   ├── thirdwebConfig.ts        # ThirdWeb SDK v5 config (Pay/Checkout)
 │   │   └── types.ts                 # Type definitions
 │   │
 │   ├── hooks/                   # React hooks
@@ -164,6 +166,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 | `src/game/scenes/GameScene.ts` | Main game logic and rendering |
 | `src/services/apechainConfig.ts` | ApeChain network configuration |
 | `src/services/pokeballGameConfig.ts` | Centralized PokeballGame on-chain config |
+| `src/services/thirdwebConfig.ts` | ThirdWeb SDK v5 client & chain config |
 | `src/services/contractService.ts` | Contract interaction layer |
 | `src/hooks/useAllListings.tsx` | Core hook for fetching listings |
 | `contracts/addresses.json` | All contract addresses and token config |
@@ -287,6 +290,35 @@ Update `src/services/config.ts` or add to `src/config/abis/`
 3. Create service functions in `src/services/contractService.ts`
 
 ## New Features
+
+### ThirdWeb Checkout Integration
+Buy crypto directly in the PokeBall Shop using ThirdWeb Pay:
+
+**Location:** `src/services/thirdwebConfig.ts`, `src/components/PokeBallShop/PokeBallShop.tsx`
+
+**Features:**
+- Buy USDC.e or APE on ApeChain with card, bank, or other tokens
+- Integrated into PokeBallShop as "NEED CRYPTO?" section
+- Uses ThirdWeb SDK v5 PayEmbed component
+- Graceful degradation if not configured
+
+**Setup:**
+1. Get a free client ID at https://thirdweb.com/create-api-key
+2. Add `VITE_THIRDWEB_CLIENT_ID=your_client_id` to `.env`
+
+**Usage:**
+```typescript
+import { thirdwebClient, apechain, isThirdwebConfigured } from './services/thirdwebConfig';
+
+// Check if configured
+if (isThirdwebConfigured()) {
+  // Use PayEmbed component for crypto purchases
+}
+```
+
+**Token Addresses (exported from thirdwebConfig):**
+- `APECHAIN_TOKENS.USDC` - USDC.e on ApeChain
+- `APECHAIN_TOKENS.APE` - Native APE (undefined for native token)
 
 ### Bike Rental System
 - `BikeRentalModal.tsx` - UI for renting bikes
@@ -1113,12 +1145,14 @@ Required environment variables for the application:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `VITE_POKEBALL_GAME_ADDRESS` | Yes | PokeballGame UUPS proxy address on ApeChain |
+| `VITE_THIRDWEB_CLIENT_ID` | No | ThirdWeb client ID for crypto checkout (get free at thirdweb.com/create-api-key) |
 | `VITE_PUBLIC_RPC_URL` | No | Override default ApeChain RPC URL |
 | `VITE_WALLETCONNECT_PROJECT_ID` | No | WalletConnect project ID (has default) |
 
 Example `.env` file:
 ```env
 VITE_POKEBALL_GAME_ADDRESS=0xYourPokeballGameProxy
+VITE_THIRDWEB_CLIENT_ID=your_thirdweb_client_id
 ```
 
 See `docs/SETUP_POKEBALL_GAME.md` for complete setup instructions.

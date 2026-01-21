@@ -3,6 +3,7 @@
  *
  * Modal component for purchasing PokeBalls with APE or USDC.e.
  * Displays ball types, prices, catch rates, and player inventory.
+ * Includes ThirdWeb Checkout integration for buying crypto directly.
  *
  * Usage:
  * ```tsx
@@ -36,6 +37,32 @@ import {
   type BallType,
 } from '../../hooks/pokeballGame';
 import { useApeBalance, useUsdcBalance } from '../../hooks/useTokenBalances';
+import {
+  thirdwebClient,
+  apechain,
+  APECHAIN_TOKENS,
+  isThirdwebConfigured,
+} from '../../services/thirdwebConfig';
+
+// Lazy import BuyWidget to avoid issues if thirdweb is not configured
+let BuyWidget: React.ComponentType<{
+  client: NonNullable<typeof thirdwebClient>;
+  chain: typeof apechain;
+  tokenAddress?: string;
+  title?: string;
+  theme?: 'light' | 'dark';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+}> | null = null;
+
+// Only import BuyWidget if thirdweb is configured
+if (isThirdwebConfigured()) {
+  import('thirdweb/react').then((module) => {
+    BuyWidget = module.PayEmbed as typeof BuyWidget;
+  }).catch((err) => {
+    console.warn('[PokeBallShop] Failed to load ThirdWeb BuyWidget:', err);
+  });
+}
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -273,6 +300,100 @@ const styles = {
     color: '#00ff00',
     fontSize: '14px',
   },
+  // Buy Crypto Section Styles
+  buyCryptoSection: {
+    marginBottom: '20px',
+    padding: '12px',
+    backgroundColor: '#1a2a3a',
+    border: '2px solid #4488ff',
+  },
+  buyCryptoHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+  },
+  buyCryptoTitle: {
+    fontSize: '14px',
+    color: '#4488ff',
+    fontWeight: 'bold',
+  },
+  buyCryptoButtons: {
+    display: 'flex',
+    gap: '8px',
+  },
+  buyCryptoButton: {
+    padding: '8px 16px',
+    border: '2px solid #4488ff',
+    backgroundColor: 'transparent',
+    color: '#4488ff',
+    cursor: 'pointer',
+    fontFamily: "'Courier New', monospace",
+    fontSize: '12px',
+    transition: 'all 0.1s',
+  },
+  buyCryptoButtonHover: {
+    backgroundColor: '#1a3a5a',
+  },
+  buyCryptoHint: {
+    fontSize: '11px',
+    color: '#888',
+    marginTop: '4px',
+  },
+  buyCryptoModal: {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1100,
+  },
+  buyCryptoModalContent: {
+    backgroundColor: '#1a1a1a',
+    border: '4px solid #4488ff',
+    padding: '24px',
+    maxWidth: '450px',
+    width: '95%',
+    maxHeight: '90vh',
+    overflowY: 'auto' as const,
+  },
+  buyCryptoModalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px',
+    borderBottom: '2px solid #444',
+    paddingBottom: '12px',
+  },
+  buyCryptoModalTitle: {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#4488ff',
+    margin: 0,
+  },
+  buyCryptoCloseButton: {
+    background: 'none',
+    border: '2px solid #ff4444',
+    color: '#ff4444',
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontFamily: "'Courier New', monospace",
+    fontSize: '12px',
+  },
+  notConfiguredBox: {
+    padding: '16px',
+    backgroundColor: '#2a2a2a',
+    border: '2px solid #666',
+    textAlign: 'center' as const,
+  },
+  notConfiguredText: {
+    color: '#888',
+    fontSize: '12px',
+  },
 };
 
 // Ball type colors for visual distinction
@@ -381,6 +502,105 @@ function BallRow({
 }
 
 // ============================================================
+// BUY CRYPTO MODAL SUB-COMPONENT
+// ============================================================
+
+type BuyCryptoToken = 'USDC' | 'APE';
+
+interface BuyCryptoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedToken: BuyCryptoToken;
+}
+
+function BuyCryptoModal({ isOpen, onClose, selectedToken }: BuyCryptoModalProps) {
+  const [widgetLoaded, setWidgetLoaded] = useState(false);
+  const [widgetError, setWidgetError] = useState<string | null>(null);
+
+  // Load the widget component
+  React.useEffect(() => {
+    if (isOpen && isThirdwebConfigured() && !BuyWidget) {
+      import('thirdweb/react')
+        .then((module) => {
+          // Use PayEmbed which is the current component in thirdweb v5
+          BuyWidget = module.PayEmbed as typeof BuyWidget;
+          setWidgetLoaded(true);
+        })
+        .catch((err) => {
+          console.error('[BuyCryptoModal] Failed to load PayEmbed:', err);
+          setWidgetError('Failed to load payment widget');
+        });
+    } else if (BuyWidget) {
+      setWidgetLoaded(true);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const tokenAddress = selectedToken === 'USDC' ? APECHAIN_TOKENS.USDC : undefined;
+  const title = selectedToken === 'USDC' ? 'Buy USDC.e on ApeChain' : 'Buy APE on ApeChain';
+
+  return (
+    <div style={styles.buyCryptoModal} onClick={onClose}>
+      <div style={styles.buyCryptoModalContent} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.buyCryptoModalHeader}>
+          <h3 style={styles.buyCryptoModalTitle}>{title}</h3>
+          <button style={styles.buyCryptoCloseButton} onClick={onClose}>
+            X
+          </button>
+        </div>
+
+        {!isThirdwebConfigured() && (
+          <div style={styles.notConfiguredBox}>
+            <div style={styles.notConfiguredText}>
+              ThirdWeb not configured.<br />
+              Set VITE_THIRDWEB_CLIENT_ID in .env to enable crypto purchases.
+            </div>
+          </div>
+        )}
+
+        {isThirdwebConfigured() && widgetError && (
+          <div style={styles.errorBox}>
+            <span style={styles.errorText}>{widgetError}</span>
+          </div>
+        )}
+
+        {isThirdwebConfigured() && !widgetError && !widgetLoaded && (
+          <div style={styles.loadingOverlay}>
+            <div style={styles.loadingText}>Loading payment widget...</div>
+          </div>
+        )}
+
+        {isThirdwebConfigured() && widgetLoaded && BuyWidget && thirdwebClient && (
+          <BuyWidget
+            client={thirdwebClient}
+            chain={apechain}
+            tokenAddress={tokenAddress}
+            theme="dark"
+            payOptions={{
+              mode: 'fund_wallet',
+              metadata: {
+                name: title,
+              },
+              prefillBuy: {
+                chain: apechain,
+                token: tokenAddress ? { address: tokenAddress, symbol: 'USDC.e', name: 'USDC.e' } : undefined,
+              },
+            }}
+          />
+        )}
+
+        <div style={{ marginTop: '12px', textAlign: 'center' as const }}>
+          <div style={{ color: '#888', fontSize: '11px' }}>
+            Powered by ThirdWeb Pay
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // MAIN COMPONENT
 // ============================================================
 
@@ -394,15 +614,16 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     3: 0,
   });
   const [showSuccess, setShowSuccess] = useState(false);
+  const [buyCryptoModal, setBuyCryptoModal] = useState<{ isOpen: boolean; token: BuyCryptoToken }>({
+    isOpen: false,
+    token: 'USDC',
+  });
 
   // Hooks
   const { write, isLoading, isPending, error, receipt, reset } = usePurchaseBalls();
   const inventory = usePlayerBallInventory(playerAddress);
   const apeBalance = useApeBalance(playerAddress);
   const usdcBalance = useUsdcBalance(playerAddress);
-
-  // Current balance based on selected payment token
-  const currentBalance = paymentToken === 'APE' ? apeBalance.balance : usdcBalance.balance;
 
   // Check if a purchase has sufficient balance
   const hasInsufficientBalance = useCallback(
@@ -451,6 +672,19 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     reset();
   }, [reset]);
 
+  // Handle open buy crypto modal
+  const handleOpenBuyCrypto = useCallback((token: BuyCryptoToken) => {
+    setBuyCryptoModal({ isOpen: true, token });
+  }, []);
+
+  // Handle close buy crypto modal
+  const handleCloseBuyCrypto = useCallback(() => {
+    setBuyCryptoModal((prev) => ({ ...prev, isOpen: false }));
+    // Refresh balances after potentially buying crypto
+    apeBalance.refetch();
+    usdcBalance.refetch();
+  }, [apeBalance, usdcBalance]);
+
   // Show success message when receipt arrives
   React.useEffect(() => {
     if (receipt) {
@@ -496,6 +730,42 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             <span style={{ ...styles.balanceValue, color: '#00ff00' }}>
               {usdcBalance.isLoading ? '...' : `$${usdcBalance.balance.toFixed(2)}`}
             </span>
+          </div>
+        </div>
+
+        {/* Buy Crypto Section */}
+        <div style={styles.buyCryptoSection}>
+          <div style={styles.buyCryptoHeader}>
+            <span style={styles.buyCryptoTitle}>NEED CRYPTO?</span>
+            <div style={styles.buyCryptoButtons}>
+              <button
+                style={styles.buyCryptoButton}
+                onClick={() => handleOpenBuyCrypto('USDC')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#1a3a5a';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Buy USDC.e
+              </button>
+              <button
+                style={styles.buyCryptoButton}
+                onClick={() => handleOpenBuyCrypto('APE')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#1a3a5a';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Buy APE
+              </button>
+            </div>
+          </div>
+          <div style={styles.buyCryptoHint}>
+            Purchase crypto with card, bank, or other tokens via ThirdWeb Pay
           </div>
         </div>
 
@@ -616,6 +886,13 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           </div>
         )}
       </div>
+
+      {/* Buy Crypto Modal */}
+      <BuyCryptoModal
+        isOpen={buyCryptoModal.isOpen}
+        onClose={handleCloseBuyCrypto}
+        selectedToken={buyCryptoModal.token}
+      />
     </div>
   );
 }
