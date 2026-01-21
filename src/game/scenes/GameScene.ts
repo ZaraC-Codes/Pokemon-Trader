@@ -765,34 +765,34 @@ export class GameScene extends Scene {
     pokemonTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
 
     // Grass rustle sprite sheet (4 frames for animation)
-    // 24x24 pixels per frame for more visible effect, arranged horizontally: total 96x24
+    // 16x16 pixels per frame, arranged horizontally: total 64x16
     const grassRustleGraphics = this.make.graphics({ x: 0, y: 0 });
     for (let frame = 0; frame < 4; frame++) {
-      const offsetX = frame * 24;
+      const offsetX = frame * 16;
 
       // Animation phase determines blade positions and kicked-up particles
       const phase = frame / 4; // 0, 0.25, 0.5, 0.75
-      const sway = Math.sin(phase * Math.PI * 2) * 3;
-      const kickHeight = Math.abs(Math.sin(phase * Math.PI * 2)) * 4;
+      const sway = Math.sin(phase * Math.PI * 2) * 1.5;
+      const kickHeight = Math.abs(Math.sin(phase * Math.PI * 2)) * 2;
 
       // Ground-level grass base (darker)
       grassRustleGraphics.fillStyle(0x558822, 1);
-      grassRustleGraphics.fillRect(offsetX + 4, 20, 16, 4);
+      grassRustleGraphics.fillRect(offsetX + 2, 13, 12, 3);
 
-      // Main rustling grass blades (5 blades for fuller effect)
-      const bladeColors = [0x55aa22, 0x66bb33, 0x77cc44, 0x66bb33, 0x55aa22];
-      const bladePositions = [2, 6, 12, 16, 20];
+      // Main rustling grass blades (3 blades for compact effect)
+      const bladeColors = [0x55aa22, 0x77cc44, 0x55aa22];
+      const bladePositions = [2, 7, 11];
 
-      for (let b = 0; b < 5; b++) {
+      for (let b = 0; b < 3; b++) {
         const baseX = offsetX + bladePositions[b];
         const bladeSway = sway * (b % 2 === 0 ? 1 : -1) * 0.7;
-        const bladeHeight = 10 + (b === 2 ? 4 : 0); // Center blade taller
+        const bladeHeight = 6 + (b === 1 ? 2 : 0); // Center blade taller
 
         grassRustleGraphics.fillStyle(bladeColors[b], 1);
         grassRustleGraphics.fillTriangle(
-          baseX + bladeSway, 22,                    // Base left
-          baseX + 2 + bladeSway * 1.5, 22 - bladeHeight - kickHeight * 0.5, // Tip
-          baseX + 4 + bladeSway, 22                 // Base right
+          baseX + bladeSway, 14,                    // Base left
+          baseX + 1.5 + bladeSway, 14 - bladeHeight - kickHeight * 0.5, // Tip
+          baseX + 3 + bladeSway, 14                 // Base right
         );
       }
 
@@ -801,30 +801,26 @@ export class GameScene extends Scene {
       grassRustleGraphics.fillStyle(particleColor, 0.9);
 
       // Particle 1 - left side, rises and falls
-      const p1Y = 16 - kickHeight * 2 - (frame === 1 ? 4 : frame === 2 ? 6 : frame === 3 ? 3 : 0);
-      grassRustleGraphics.fillRect(offsetX + 3 + sway, p1Y, 2, 3);
+      const p1Y = 10 - kickHeight - (frame === 1 ? 2 : frame === 2 ? 3 : frame === 3 ? 1 : 0);
+      grassRustleGraphics.fillRect(offsetX + 2 + sway, p1Y, 1, 2);
 
       // Particle 2 - right side, opposite phase
-      const p2Y = 14 - kickHeight * 1.5 - (frame === 0 ? 2 : frame === 1 ? 5 : frame === 2 ? 4 : 1);
-      grassRustleGraphics.fillRect(offsetX + 18 - sway, p2Y, 2, 3);
+      const p2Y = 9 - kickHeight * 0.8 - (frame === 0 ? 1 : frame === 1 ? 2 : frame === 2 ? 2 : 0);
+      grassRustleGraphics.fillRect(offsetX + 12 - sway, p2Y, 1, 2);
 
       // Particle 3 - center, highest kick
-      const p3Y = 10 - kickHeight * 2.5 - (frame === 2 ? 6 : frame === 3 ? 4 : frame === 0 ? 2 : 5);
+      const p3Y = 6 - kickHeight * 1.2 - (frame === 2 ? 3 : frame === 3 ? 2 : frame === 0 ? 1 : 2);
       grassRustleGraphics.fillStyle(0x99ee66, 0.8);
-      grassRustleGraphics.fillRect(offsetX + 11 + sway * 0.5, p3Y, 2, 2);
+      grassRustleGraphics.fillRect(offsetX + 7 + sway * 0.5, p3Y, 1, 1);
 
       // Small dust/debris particles
       grassRustleGraphics.fillStyle(0xccdd99, 0.6);
       if (frame === 1 || frame === 3) {
-        grassRustleGraphics.fillCircle(offsetX + 7 - sway, 12 - kickHeight, 1);
-        grassRustleGraphics.fillCircle(offsetX + 17 + sway, 14 - kickHeight * 0.8, 1);
-      }
-      if (frame === 0 || frame === 2) {
-        grassRustleGraphics.fillCircle(offsetX + 5, 8 - kickHeight * 1.2, 1);
-        grassRustleGraphics.fillCircle(offsetX + 19, 10 - kickHeight, 1);
+        grassRustleGraphics.fillCircle(offsetX + 5 - sway, 7 - kickHeight, 0.5);
+        grassRustleGraphics.fillCircle(offsetX + 11 + sway, 8 - kickHeight * 0.5, 0.5);
       }
     }
-    grassRustleGraphics.generateTexture('grass-rustle', 96, 24);
+    grassRustleGraphics.generateTexture('grass-rustle', 64, 16);
     grassRustleGraphics.destroy();
 
     const grassRustleTexture = this.textures.get('grass-rustle');
@@ -833,7 +829,7 @@ export class GameScene extends Scene {
     // Create a grass particle texture for additional effects
     const grassParticleGraphics = this.make.graphics({ x: 0, y: 0 });
     grassParticleGraphics.fillStyle(0x77cc44, 1);
-    grassParticleGraphics.fillTriangle(0, 6, 2, 0, 4, 6); // Small grass blade shape
+    grassParticleGraphics.fillTriangle(0, 4, 1, 0, 2, 4); // Small grass blade shape
     grassParticleGraphics.generateTexture('grass-particle', 4, 6);
     grassParticleGraphics.destroy();
   }
@@ -1012,9 +1008,9 @@ export class GameScene extends Scene {
     // First, add frames to the grass-rustle texture manually
     const grassRustleTexture = this.textures.get('grass-rustle');
     if (grassRustleTexture) {
-      // Add 4 frames (24x24 each) to the texture
+      // Add 4 frames (16x16 each) to the texture
       for (let i = 0; i < 4; i++) {
-        grassRustleTexture.add(i, 0, i * 24, 0, 24, 24);
+        grassRustleTexture.add(i, 0, i * 16, 0, 16, 16);
       }
       // Create the animation with slightly faster framerate for more dynamic movement
       this.anims.create({
@@ -1023,7 +1019,7 @@ export class GameScene extends Scene {
         frameRate: 10, // Faster for more energetic rustling
         repeat: -1,
       });
-      console.log('[GameScene] Grass rustle animation created (24x24 frames)');
+      console.log('[GameScene] Grass rustle animation created (16x16 frames)');
     } else {
       console.warn('[GameScene] grass-rustle texture not found');
     }
