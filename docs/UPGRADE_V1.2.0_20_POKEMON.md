@@ -57,34 +57,165 @@ The upgrade is **storage-safe** because:
 
 ### Prerequisites
 
-1. Owner wallet private key in `.env.local`
+1. Owner wallet private key in `.env.local` as `DEPLOYER_PRIVATE_KEY`
 2. Sufficient APE for gas (~0.01 APE)
 3. Contract should NOT be paused
+4. You must be the contract owner (`0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06`)
 
-### Steps
+### How to Run the Upgrade
+
+**Step 1: Verify your environment**
 
 ```bash
-# 1. Compile the new contract
+# Check you're in the project root
+cd Pokemon-Trader
+
+# Verify .env.local has the owner private key
+cat .env.local | grep DEPLOYER_PRIVATE_KEY
+# Should show: DEPLOYER_PRIVATE_KEY=0x...
+
+# Verify contracts compile
 npx hardhat compile
+```
 
-# 2. Run the upgrade script
+**Step 2: Run the upgrade**
+
+```bash
 npx hardhat run contracts/deployment/upgrade_PokeballGameV2.cjs --network apechain
+```
 
-# 3. Verify on Apescan (optional)
+**Step 3: Verify on Apescan (optional)**
+
+After upgrade completes, verify the new implementation:
+
+```bash
 npx hardhat verify --network apechain <NEW_IMPL_ADDRESS>
+```
+
+The `<NEW_IMPL_ADDRESS>` is printed in the upgrade output.
+
+### Expected Output (Success)
+
+```
+======================================================================
+  PokeballGame UUPS Upgrade: v1.1.0 → v1.2.0
+  MAX_ACTIVE_POKEMON: 3 → 20
+======================================================================
+
+📡 NETWORK VALIDATION
+--------------------------------------------------
+  Chain ID:       33139
+  Expected:       33139
+  ✓ Connected to ApeChain Mainnet
+
+👤 DEPLOYER VALIDATION
+--------------------------------------------------
+  Deployer:       0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06
+  Expected Owner: 0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06
+  Balance:        X.XXX APE
+  ✓ Sufficient balance for gas
+
+📋 CONTRACT ADDRESSES
+--------------------------------------------------
+  Proxy Address:  0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f
+  Expected:       0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f
+  Old Impl:       0xb73A5eE21489c8b09f46538A5DA33146BD3E7D3e
+
+🔐 OWNERSHIP VERIFICATION
+--------------------------------------------------
+  Contract Owner: 0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06
+  ✓ Deployer is the contract owner
+  Contract Paused: false
+  ✓ Contract is not paused
+
+📊 PRE-UPGRADE STATE
+--------------------------------------------------
+  MAX_ACTIVE_POKEMON: 3
+
+  Active Pokemon (slots 0-2):
+    Slot 0: ID=X, pos=(XXX, XXX), attempts=X
+    Slot 1: (empty)
+    Slot 2: (empty)
+
+  Total active: X
+
+🚀 DEPLOYING NEW IMPLEMENTATION
+--------------------------------------------------
+  Loading PokeballGame contract factory...
+  ✓ Contract factory loaded
+
+  Upgrading proxy to new implementation...
+  (This deploys a new implementation and updates the proxy)
+
+  ✓ UPGRADE COMPLETE!
+  ┌─────────────────────────────────────────────────────────┐
+  │ Proxy Address:          0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f │
+  │ Old Implementation:     0xb73A5eE21489c8b09f46538A5DA33146BD3E7D3e │
+  │ New Implementation:     0x...NEW_ADDRESS...                       │
+  └─────────────────────────────────────────────────────────┘
+
+✅ POST-UPGRADE VERIFICATION
+--------------------------------------------------
+  MAX_ACTIVE_POKEMON: 20
+  ✓ MAX_ACTIVE_POKEMON = 20 (correct)
+
+  Verifying existing Pokemon data preserved...
+    ✓ Slot 0: Pokemon #X preserved
+
+  Testing new v1.2.0 functions...
+
+  📦 getAllActivePokemons():
+    Returns array of length: 20
+    ✓ Returns Pokemon[20] as expected
+    Active Pokemon in array: X
+
+  📦 getActivePokemonCount():
+    Returns: X
+    ✓ Matches array count
+
+  📦 getActivePokemonSlots():
+    Returns: [0]
+    Length: X
+    ✓ Length matches getActivePokemonCount()
+
+  Verifying new slots 3-19 are accessible...
+    Empty slots 3-19: 17/17
+    ✓ All new slots accessible and empty
+
+======================================================================
+  🎉 UPGRADE SUCCESSFUL!
+======================================================================
+
+  Summary:
+  ─────────────────────────────────────────────────────────────────
+  Proxy Address:        0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f
+  Old Implementation:   0xb73A5eE21489c8b09f46538A5DA33146BD3E7D3e
+  New Implementation:   0x...NEW_ADDRESS...
+  MAX_ACTIVE_POKEMON:   3 → 20
+  Data Preserved:       Yes ✓
+  Duration:             XX.Xs
+  ─────────────────────────────────────────────────────────────────
+
+  💾 Updating addresses.json with new implementation...
+  ✓ addresses.json updated
 ```
 
 ### What the Script Does
 
-1. Verifies deployer is the contract owner
-2. Records pre-upgrade state (existing Pokemon in slots 0-2)
-3. Deploys new implementation contract
-4. Calls `upgradeToAndCall()` on the proxy
-5. Verifies:
+1. **Network validation** - Confirms connected to ApeChain (33139)
+2. **Deployer validation** - Checks balance and wallet address
+3. **Ownership verification** - Confirms deployer is contract owner
+4. **Pre-upgrade snapshot** - Records existing Pokemon in slots 0-2
+5. **Deploy new implementation** - Compiles and deploys PokeballGameV2
+6. **Upgrade proxy** - Points proxy to new implementation
+7. **Post-upgrade verification**:
    - `MAX_ACTIVE_POKEMON` is now 20
    - Existing Pokemon data preserved
    - New slots 3-19 accessible and empty
-   - New helper functions work
+   - `getAllActivePokemons()` returns 20-element array
+   - `getActivePokemonCount()` works
+   - `getActivePokemonSlots()` works
+8. **Update addresses.json** - Records new implementation address
 
 ## Frontend Updates Required
 
