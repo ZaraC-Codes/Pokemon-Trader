@@ -510,8 +510,8 @@ contract PokeballGame is
 
     /**
      * @notice Callback function called by POP VRNG with random number
-     * @dev Only callable by the VRNG contract
-     * @param requestId The request ID from the original throw
+     * @dev Only callable by the VRNG contract. Handles both throw attempts and spawn requests.
+     * @param requestId The request ID from the original throw or spawn
      * @param randomNumber The verifiable random number
      */
     function randomNumberCallback(
@@ -525,6 +525,58 @@ contract PokeballGame is
 
         pendingThrow.resolved = true;
 
+        // Check if this is a spawn/respawn request (thrower == address(this))
+        if (pendingThrow.thrower == address(this)) {
+            _handleSpawnCallback(pendingThrow, randomNumber);
+            return;
+        }
+
+        // Otherwise, this is a throw attempt
+        _handleThrowCallback(pendingThrow, randomNumber);
+    }
+
+    /**
+     * @dev Handle VRNG callback for spawn/respawn requests
+     * @param pendingThrow The pending request data
+     * @param randomNumber Random number for position calculation
+     */
+    function _handleSpawnCallback(
+        PendingThrow storage pendingThrow,
+        uint256 randomNumber
+    ) internal {
+        // ballType stores the slot index for spawn requests
+        uint8 slot = uint8(pendingThrow.ballType);
+
+        if (slot >= MAX_ACTIVE_POKEMON) return;
+
+        // Don't overwrite if slot became occupied
+        if (activePokemons[slot].isActive) return;
+
+        // Calculate random position from VRNG
+        uint256 posX = randomNumber % (MAX_COORDINATE + 1);
+        uint256 posY = (randomNumber >> 128) % (MAX_COORDINATE + 1);
+
+        activePokemons[slot] = Pokemon({
+            id: pendingThrow.pokemonId,
+            positionX: posX,
+            positionY: posY,
+            throwAttempts: 0,
+            isActive: true,
+            spawnTime: block.timestamp
+        });
+
+        emit PokemonSpawned(pendingThrow.pokemonId, posX, posY, slot);
+    }
+
+    /**
+     * @dev Handle VRNG callback for throw attempts
+     * @param pendingThrow The pending throw data
+     * @param randomNumber Random number for catch determination
+     */
+    function _handleThrowCallback(
+        PendingThrow storage pendingThrow,
+        uint256 randomNumber
+    ) internal {
         // Find the Pokemon slot
         (bool found, uint8 slot) = _findPokemonSlot(pendingThrow.pokemonId);
 
