@@ -65,25 +65,109 @@ const BALL_COLORS: Record<BallType, string> = {
 // ============================================================
 
 const responsiveStyles = `
-  @media (max-width: 768px) {
+  /* ============================================================
+   * TOP BAR LAYOUT - Wallet + HUD coordination
+   * ============================================================ */
+
+  /* Wallet connector - always top-right */
+  .wallet-connector {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+  }
+
+  /* Game HUD - positioned to the left of wallet */
+  .game-hud-container {
+    position: fixed;
+    top: 12px;
+    right: 220px; /* Leave space for wallet button (~200px) + margin */
+    z-index: 100;
+    font-family: 'Courier New', monospace;
+    image-rendering: pixelated;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* ============================================================
+   * DESKTOP STYLES (default)
+   * ============================================================ */
+  @media (min-width: 769px) {
     .game-hud-container {
+      flex-direction: row;
+    }
+  }
+
+  /* ============================================================
+   * TABLET / SMALLER DESKTOP - HUD moves down below wallet
+   * ============================================================ */
+  @media (max-width: 900px) {
+    .game-hud-container {
+      top: 70px; /* Move below wallet row */
+      right: 12px; /* Align with wallet */
+      flex-direction: row;
+    }
+  }
+
+  /* ============================================================
+   * MOBILE STYLES - Stack vertically
+   * ============================================================ */
+  @media (max-width: 768px) {
+    .wallet-connector {
+      top: 8px;
+      right: 8px;
+    }
+
+    .game-hud-container {
+      top: 60px; /* Below wallet */
+      right: 8px;
       flex-direction: column !important;
       align-items: flex-end !important;
       gap: 6px !important;
     }
+
     .game-hud-container > div,
     .game-hud-container > button {
       min-width: 140px !important;
     }
+
     .game-hud-ball-grid {
       grid-template-columns: repeat(4, 1fr) !important;
     }
+
     .game-hud-spawns-list {
       flex-direction: column !important;
       gap: 4px !important;
     }
   }
 
+  /* ============================================================
+   * VERY SMALL MOBILE - Compact layout
+   * ============================================================ */
+  @media (max-width: 480px) {
+    .wallet-connector {
+      top: 6px;
+      right: 6px;
+    }
+
+    .game-hud-container {
+      top: 55px;
+      right: 6px;
+      gap: 4px !important;
+    }
+
+    .game-hud-container > div,
+    .game-hud-container > button {
+      min-width: 120px !important;
+      padding: 6px !important;
+    }
+  }
+
+  /* ============================================================
+   * ANIMATIONS
+   * ============================================================ */
   @keyframes hudPulse {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 1; }
@@ -99,17 +183,10 @@ const responsiveStyles = `
 // ============================================================
 
 const styles = {
+  // Container styles are now handled by CSS class .game-hud-container
+  // Only fallback/base styles here that CSS may override
   container: {
-    position: 'fixed' as const,
-    top: '16px',
-    right: '16px',
-    zIndex: 100,
-    fontFamily: "'Courier New', monospace",
-    imageRendering: 'pixelated' as const,
-    display: 'flex',
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start',
-    gap: '8px',
+    // Position and layout handled by CSS for responsive coordination with wallet
   },
   section: {
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -349,7 +426,7 @@ export function GameHUD({ playerAddress }: GameHUDProps) {
   // No wallet connected
   if (!playerAddress) {
     return (
-      <div style={styles.container}>
+      <div className="game-hud-container">
         <div style={styles.noWallet}>Connect Wallet</div>
       </div>
     );
@@ -357,7 +434,7 @@ export function GameHUD({ playerAddress }: GameHUDProps) {
 
   return (
     <>
-      <div style={styles.container} className="game-hud-container">
+      <div className="game-hud-container">
         {/* Ball Inventory */}
         <BallInventorySection inventory={inventory} />
 
