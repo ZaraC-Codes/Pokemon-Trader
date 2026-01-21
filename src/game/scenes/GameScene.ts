@@ -748,9 +748,62 @@ export class GameScene extends Scene {
     
     bikeGraphics.generateTexture('bicycle', 16, 16);
     bikeGraphics.destroy();
-    
+
     const bikeTexture = this.textures.get('bicycle');
     bikeTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    // Pokemon placeholder sprite (16x16 wild Pokemon silhouette)
+    // This is intentionally semi-transparent so the grass rustle effect is the main visual
+    const pokemonGraphics = this.make.graphics({ x: 0, y: 0 });
+    // Create a simple Pokemon-like shape (barely visible, grass is the main indicator)
+    pokemonGraphics.fillStyle(0x88cc44, 0.3); // Very transparent grass-green
+    pokemonGraphics.fillCircle(8, 10, 6);
+    pokemonGraphics.generateTexture('pokemon-placeholder', 16, 16);
+    pokemonGraphics.destroy();
+
+    const pokemonTexture = this.textures.get('pokemon-placeholder');
+    pokemonTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    // Grass rustle sprite sheet (4 frames for animation)
+    // 16x16 pixels per frame, arranged horizontally: total 64x16
+    const grassRustleGraphics = this.make.graphics({ x: 0, y: 0 });
+    for (let frame = 0; frame < 4; frame++) {
+      const offsetX = frame * 16;
+      // Base grass color
+      grassRustleGraphics.fillStyle(0x88cc44, 0.8);
+
+      // Draw rustling grass blades that vary by frame
+      const bladeOffset = frame % 2 === 0 ? 0 : 1;
+
+      // Left blade
+      grassRustleGraphics.fillStyle(0x66aa33, 1);
+      grassRustleGraphics.fillTriangle(
+        offsetX + 3 + bladeOffset, 14,
+        offsetX + 5, 4 + bladeOffset,
+        offsetX + 7 - bladeOffset, 14
+      );
+
+      // Center blade
+      grassRustleGraphics.fillStyle(0x77bb33, 1);
+      grassRustleGraphics.fillTriangle(
+        offsetX + 6 - bladeOffset, 14,
+        offsetX + 8, 2 + bladeOffset,
+        offsetX + 10 + bladeOffset, 14
+      );
+
+      // Right blade
+      grassRustleGraphics.fillStyle(0x66aa33, 1);
+      grassRustleGraphics.fillTriangle(
+        offsetX + 9 - bladeOffset, 14,
+        offsetX + 11, 4 + bladeOffset,
+        offsetX + 13 + bladeOffset, 14
+      );
+    }
+    grassRustleGraphics.generateTexture('grass-rustle', 64, 16);
+    grassRustleGraphics.destroy();
+
+    const grassRustleTexture = this.textures.get('grass-rustle');
+    grassRustleTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
   private createTileSprites(): void {
@@ -922,6 +975,26 @@ export class GameScene extends Scene {
 
     // Initialize NPC manager
     this.npcManager = new NPCManager(this, this.mapManager);
+
+    // Create grass-rustle animation (4 frames)
+    // First, add frames to the grass-rustle texture manually
+    const grassRustleTexture = this.textures.get('grass-rustle');
+    if (grassRustleTexture) {
+      // Add 4 frames (16x16 each) to the texture
+      for (let i = 0; i < 4; i++) {
+        grassRustleTexture.add(i, 0, i * 16, 0, 16, 16);
+      }
+      // Create the animation
+      this.anims.create({
+        key: 'grass-rustle-anim',
+        frames: this.anims.generateFrameNumbers('grass-rustle', { start: 0, end: 3 }),
+        frameRate: 8,
+        repeat: -1,
+      });
+      console.log('[GameScene] Grass rustle animation created');
+    } else {
+      console.warn('[GameScene] grass-rustle texture not found');
+    }
 
     // Initialize Pokemon spawn manager (for PokeballGame integration)
     this.pokemonSpawnManager = new PokemonSpawnManager(this);

@@ -624,9 +624,10 @@ export class PokemonSpawnManager {
     // Play spawn visual effects
     this.playSpawnEffects(spawn);
 
-    // Create debug label if debug mode is enabled
+    // Create debug visuals if debug mode is enabled
     if (this.debugMode) {
       this.createDebugLabel(spawn);
+      this.createDebugBeacon(spawn);
     }
 
     console.log('[PokemonSpawnManager] Added spawn:', spawn.id.toString(), 'at', spawn.x, spawn.y, '(slot:', spawn.slotIndex, ')');
@@ -663,9 +664,10 @@ export class PokemonSpawnManager {
     spawn.entity = undefined;
     spawn.grassRustle = undefined;
 
-    // Remove debug label if debug mode is enabled
+    // Remove debug visuals if debug mode is enabled
     if (this.debugMode) {
       this.destroyDebugLabel(pokemonId);
+      this.destroyDebugBeacon(pokemonId);
     }
 
     // Remove from main map
@@ -1213,18 +1215,26 @@ export class PokemonSpawnManager {
    * ```
    */
   setDebugMode(enabled: boolean): void {
-    if (this.debugMode === enabled) return;
+    if (this.debugMode === enabled) {
+      console.log('[PokemonSpawnManager] Debug mode already', enabled ? 'ENABLED' : 'DISABLED', '- no change');
+      return;
+    }
 
     this.debugMode = enabled;
     console.log('[PokemonSpawnManager] Debug mode:', enabled ? 'ENABLED' : 'DISABLED');
+    console.log('[PokemonSpawnManager] Current beacons count:', this.debugBeacons.size);
+    console.log('[PokemonSpawnManager] Current labels count:', this.debugLabels.size);
 
     if (enabled) {
       this.createDebugOverlay();
       this.createAllDebugLabels(); // Also creates beacons
+      console.log('[PokemonSpawnManager] After enable - beacons:', this.debugBeacons.size, 'labels:', this.debugLabels.size);
     } else {
+      console.log('[PokemonSpawnManager] Disabling debug mode - destroying visuals...');
       this.destroyDebugOverlay();
       this.destroyAllDebugLabels();
       this.destroyAllDebugBeacons();
+      console.log('[PokemonSpawnManager] After disable - beacons:', this.debugBeacons.size, 'labels:', this.debugLabels.size);
     }
   }
 
@@ -1326,36 +1336,14 @@ export class PokemonSpawnManager {
   }
 
   /**
-   * Create a debug beacon (large colored circle) at spawn position.
-   * These are hard-to-miss visual markers to confirm rendering is working.
+   * Create a debug beacon (small marker) at spawn position.
+   * Only shown in debug mode for position verification.
+   * @deprecated Debug beacons are disabled - grass rustle is the main visual indicator
    */
-  private createDebugBeacon(spawn: PokemonSpawn): void {
-    if (!this.debugMode) return;
-    if (this.debugBeacons.has(spawn.id)) return;
-
-    // Create a large, pulsing circle at the spawn position
-    // Use bright colors that stand out against any background
-    const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
-    const color = colors[spawn.slotIndex % colors.length];
-
-    const beacon = this.scene.add.circle(spawn.x, spawn.y, 24, color, 0.6);
-    beacon.setDepth(500); // High depth to ensure visibility
-    beacon.setStrokeStyle(3, 0xffffff, 1);
-
-    // Add pulsing animation
-    this.scene.tweens.add({
-      targets: beacon,
-      scale: { from: 0.8, to: 1.2 },
-      alpha: { from: 0.4, to: 0.8 },
-      duration: 500,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    this.debugBeacons.set(spawn.id, beacon);
-
-    console.log(`[PokemonSpawnManager] Debug beacon created at (${spawn.x}, ${spawn.y}) for slot ${spawn.slotIndex}`);
+  private createDebugBeacon(_spawn: PokemonSpawn): void {
+    // Debug beacons disabled - grass rustle effect is the main visual indicator
+    // The Pokemon entity itself is semi-transparent and hard to see on purpose
+    return;
   }
 
   /**
@@ -1374,11 +1362,14 @@ export class PokemonSpawnManager {
    * Destroy all debug beacons.
    */
   private destroyAllDebugBeacons(): void {
-    for (const beacon of this.debugBeacons.values()) {
+    console.log(`[PokemonSpawnManager] Destroying ${this.debugBeacons.size} debug beacons`);
+    for (const [id, beacon] of this.debugBeacons.entries()) {
+      console.log(`[PokemonSpawnManager] Destroying beacon for ID ${id.toString()}`);
       this.scene.tweens.killTweensOf(beacon);
       beacon.destroy();
     }
     this.debugBeacons.clear();
+    console.log(`[PokemonSpawnManager] Debug beacons cleared, size: ${this.debugBeacons.size}`);
   }
 
   /**
