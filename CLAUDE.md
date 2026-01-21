@@ -481,6 +481,7 @@ Phaser manager for tracking active Pokemon spawns in the game world:
 ```typescript
 interface PokemonSpawn {
   id: bigint;           // Contract Pokemon ID (uint256)
+  slotIndex: number;    // Contract slot (0-19)
   x: number;            // Pixel X position
   y: number;            // Pixel Y position
   attemptCount: number; // Throws so far (0-3)
@@ -491,44 +492,64 @@ interface PokemonSpawn {
 ```
 
 **Contract Sync Methods (called from React/Web3 listeners):**
-- `syncFromContract(initialSpawns)` - Initialize on scene start
+- `syncFromContract(initialSpawns, worldBounds?)` - Initialize on scene start
 - `onSpawnAdded(spawn)` - Handle PokemonSpawned event
 - `onPokemonRelocated(pokemonId, newX, newY)` - Handle PokemonRelocated event
 - `onCaughtPokemon(pokemonId)` - Handle CaughtPokemon event
 - `onFailedCatch(pokemonId, attemptsRemaining)` - Handle FailedCatch event
 
 **Query Methods:**
-- `getSpawnAt(x, y)` - Find spawn near position (distance-based)
+- `getSpawnById(pokemonId)` - O(1) lookup by Pokemon ID (Map-based)
+- `getSpawnBySlot(slotIndex)` - Get spawn by contract slot (0-19)
+- `getSpawnAt(x, y)` - Find spawn near position (spatial grid optimized)
 - `getAllSpawns()` - Get all active spawns
 - `getPokemonInCatchRange(playerX, playerY)` - Find nearest catchable Pokemon
+- `getPokemonInRange(playerX, playerY, range?)` - Get all Pokemon within range, sorted by distance
 - `isPlayerInCatchRange(...)` - Check if player can throw
 - `getRemainingAttempts(pokemonId)` - Get attempts left
+- `getOccupiedSlots()` - Get array of active slot indices
+- `getAvailableSlots()` - Get array of empty slot indices
+- `getStats()` - Get spawn statistics (activeCount, poolSize, gridCells)
 
 **Phaser Events Emitted:**
 - `pokemon-spawns-synced` - After initial contract sync
-- `pokemon-spawn-added` - New Pokemon appeared
+- `pokemon-spawn-added` - New Pokemon appeared (includes slotIndex)
 - `pokemon-relocated` - Pokemon moved to new position
-- `pokemon-caught` - Successful catch (for celebration animation)
-- `pokemon-catch-failed` - Failed attempt (for shake animation)
-- `pokemon-spawn-effects` - For GrassRustle integration
+- `pokemon-caught` - Successful catch (includes slotIndex)
+- `pokemon-catch-failed` - Failed attempt (includes slotIndex)
+- `pokemon-spawn-effects` - For GrassRustle/sound integration
 
 **Configuration:**
 ```typescript
 SPAWN_CONFIG = {
-  MAX_ACTIVE_SPAWNS: 3,    // Max Pokemon at once (update to 20 after v1.2.0 upgrade)
-  MAX_ATTEMPTS: 3,          // Throws before relocate
-  CATCH_RANGE_PIXELS: 48,   // Interaction distance
-  SPAWN_QUERY_RADIUS: 32,   // Click detection radius
+  MAX_ACTIVE_SPAWNS: 20,         // Max Pokemon at once (v1.2.0 contract)
+  MAX_ATTEMPTS: 3,               // Throws before relocate
+  CATCH_RANGE_PIXELS: 48,        // Interaction distance
+  SPAWN_QUERY_RADIUS: 32,        // Click detection radius
+  ENTITY_POOL_SIZE: 24,          // Pre-allocated entities (>= MAX_ACTIVE_SPAWNS)
+  USE_POOLING: true,             // Enable object pooling
+  MIN_SPAWN_DISTANCE: 64,        // Min distance between spawns
+  SPATIAL_GRID_CELL_SIZE: 128,   // Grid cell size for proximity queries
 }
 ```
 
-**Note:** After upgrading contract to v1.2.0, update `MAX_ACTIVE_SPAWNS` to 20.
+**Performance Features (for 20 spawns):**
+- **Object Pooling**: Pre-allocates Pokemon + GrassRustle entities to reduce GC pressure
+- **Spatial Partitioning**: Grid-based proximity queries avoid iterating all spawns
+- **Map-based Lookups**: O(1) retrieval by Pokemon ID or slot index
+
+**Why 20 sprites is safe:**
+- Phaser 3 WebGL renderer efficiently batches sprites
+- Each Pokemon = sprite + shadow ellipse + grass rustle (~3 draw calls)
+- 20 Pokemon = ~60 simple objects, well within Phaser's capabilities
+- Simple tile-based world has low overall draw call count
+- Modern browsers easily handle 1000+ sprites at 60fps
 
 **GrassRustle Lifecycle (automatic):**
-- Created when Pokemon entity spawns (`createPokemonEntity`)
+- Created when Pokemon entity spawns (from pool if available)
 - Starts playing immediately via `playRustle()`
 - Auto-follows Pokemon position via scene update
-- Destroyed when Pokemon is removed (`destroyPokemonEntity`)
+- Returned to pool when Pokemon is removed (or destroyed if not pooled)
 
 **Integration Example:**
 ```typescript
@@ -551,7 +572,7 @@ Visual representation of wild Pokemon in the game world:
 **Location:** `src/game/entities/Pokemon.ts`
 
 **Properties:**
-- `id: bigint` - Unique Pokemon ID from contract
+- `id: bigint` - Unique Pokemon ID from contract (getter)
 - `pokemonId: bigint` - Alias for id (backwards compatibility)
 - `attemptCount: number` - Catch attempts made (0-3)
 
@@ -561,6 +582,10 @@ Visual representation of wild Pokemon in the game world:
 - `playSuccessAnimation()` - Sparkles, scale bounce, shrink into capture
 - `playFailAnimation()` - Shake, red tint flash, escape hop
 - `playRelocateAnimation(toX, toY)` - Teleport with departure/arrival particles
+
+**Pooling Methods (internal):**
+- `_setId(newId)` - Update Pokemon ID for pool reuse
+- `_resetForPool()` - Reset visual state for pool reuse
 
 **Features:**
 - Idle bobbing animation (tween-based)
@@ -597,11 +622,13 @@ Animated grass rustle effect beneath wild Pokemon:
 - `pause()` / `resume()` - Pause/resume animation
 - `setFollowTarget(pokemon)` - Change follow target
 - `hasValidTarget()` - Check if following valid Pokemon
+- `_resetForPool()` - Reset visual state for pool reuse (internal)
 
 **Features:**
 - Auto-follows Pokemon position via scene update listener
 - Fallback pulsing animation if sprite animation not defined
 - Renders below Pokemon (depth 8 vs 10)
+- Supports object pooling for efficient reuse
 
 **Texture Requirements:**
 - `grass-rustle`: 4-frame sprite sheet (16x16 each)

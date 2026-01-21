@@ -283,6 +283,25 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
     return this.followTarget !== null && this.followTarget.active;
   }
 
+  /**
+   * Reset the GrassRustle for pooling reuse.
+   * Restores default state without destroying the entity.
+   * @internal Used by PokemonSpawnManager for object pooling.
+   */
+  public _resetForPool(): void {
+    this.isPlaying = false;
+    this.isDestroying = false;
+
+    // Stop any running tweens and animations
+    this.gameScene.tweens.killTweensOf(this);
+    this.anims.stop();
+
+    // Reset visual state
+    this.setAlpha(0);
+    this.setScale(GRASS_RUSTLE_CONFIG.SCALE);
+    this.setVisible(false);
+  }
+
   // ============================================================
   // CLEANUP
   // ============================================================

@@ -69,11 +69,25 @@ const POKEMON_CONFIG = {
 
 export class Pokemon extends Phaser.GameObjects.Sprite {
   /** Unique Pokemon ID from the contract (uint256) */
-  public readonly id: bigint;
+  private _id: bigint;
+
+  /** Public getter for the Pokemon ID */
+  public get id(): bigint {
+    return this._id;
+  }
 
   /** Alias for id (for backwards compatibility) */
   public get pokemonId(): bigint {
-    return this.id;
+    return this._id;
+  }
+
+  /**
+   * Internal method to update the Pokemon ID.
+   * Used by PokemonSpawnManager for object pooling.
+   * @internal
+   */
+  public _setId(newId: bigint): void {
+    this._id = newId;
   }
 
   /** Number of catch attempts made on this Pokemon (0-3) */
@@ -98,7 +112,7 @@ export class Pokemon extends Phaser.GameObjects.Sprite {
     // Use placeholder texture - created in GameScene.preload()
     super(scene, x, y, 'pokemon-placeholder');
 
-    this.id = pokemonId;
+    this._id = pokemonId;
     this.gameScene = scene;
     this.baseY = y;
 
@@ -521,6 +535,41 @@ export class Pokemon extends Phaser.GameObjects.Sprite {
   update(_delta: number): void {
     // Shadow position syncs automatically via tween callbacks
     // This method can be extended for additional per-frame logic
+  }
+
+  /**
+   * Reset the Pokemon for pooling reuse.
+   * Restores default state without destroying the entity.
+   * @internal Used by PokemonSpawnManager for object pooling.
+   */
+  public _resetForPool(): void {
+    this.attemptCount = 0;
+    this.isDestroying = false;
+
+    // Stop any running tweens
+    this.gameScene.tweens.killTweensOf(this);
+    if (this.shadow) {
+      this.gameScene.tweens.killTweensOf(this.shadow);
+    }
+
+    // Reset visual state
+    this.setAlpha(1);
+    this.setScale(1);
+    this.clearTint();
+
+    // Restart idle animation
+    this.stopIdleAnimation();
+    this.startIdleAnimation();
+
+    // Recreate shadow if needed
+    if (!this.shadow || !this.shadow.scene) {
+      this.createShadow();
+    } else {
+      this.shadow.setAlpha(POKEMON_CONFIG.SHADOW_ALPHA);
+      this.shadow.setScale(1);
+    }
+
+    this.updateShadowPosition();
   }
 
   /**

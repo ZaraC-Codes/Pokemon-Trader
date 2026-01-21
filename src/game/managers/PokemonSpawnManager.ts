@@ -9,6 +9,8 @@ import { GrassRustle } from '../entities/GrassRustle';
 export interface PokemonSpawn {
   /** Unique Pokemon ID from the contract (uint256) */
   id: bigint;
+  /** Slot index in the contract (0-19) */
+  slotIndex: number;
   /** X position in pixels (world coordinates) */
   x: number;
   /** Y position in pixels (world coordinates) */
@@ -26,23 +28,64 @@ export interface PokemonSpawn {
 /**
  * Configuration constants for Pokemon spawn management.
  * Easily adjustable for game balancing.
+ *
+ * To change the max spawn limit:
+ * 1. Update MAX_ACTIVE_SPAWNS here
+ * 2. Ensure contract also supports the new limit
+ * 3. Consider ENTITY_POOL_SIZE if using pooling (should be >= MAX_ACTIVE_SPAWNS)
  */
 const SPAWN_CONFIG = {
-  /** Maximum number of Pokemon that can be active at once */
-  MAX_ACTIVE_SPAWNS: 3,
+  /** Maximum number of Pokemon that can be active at once (matches contract) */
+  MAX_ACTIVE_SPAWNS: 20,
   /** Maximum throw attempts before Pokemon relocates */
   MAX_ATTEMPTS: 3,
   /** Catch interaction radius in pixels (how close player must be) */
   CATCH_RANGE_PIXELS: 48,
   /** Distance threshold for getSpawnAt queries in pixels */
   SPAWN_QUERY_RADIUS: 32,
+  /** Size of the entity pool for reuse (should be >= MAX_ACTIVE_SPAWNS) */
+  ENTITY_POOL_SIZE: 24,
+  /** Whether to use object pooling for Pokemon entities */
+  USE_POOLING: true,
+  /** Minimum distance between Pokemon spawns (for distribution checking) */
+  MIN_SPAWN_DISTANCE: 64,
+  /** Grid cell size for spatial partitioning (performance optimization) */
+  SPATIAL_GRID_CELL_SIZE: 128,
 } as const;
+
+/**
+ * Pooled entity wrapper for reuse.
+ */
+interface PooledEntity {
+  pokemon: Pokemon;
+  grassRustle: GrassRustle;
+  inUse: boolean;
+}
+
+/**
+ * Spatial grid cell for efficient proximity queries.
+ */
+interface SpatialGridCell {
+  spawns: Set<bigint>;
+}
 
 /**
  * PokemonSpawnManager
  *
- * Manages up to 3 active Pokemon spawns in the game world.
+ * Manages up to 20 active Pokemon spawns in the game world.
  * Syncs state with the on-chain PokeballGame contract via event-driven methods.
+ *
+ * Performance Features:
+ * - Object pooling for Pokemon and GrassRustle entities (reduces GC pressure)
+ * - Spatial partitioning grid for efficient proximity queries
+ * - Map-based lookups for O(1) spawn retrieval by ID
+ *
+ * Why 20 sprites is safe:
+ * - Phaser 3 WebGL renderer efficiently batches sprites
+ * - Each Pokemon is a single sprite + shadow ellipse + grass rustle = 3 draw calls
+ * - 20 Pokemon = ~60 simple objects, well within Phaser's capabilities
+ * - Simple tile-based world has low overall draw call count
+ * - Modern browsers easily handle 1000+ sprites at 60fps
  *
  * Integration points:
  * - React hooks call sync methods when contract events fire
@@ -63,15 +106,236 @@ export class PokemonSpawnManager {
   /** Reference to the Phaser scene */
   private scene: GameScene;
 
-  /** Array of currently active Pokemon spawns (max 3) */
-  private activeSpawns: PokemonSpawn[] = [];
+  /** Map of Pokemon ID to spawn data for O(1) lookups */
+  private spawnsById: Map<bigint, PokemonSpawn> = new Map();
+
+  /** Map of slot index to Pokemon ID for contract slot mapping */
+  private slotToId: Map<number, bigint> = new Map();
+
+  /** Entity pool for reuse (reduces garbage collection) */
+  private entityPool: PooledEntity[] = [];
+
+  /** Spatial grid for efficient proximity queries */
+  private spatialGrid: Map<string, SpatialGridCell> = new Map();
+
+  /** World bounds for spatial grid (set during sync) */
+  private worldBounds = { width: 2000, height: 2000 };
 
   /** Flag to prevent duplicate initialization */
   private isInitialized: boolean = false;
 
   constructor(scene: GameScene) {
     this.scene = scene;
-    console.log('[PokemonSpawnManager] Initialized');
+
+    // Pre-allocate entity pool if pooling is enabled
+    if (SPAWN_CONFIG.USE_POOLING) {
+      this.initializeEntityPool();
+    }
+
+    console.log('[PokemonSpawnManager] Initialized with max', SPAWN_CONFIG.MAX_ACTIVE_SPAWNS, 'spawns');
+  }
+
+  // ============================================================
+  // ENTITY POOLING
+  // ============================================================
+
+  /**
+   * Initialize the entity pool with pre-created but hidden entities.
+   * This reduces allocation during gameplay.
+   */
+  private initializeEntityPool(): void {
+    console.log('[PokemonSpawnManager] Initializing entity pool of size', SPAWN_CONFIG.ENTITY_POOL_SIZE);
+
+    for (let i = 0; i < SPAWN_CONFIG.ENTITY_POOL_SIZE; i++) {
+      // Create Pokemon at origin, hidden
+      const pokemon = new Pokemon(this.scene, -1000, -1000, BigInt(-1 - i));
+      pokemon.setVisible(false);
+      pokemon.setActive(false);
+
+      // Create GrassRustle for this Pokemon
+      const grassRustle = new GrassRustle(this.scene, pokemon);
+      grassRustle.setVisible(false);
+      grassRustle.setActive(false);
+
+      this.entityPool.push({
+        pokemon,
+        grassRustle,
+        inUse: false,
+      });
+    }
+
+    console.log('[PokemonSpawnManager] Entity pool ready');
+  }
+
+  /**
+   * Get an entity from the pool, or create a new one if pool is exhausted.
+   */
+  private acquireEntityFromPool(spawn: PokemonSpawn): { pokemon: Pokemon; grassRustle: GrassRustle } {
+    if (!SPAWN_CONFIG.USE_POOLING) {
+      // No pooling - create new entities
+      const pokemon = new Pokemon(this.scene, spawn.x, spawn.y, spawn.id);
+      const grassRustle = new GrassRustle(this.scene, pokemon);
+      return { pokemon, grassRustle };
+    }
+
+    // Find available pooled entity
+    const available = this.entityPool.find(e => !e.inUse);
+
+    if (available) {
+      // Reuse pooled entity
+      available.inUse = true;
+
+      // Update the ID first
+      available.pokemon._setId(spawn.id);
+
+      // Reconfigure Pokemon
+      available.pokemon.setPosition(spawn.x, spawn.y);
+      available.pokemon.setVisible(true);
+      available.pokemon.setActive(true);
+
+      // Reset Pokemon state for reuse
+      available.pokemon._resetForPool();
+
+      // Reconfigure GrassRustle
+      available.grassRustle._resetForPool();
+      available.grassRustle.setFollowTarget(available.pokemon);
+      available.grassRustle.setVisible(true);
+      available.grassRustle.setActive(true);
+
+      return { pokemon: available.pokemon, grassRustle: available.grassRustle };
+    }
+
+    // Pool exhausted - create new entities (this shouldn't happen often)
+    console.warn('[PokemonSpawnManager] Entity pool exhausted, creating new entity');
+    const pokemon = new Pokemon(this.scene, spawn.x, spawn.y, spawn.id);
+    const grassRustle = new GrassRustle(this.scene, pokemon);
+    return { pokemon, grassRustle };
+  }
+
+  /**
+   * Return an entity to the pool for reuse.
+   */
+  private releaseEntityToPool(pokemon: Pokemon, grassRustle: GrassRustle): void {
+    if (!SPAWN_CONFIG.USE_POOLING) {
+      // No pooling - destroy entities
+      grassRustle.stopRustle(true);
+      grassRustle.destroy();
+      pokemon.destroy();
+      return;
+    }
+
+    // Find matching pooled entity
+    const pooled = this.entityPool.find(
+      e => e.pokemon === pokemon || e.grassRustle === grassRustle
+    );
+
+    if (pooled) {
+      // Return to pool
+      pooled.inUse = false;
+
+      // Hide and deactivate
+      pooled.pokemon.setVisible(false);
+      pooled.pokemon.setActive(false);
+      pooled.pokemon.setPosition(-1000, -1000);
+
+      pooled.grassRustle.stopRustle(true);
+      pooled.grassRustle.setVisible(false);
+      pooled.grassRustle.setActive(false);
+      pooled.grassRustle.setFollowTarget(null);
+    } else {
+      // Not from pool - destroy
+      grassRustle.stopRustle(true);
+      grassRustle.destroy();
+      pokemon.destroy();
+    }
+  }
+
+  // ============================================================
+  // SPATIAL PARTITIONING
+  // ============================================================
+
+  /**
+   * Get the grid cell key for a position.
+   */
+  private getGridKey(x: number, y: number): string {
+    const cellX = Math.floor(x / SPAWN_CONFIG.SPATIAL_GRID_CELL_SIZE);
+    const cellY = Math.floor(y / SPAWN_CONFIG.SPATIAL_GRID_CELL_SIZE);
+    return `${cellX},${cellY}`;
+  }
+
+  /**
+   * Add a spawn to the spatial grid.
+   */
+  private addToSpatialGrid(spawn: PokemonSpawn): void {
+    const key = this.getGridKey(spawn.x, spawn.y);
+    let cell = this.spatialGrid.get(key);
+
+    if (!cell) {
+      cell = { spawns: new Set() };
+      this.spatialGrid.set(key, cell);
+    }
+
+    cell.spawns.add(spawn.id);
+  }
+
+  /**
+   * Remove a spawn from the spatial grid.
+   */
+  private removeFromSpatialGrid(spawn: PokemonSpawn): void {
+    const key = this.getGridKey(spawn.x, spawn.y);
+    const cell = this.spatialGrid.get(key);
+
+    if (cell) {
+      cell.spawns.delete(spawn.id);
+      if (cell.spawns.size === 0) {
+        this.spatialGrid.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Update a spawn's position in the spatial grid.
+   */
+  private updateSpatialGridPosition(spawn: PokemonSpawn, oldX: number, oldY: number): void {
+    const oldKey = this.getGridKey(oldX, oldY);
+    const newKey = this.getGridKey(spawn.x, spawn.y);
+
+    if (oldKey !== newKey) {
+      // Remove from old cell
+      const oldCell = this.spatialGrid.get(oldKey);
+      if (oldCell) {
+        oldCell.spawns.delete(spawn.id);
+        if (oldCell.spawns.size === 0) {
+          this.spatialGrid.delete(oldKey);
+        }
+      }
+
+      // Add to new cell
+      this.addToSpatialGrid(spawn);
+    }
+  }
+
+  /**
+   * Get nearby spawn IDs from the spatial grid.
+   * Checks the target cell and all adjacent cells.
+   */
+  private getNearbySpawnIds(x: number, y: number): bigint[] {
+    const cellX = Math.floor(x / SPAWN_CONFIG.SPATIAL_GRID_CELL_SIZE);
+    const cellY = Math.floor(y / SPAWN_CONFIG.SPATIAL_GRID_CELL_SIZE);
+    const nearbyIds: bigint[] = [];
+
+    // Check 3x3 grid of cells around the position
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const key = `${cellX + dx},${cellY + dy}`;
+        const cell = this.spatialGrid.get(key);
+        if (cell) {
+          nearbyIds.push(...cell.spawns);
+        }
+      }
+    }
+
+    return nearbyIds;
   }
 
   // ============================================================
@@ -84,9 +348,18 @@ export class PokemonSpawnManager {
    * Called once when the scene starts to sync with existing Pokemon.
    *
    * @param initialSpawns - Array of Pokemon spawns from contract query
+   * @param worldBounds - Optional world dimensions for spatial grid optimization
    */
-  syncFromContract(initialSpawns: PokemonSpawn[]): void {
+  syncFromContract(
+    initialSpawns: PokemonSpawn[],
+    worldBounds?: { width: number; height: number }
+  ): void {
     console.log('[PokemonSpawnManager] Syncing from contract with', initialSpawns.length, 'spawns');
+
+    // Update world bounds if provided
+    if (worldBounds) {
+      this.worldBounds = worldBounds;
+    }
 
     // Clear any existing spawns (cleanup on re-sync)
     this.clearAllSpawns();
@@ -101,7 +374,7 @@ export class PokemonSpawnManager {
 
     // Emit event for UI layer
     this.scene.events.emit('pokemon-spawns-synced', {
-      count: this.activeSpawns.length,
+      count: this.spawnsById.size,
       spawns: this.getAllSpawns(),
     });
   }
@@ -113,16 +386,16 @@ export class PokemonSpawnManager {
    * @param spawn - New Pokemon spawn data
    */
   onSpawnAdded(spawn: PokemonSpawn): void {
-    console.log('[PokemonSpawnManager] onSpawnAdded:', spawn.id.toString());
+    console.log('[PokemonSpawnManager] onSpawnAdded:', spawn.id.toString(), 'slot:', spawn.slotIndex);
 
     // Check if we already have this spawn (prevent duplicates)
-    if (this.getSpawnById(spawn.id)) {
+    if (this.spawnsById.has(spawn.id)) {
       console.warn('[PokemonSpawnManager] Spawn already exists:', spawn.id.toString());
       return;
     }
 
     // Check if we're at max capacity
-    if (this.activeSpawns.length >= SPAWN_CONFIG.MAX_ACTIVE_SPAWNS) {
+    if (this.spawnsById.size >= SPAWN_CONFIG.MAX_ACTIVE_SPAWNS) {
       console.warn('[PokemonSpawnManager] At max capacity, cannot add spawn');
       return;
     }
@@ -132,9 +405,10 @@ export class PokemonSpawnManager {
     // Emit event for UI layer
     this.scene.events.emit('pokemon-spawn-added', {
       pokemonId: spawn.id,
+      slotIndex: spawn.slotIndex,
       x: spawn.x,
       y: spawn.y,
-      totalActive: this.activeSpawns.length,
+      totalActive: this.spawnsById.size,
     });
   }
 
@@ -149,18 +423,18 @@ export class PokemonSpawnManager {
   onPokemonRelocated(pokemonId: bigint, newX: number, newY: number): void {
     console.log('[PokemonSpawnManager] onPokemonRelocated:', pokemonId.toString(), 'to', newX, newY);
 
-    const spawn = this.getSpawnById(pokemonId);
+    const spawn = this.spawnsById.get(pokemonId);
     if (!spawn) {
       console.warn('[PokemonSpawnManager] Cannot relocate unknown Pokemon:', pokemonId.toString());
       return;
     }
 
-    // Store old position for animation
+    // Store old position for animation and spatial grid update
     const oldX = spawn.x;
     const oldY = spawn.y;
 
     // Update position
-    this.updateSpawnPosition(pokemonId, newX, newY);
+    this.updateSpawnPosition(pokemonId, newX, newY, oldX, oldY);
 
     // Reset attempt count on relocation
     spawn.attemptCount = 0;
@@ -184,7 +458,7 @@ export class PokemonSpawnManager {
   onCaughtPokemon(pokemonId: bigint): void {
     console.log('[PokemonSpawnManager] onCaughtPokemon:', pokemonId.toString());
 
-    const spawn = this.getSpawnById(pokemonId);
+    const spawn = this.spawnsById.get(pokemonId);
     if (!spawn) {
       console.warn('[PokemonSpawnManager] Cannot catch unknown Pokemon:', pokemonId.toString());
       return;
@@ -193,6 +467,7 @@ export class PokemonSpawnManager {
     // Store spawn data before removal (for catch animation)
     const catchData = {
       pokemonId,
+      slotIndex: spawn.slotIndex,
       x: spawn.x,
       y: spawn.y,
     };
@@ -214,7 +489,7 @@ export class PokemonSpawnManager {
   onFailedCatch(pokemonId: bigint, attemptsRemaining: number): void {
     console.log('[PokemonSpawnManager] onFailedCatch:', pokemonId.toString(), 'remaining:', attemptsRemaining);
 
-    const spawn = this.getSpawnById(pokemonId);
+    const spawn = this.spawnsById.get(pokemonId);
     if (!spawn) {
       console.warn('[PokemonSpawnManager] Cannot fail catch on unknown Pokemon:', pokemonId.toString());
       return;
@@ -227,6 +502,7 @@ export class PokemonSpawnManager {
     // Emit event for UI layer (trigger shake animation, update counter)
     this.scene.events.emit('pokemon-catch-failed', {
       pokemonId,
+      slotIndex: spawn.slotIndex,
       attemptCount: newAttemptCount,
       attemptsRemaining,
       x: spawn.x,
@@ -239,7 +515,7 @@ export class PokemonSpawnManager {
 
   // ============================================================
   // SPAWN MANAGEMENT HELPERS
-  // Core methods for manipulating the spawn array
+  // Core methods for manipulating the spawn collection
   // ============================================================
 
   /**
@@ -250,13 +526,13 @@ export class PokemonSpawnManager {
    */
   addSpawn(spawn: PokemonSpawn): void {
     // Enforce max spawns
-    if (this.activeSpawns.length >= SPAWN_CONFIG.MAX_ACTIVE_SPAWNS) {
+    if (this.spawnsById.size >= SPAWN_CONFIG.MAX_ACTIVE_SPAWNS) {
       console.warn('[PokemonSpawnManager] Cannot add spawn: at max capacity');
       return;
     }
 
     // Prevent duplicates
-    if (this.getSpawnById(spawn.id)) {
+    if (this.spawnsById.has(spawn.id)) {
       console.warn('[PokemonSpawnManager] Spawn already exists:', spawn.id.toString());
       return;
     }
@@ -266,40 +542,64 @@ export class PokemonSpawnManager {
       spawn.timestamp = Date.now();
     }
 
-    // Create visual entity
-    spawn.entity = this.createPokemonEntity(spawn);
+    // Ensure slotIndex is set (default to -1 if not provided)
+    if (spawn.slotIndex === undefined) {
+      spawn.slotIndex = -1;
+    }
 
-    // Add to active spawns
-    this.activeSpawns.push(spawn);
+    // Create visual entity (from pool if available)
+    const { pokemon, grassRustle } = this.acquireEntityFromPool(spawn);
+    spawn.entity = pokemon;
+    spawn.grassRustle = grassRustle;
+
+    // Add to collections
+    this.spawnsById.set(spawn.id, spawn);
+    if (spawn.slotIndex >= 0) {
+      this.slotToId.set(spawn.slotIndex, spawn.id);
+    }
+
+    // Add to spatial grid
+    this.addToSpatialGrid(spawn);
 
     // Play spawn visual effects
     this.playSpawnEffects(spawn);
 
-    console.log('[PokemonSpawnManager] Added spawn:', spawn.id.toString(), 'at', spawn.x, spawn.y);
+    console.log('[PokemonSpawnManager] Added spawn:', spawn.id.toString(), 'at', spawn.x, spawn.y, '(slot:', spawn.slotIndex, ')');
   }
 
   /**
    * Remove a Pokemon spawn from the active list.
-   * Destroys the visual entity.
+   * Returns entity to pool or destroys it.
    *
    * @param pokemonId - ID of the Pokemon to remove
    */
   removeSpawn(pokemonId: bigint): void {
-    const index = this.activeSpawns.findIndex(s => s.id === pokemonId);
-    if (index === -1) {
+    const spawn = this.spawnsById.get(pokemonId);
+    if (!spawn) {
       console.warn('[PokemonSpawnManager] Cannot remove unknown spawn:', pokemonId.toString());
       return;
     }
 
-    const spawn = this.activeSpawns[index];
+    // Remove from spatial grid
+    this.removeFromSpatialGrid(spawn);
 
-    // Destroy visual entity
-    if (spawn.entity) {
-      this.destroyPokemonEntity(spawn);
+    // Remove from slot mapping
+    if (spawn.slotIndex >= 0) {
+      this.slotToId.delete(spawn.slotIndex);
     }
 
-    // Remove from array
-    this.activeSpawns.splice(index, 1);
+    // Return entity to pool or destroy
+    if (spawn.entity && spawn.grassRustle) {
+      this.releaseEntityToPool(spawn.entity, spawn.grassRustle);
+    } else if (spawn.entity) {
+      spawn.entity.destroy();
+    }
+
+    spawn.entity = undefined;
+    spawn.grassRustle = undefined;
+
+    // Remove from main map
+    this.spawnsById.delete(pokemonId);
 
     console.log('[PokemonSpawnManager] Removed spawn:', pokemonId.toString());
   }
@@ -311,17 +611,26 @@ export class PokemonSpawnManager {
    * @param pokemonId - ID of the Pokemon to move
    * @param newX - New X position in pixels
    * @param newY - New Y position in pixels
+   * @param oldX - Old X position (for spatial grid update)
+   * @param oldY - Old Y position (for spatial grid update)
    */
-  updateSpawnPosition(pokemonId: bigint, newX: number, newY: number): void {
-    const spawn = this.getSpawnById(pokemonId);
+  updateSpawnPosition(pokemonId: bigint, newX: number, newY: number, oldX?: number, oldY?: number): void {
+    const spawn = this.spawnsById.get(pokemonId);
     if (!spawn) {
       console.warn('[PokemonSpawnManager] Cannot update position of unknown spawn:', pokemonId.toString());
       return;
     }
 
+    // Store old position if not provided
+    const prevX = oldX ?? spawn.x;
+    const prevY = oldY ?? spawn.y;
+
     // Update data
     spawn.x = newX;
     spawn.y = newY;
+
+    // Update spatial grid
+    this.updateSpatialGridPosition(spawn, prevX, prevY);
 
     // Move visual entity with animation
     if (spawn.entity) {
@@ -338,7 +647,7 @@ export class PokemonSpawnManager {
    * @param pokemonId - ID of the Pokemon
    */
   incrementAttemptCount(pokemonId: bigint): void {
-    const spawn = this.getSpawnById(pokemonId);
+    const spawn = this.spawnsById.get(pokemonId);
     if (!spawn) {
       console.warn('[PokemonSpawnManager] Cannot increment attempts on unknown spawn:', pokemonId.toString());
       return;
@@ -356,31 +665,52 @@ export class PokemonSpawnManager {
 
   /**
    * Get a spawn by its unique ID.
+   * O(1) lookup using Map.
    *
    * @param pokemonId - ID to search for
    * @returns The spawn if found, undefined otherwise
    */
   getSpawnById(pokemonId: bigint): PokemonSpawn | undefined {
-    return this.activeSpawns.find(s => s.id === pokemonId);
+    return this.spawnsById.get(pokemonId);
+  }
+
+  /**
+   * Get a spawn by its contract slot index.
+   *
+   * @param slotIndex - Slot index (0-19)
+   * @returns The spawn if found, undefined otherwise
+   */
+  getSpawnBySlot(slotIndex: number): PokemonSpawn | undefined {
+    const id = this.slotToId.get(slotIndex);
+    if (id !== undefined) {
+      return this.spawnsById.get(id);
+    }
+    return undefined;
   }
 
   /**
    * Get a spawn near a given position.
-   * Uses distance-based query within SPAWN_QUERY_RADIUS.
+   * Uses spatial partitioning for efficient proximity queries.
    *
    * @param x - X position to query
    * @param y - Y position to query
    * @returns The nearest spawn if within radius, null otherwise
    */
   getSpawnAt(x: number, y: number): PokemonSpawn | null {
+    // Get candidates from spatial grid
+    const nearbyIds = this.getNearbySpawnIds(x, y);
+
     let nearestSpawn: PokemonSpawn | null = null;
     let nearestDistance: number = SPAWN_CONFIG.SPAWN_QUERY_RADIUS;
 
-    for (const spawn of this.activeSpawns) {
-      const distance = this.calculateDistance(x, y, spawn.x, spawn.y);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestSpawn = spawn;
+    for (const id of nearbyIds) {
+      const spawn = this.spawnsById.get(id);
+      if (spawn) {
+        const distance = this.calculateDistance(x, y, spawn.x, spawn.y);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestSpawn = spawn;
+        }
       }
     }
 
@@ -389,22 +719,21 @@ export class PokemonSpawnManager {
 
   /**
    * Get all currently active spawns.
-   * Returns a copy to prevent external mutation.
+   * Returns an array copy to prevent external mutation.
    *
    * @returns Array of all active spawns
    */
   getAllSpawns(): PokemonSpawn[] {
-    // Return shallow copy to prevent external mutation of array
-    return [...this.activeSpawns];
+    return Array.from(this.spawnsById.values());
   }
 
   /**
    * Get the number of active spawns.
    *
-   * @returns Number of active spawns (0-3)
+   * @returns Number of active spawns (0-20)
    */
   getActiveSpawnCount(): number {
-    return this.activeSpawns.length;
+    return this.spawnsById.size;
   }
 
   /**
@@ -425,24 +754,59 @@ export class PokemonSpawnManager {
   /**
    * Check if player is in range of any active Pokemon.
    * Returns the nearest Pokemon in range, or null if none.
+   * Uses spatial partitioning for efficiency with 20 spawns.
    *
    * @param playerX - Player's X position
    * @param playerY - Player's Y position
    * @returns Nearest Pokemon in catch range, or null
    */
   getPokemonInCatchRange(playerX: number, playerY: number): PokemonSpawn | null {
+    // Get candidates from spatial grid
+    const nearbyIds = this.getNearbySpawnIds(playerX, playerY);
+
     let nearestInRange: PokemonSpawn | null = null;
     let nearestDistance: number = SPAWN_CONFIG.CATCH_RANGE_PIXELS;
 
-    for (const spawn of this.activeSpawns) {
-      const distance = this.calculateDistance(playerX, playerY, spawn.x, spawn.y);
-      if (distance <= SPAWN_CONFIG.CATCH_RANGE_PIXELS && distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestInRange = spawn;
+    for (const id of nearbyIds) {
+      const spawn = this.spawnsById.get(id);
+      if (spawn) {
+        const distance = this.calculateDistance(playerX, playerY, spawn.x, spawn.y);
+        if (distance <= SPAWN_CONFIG.CATCH_RANGE_PIXELS && distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestInRange = spawn;
+        }
       }
     }
 
     return nearestInRange;
+  }
+
+  /**
+   * Get all Pokemon within a certain range of the player.
+   * Useful for UI indicators showing nearby catchable Pokemon.
+   *
+   * @param playerX - Player's X position
+   * @param playerY - Player's Y position
+   * @param range - Range in pixels (defaults to catch range)
+   * @returns Array of spawns within range, sorted by distance
+   */
+  getPokemonInRange(playerX: number, playerY: number, range: number = SPAWN_CONFIG.CATCH_RANGE_PIXELS): PokemonSpawn[] {
+    const nearbyIds = this.getNearbySpawnIds(playerX, playerY);
+    const inRange: { spawn: PokemonSpawn; distance: number }[] = [];
+
+    for (const id of nearbyIds) {
+      const spawn = this.spawnsById.get(id);
+      if (spawn) {
+        const distance = this.calculateDistance(playerX, playerY, spawn.x, spawn.y);
+        if (distance <= range) {
+          inRange.push({ spawn, distance });
+        }
+      }
+    }
+
+    // Sort by distance
+    inRange.sort((a, b) => a.distance - b.distance);
+    return inRange.map(item => item.spawn);
   }
 
   /**
@@ -451,7 +815,7 @@ export class PokemonSpawnManager {
    * @returns True if under max capacity
    */
   canAddSpawn(): boolean {
-    return this.activeSpawns.length < SPAWN_CONFIG.MAX_ACTIVE_SPAWNS;
+    return this.spawnsById.size < SPAWN_CONFIG.MAX_ACTIVE_SPAWNS;
   }
 
   /**
@@ -461,102 +825,39 @@ export class PokemonSpawnManager {
    * @returns Remaining attempts (0-3), or -1 if not found
    */
   getRemainingAttempts(pokemonId: bigint): number {
-    const spawn = this.getSpawnById(pokemonId);
+    const spawn = this.spawnsById.get(pokemonId);
     if (!spawn) return -1;
     return SPAWN_CONFIG.MAX_ATTEMPTS - spawn.attemptCount;
+  }
+
+  /**
+   * Get all occupied slot indices.
+   *
+   * @returns Array of slot indices with active Pokemon
+   */
+  getOccupiedSlots(): number[] {
+    return Array.from(this.slotToId.keys());
+  }
+
+  /**
+   * Get available (empty) slot indices.
+   *
+   * @returns Array of slot indices without Pokemon
+   */
+  getAvailableSlots(): number[] {
+    const available: number[] = [];
+    for (let i = 0; i < SPAWN_CONFIG.MAX_ACTIVE_SPAWNS; i++) {
+      if (!this.slotToId.has(i)) {
+        available.push(i);
+      }
+    }
+    return available;
   }
 
   // ============================================================
   // VISUAL ENTITY MANAGEMENT
   // Creating, destroying, and animating Pokemon sprites
   // ============================================================
-
-  /**
-   * Create a visual Pokemon entity for a spawn.
-   *
-   * @param spawn - Spawn data to create entity for
-   * @returns The created Pokemon entity
-   */
-  private createPokemonEntity(spawn: PokemonSpawn): Pokemon {
-    const entity = new Pokemon(
-      this.scene,
-      spawn.x,
-      spawn.y,
-      spawn.id
-    );
-
-    // Create grass rustle effect to follow the Pokemon
-    this.createGrassRustle(spawn, entity);
-
-    console.log('[PokemonSpawnManager] Created Pokemon entity for:', spawn.id.toString());
-    return entity;
-  }
-
-  /**
-   * Create a grass rustle effect for a Pokemon spawn.
-   *
-   * @param spawn - Spawn to attach rustle to
-   * @param entity - Pokemon entity to follow
-   */
-  private createGrassRustle(spawn: PokemonSpawn, entity: Pokemon): void {
-    try {
-      const rustle = new GrassRustle(this.scene, entity);
-      spawn.grassRustle = rustle;
-      rustle.playRustle();
-      console.log('[PokemonSpawnManager] Created GrassRustle for:', spawn.id.toString());
-    } catch (error) {
-      console.warn('[PokemonSpawnManager] Failed to create GrassRustle:', error);
-    }
-  }
-
-  /**
-   * Destroy a Pokemon's visual entity and grass rustle effect.
-   * Plays despawn animation before destruction.
-   *
-   * @param spawn - Spawn with entity to destroy
-   */
-  private destroyPokemonEntity(spawn: PokemonSpawn): void {
-    // Stop and destroy grass rustle first
-    this.destroyGrassRustle(spawn);
-
-    if (!spawn.entity) return;
-
-    try {
-      // Try to play despawn animation if available
-      if (typeof spawn.entity.playDespawnAnimation === 'function') {
-        spawn.entity.playDespawnAnimation();
-        // Entity will destroy itself after animation
-      } else {
-        // Immediate destroy if no animation method
-        spawn.entity.destroy();
-      }
-
-      spawn.entity = undefined;
-      console.log('[PokemonSpawnManager] Destroyed Pokemon entity for:', spawn.id.toString());
-    } catch (error) {
-      console.warn('[PokemonSpawnManager] Error destroying entity:', error);
-      spawn.entity = undefined;
-    }
-  }
-
-  /**
-   * Destroy the grass rustle effect for a spawn.
-   *
-   * @param spawn - Spawn with rustle to destroy
-   */
-  private destroyGrassRustle(spawn: PokemonSpawn): void {
-    if (!spawn.grassRustle) return;
-
-    try {
-      spawn.grassRustle.stopRustle(true);
-      spawn.grassRustle.destroy();
-      spawn.grassRustle = undefined;
-      console.log('[PokemonSpawnManager] Destroyed GrassRustle for:', spawn.id.toString());
-    } catch (error) {
-      console.warn('[PokemonSpawnManager] Error destroying GrassRustle:', error);
-      spawn.grassRustle = undefined;
-    }
-  }
 
   /**
    * Animate a Pokemon entity moving to a new position (relocation).
@@ -616,25 +917,28 @@ export class PokemonSpawnManager {
 
   /**
    * Play visual effects when a Pokemon spawns.
-   * Currently a stub - will integrate with GrassRustle manager.
    *
    * @param spawn - The spawn to play effects for
    */
   private playSpawnEffects(spawn: PokemonSpawn): void {
-    // Stub: Will be implemented to trigger grass rustle animation
-    // and spawn particle effects via GrassRustleManager
     console.log('[PokemonSpawnManager] Playing spawn effects at:', spawn.x, spawn.y);
 
-    // Emit event for external systems (e.g., GrassRustleManager) to react
+    // Emit event for external systems (e.g., sound effects) to react
     this.scene.events.emit('pokemon-spawn-effects', {
       x: spawn.x,
       y: spawn.y,
       pokemonId: spawn.id,
+      slotIndex: spawn.slotIndex,
     });
 
     // If entity exists and has spawn animation, play it
     if (spawn.entity && typeof spawn.entity.playSpawnAnimation === 'function') {
       spawn.entity.playSpawnAnimation();
+    }
+
+    // Start grass rustle animation
+    if (spawn.grassRustle) {
+      spawn.grassRustle.playRustle();
     }
   }
 
@@ -661,20 +965,27 @@ export class PokemonSpawnManager {
    * Clear all spawns (used for cleanup or re-sync).
    */
   private clearAllSpawns(): void {
-    // Destroy all entities
-    for (const spawn of this.activeSpawns) {
-      if (spawn.entity) {
-        try {
+    // Return all entities to pool
+    for (const spawn of this.spawnsById.values()) {
+      if (spawn.entity && spawn.grassRustle) {
+        this.releaseEntityToPool(spawn.entity, spawn.grassRustle);
+      } else {
+        if (spawn.entity) {
           spawn.entity.destroy();
-        } catch (error) {
-          console.warn('[PokemonSpawnManager] Error destroying entity during clear:', error);
         }
-        spawn.entity = undefined;
+        if (spawn.grassRustle) {
+          spawn.grassRustle.stopRustle(true);
+          spawn.grassRustle.destroy();
+        }
       }
+      spawn.entity = undefined;
+      spawn.grassRustle = undefined;
     }
 
-    // Clear array
-    this.activeSpawns = [];
+    // Clear collections
+    this.spawnsById.clear();
+    this.slotToId.clear();
+    this.spatialGrid.clear();
 
     console.log('[PokemonSpawnManager] Cleared all spawns');
   }
@@ -683,13 +994,14 @@ export class PokemonSpawnManager {
    * Update loop - called from GameScene.update().
    * Updates visual entities and checks for state changes.
    *
-   * @param delta - Time since last frame in ms
+   * @param _delta - Time since last frame in ms
    */
-  update(delta: number): void {
+  update(_delta: number): void {
     // Update each Pokemon entity if it has an update method
-    for (const spawn of this.activeSpawns) {
+    // Note: With pooling, we only update entities that are in use
+    for (const spawn of this.spawnsById.values()) {
       if (spawn.entity && typeof spawn.entity.update === 'function') {
-        spawn.entity.update(delta);
+        spawn.entity.update(_delta);
       }
     }
   }
@@ -700,14 +1012,45 @@ export class PokemonSpawnManager {
    */
   destroy(): void {
     this.clearAllSpawns();
+
+    // Destroy pooled entities
+    for (const pooled of this.entityPool) {
+      if (pooled.grassRustle && !pooled.grassRustle.scene) continue;
+      try {
+        pooled.grassRustle.destroy();
+      } catch { /* ignore */ }
+      try {
+        pooled.pokemon.destroy();
+      } catch { /* ignore */ }
+    }
+    this.entityPool = [];
+
     this.isInitialized = false;
     console.log('[PokemonSpawnManager] Destroyed');
   }
 
   // ============================================================
-  // DEBUG METHODS
-  // For development and testing
+  // STATISTICS & DEBUG METHODS
   // ============================================================
+
+  /**
+   * Get spawn statistics for monitoring.
+   */
+  getStats(): {
+    activeCount: number;
+    maxCount: number;
+    poolSize: number;
+    poolInUse: number;
+    gridCells: number;
+  } {
+    return {
+      activeCount: this.spawnsById.size,
+      maxCount: SPAWN_CONFIG.MAX_ACTIVE_SPAWNS,
+      poolSize: this.entityPool.length,
+      poolInUse: this.entityPool.filter(e => e.inUse).length,
+      gridCells: this.spatialGrid.size,
+    };
+  }
 
   /**
    * Log current state for debugging.
@@ -715,9 +1058,13 @@ export class PokemonSpawnManager {
   debugLogState(): void {
     console.log('[PokemonSpawnManager] Debug State:');
     console.log('  - Initialized:', this.isInitialized);
-    console.log('  - Active spawns:', this.activeSpawns.length);
-    for (const spawn of this.activeSpawns) {
-      console.log(`    - ID: ${spawn.id.toString()}, Pos: (${spawn.x}, ${spawn.y}), Attempts: ${spawn.attemptCount}, HasEntity: ${!!spawn.entity}`);
+    console.log('  - Active spawns:', this.spawnsById.size, '/', SPAWN_CONFIG.MAX_ACTIVE_SPAWNS);
+    console.log('  - Pool size:', this.entityPool.length, 'in use:', this.entityPool.filter(e => e.inUse).length);
+    console.log('  - Spatial grid cells:', this.spatialGrid.size);
+    console.log('  - Occupied slots:', Array.from(this.slotToId.keys()).join(', '));
+    console.log('  - Spawns:');
+    for (const spawn of this.spawnsById.values()) {
+      console.log(`    - ID: ${spawn.id.toString()}, Slot: ${spawn.slotIndex}, Pos: (${spawn.x}, ${spawn.y}), Attempts: ${spawn.attemptCount}, HasEntity: ${!!spawn.entity}`);
     }
   }
 }
