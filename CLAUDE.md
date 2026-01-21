@@ -652,6 +652,26 @@ Visual debugging for spawn system testing:
 - **Slot Labels**: Yellow `[0]`, `[1]`, etc. above each Pokemon
 - **Stats Overlay**: Fixed panel showing active count, pool usage, occupied slots
 - **Console Logging**: Detailed spawn/remove events with position and ID
+- **Debug Beacons**: Large pulsing colored circles at spawn positions (high visibility)
+
+**Debug Beacons:**
+Visual markers that appear at spawn positions regardless of entity rendering:
+```typescript
+// Colors cycle by slot index: red, green, blue, yellow, magenta, cyan
+const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
+
+// Beacon properties:
+- Radius: 24 pixels
+- Depth: 500 (above all game layers)
+- Alpha: 0.4-0.8 (pulsing)
+- Scale: 0.8-1.2 (pulsing)
+- White stroke: 3px border
+```
+
+Beacons are useful for diagnosing:
+- Coordinate transformation issues (beacons appear but Pokemon don't)
+- Camera/depth rendering problems (beacons visible when entities aren't)
+- Position verification (confirm spawns are in expected locations)
 
 **Debug Mode Usage:**
 ```typescript
@@ -985,6 +1005,27 @@ interface GameCanvasProps {
 - Handles race condition: buffers spawns if they arrive before scene is ready
 - Exposes game instance as `window.__PHASER_GAME__` for debugging
 - Forwards Phaser events (`show-trade-modal`, `pokemon-clicked`) to React callbacks
+- **Coordinate Scaling**: Transforms contract coordinates (0-999) to game world pixels (0-2400)
+
+**Coordinate System:**
+
+The contract and game use different coordinate systems:
+- **Contract**: 0-999 (`MAX_COORDINATE = 999`) - compact uint16 storage
+- **Game World**: 0-2400 pixels (150 tiles × 16 pixels)
+
+The `scaleContractToWorld()` function handles this transformation:
+```typescript
+const CONTRACT_MAX_COORDINATE = 999;
+
+function scaleContractToWorld(contractCoord: number, worldSize: number): number {
+  const margin = TILE_SIZE;  // 16px margin to avoid edge spawns
+  const usableSize = worldSize - margin * 2;
+  const scaled = (contractCoord / CONTRACT_MAX_COORDINATE) * usableSize + margin;
+  return Math.floor(scaled);
+}
+
+// Example: Contract (500, 500) → Game (~1200, 1200) pixels (near center)
+```
 
 **Web3 → Phaser Sync Flow:**
 ```
@@ -994,6 +1035,8 @@ contractSpawns changes → useEffect triggers
     ↓
 syncSpawnsToManager() called
     ↓
+toManagerSpawn() scales coordinates (0-999 → 0-2400)
+    ↓
 If scene ready: manager.syncFromContract(spawns, worldBounds)
 If scene not ready: buffer to pendingSpawnsRef
     ↓
@@ -1001,7 +1044,8 @@ On scene 'create' event: flush buffered spawns
 ```
 
 **Key Functions:**
-- `toManagerSpawn(contract)` - Converts contract spawn format to manager format
+- `scaleContractToWorld(coord, worldSize)` - Scales contract coordinate to game world pixels
+- `toManagerSpawn(contract)` - Converts contract spawn format to manager format with coordinate scaling
 - `syncSpawnsToManager(spawns)` - Syncs to `PokemonSpawnManager` with buffering
 - `setupSceneListeners(scene)` - Attaches event listeners and flushes pending spawns
 
