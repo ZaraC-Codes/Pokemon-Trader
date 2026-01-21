@@ -751,7 +751,7 @@ POKEMON_CONFIG = {
 ```
 
 ### GrassRustle Entity (Frontend)
-Animated grass rustle effect beneath wild Pokemon:
+Animated grass rustle effect beneath wild Pokemon - the primary visual indicator for spawn locations:
 
 **Location:** `src/game/entities/GrassRustle.ts`
 
@@ -770,12 +770,34 @@ Animated grass rustle effect beneath wild Pokemon:
 **Features:**
 - Auto-follows Pokemon position via scene update listener
 - Fallback pulsing animation if sprite animation not defined
-- Renders below Pokemon (depth 8 vs 10)
+- Renders just below Pokemon (depth 9 vs 10)
 - Supports object pooling for efficient reuse
+- **Enhanced visual effect** with kicked-up grass blades and particles
+
+**Visual Elements:**
+- 5 swaying grass blades (varying heights, alternating sway directions)
+- 3 floating grass particles that rise and fall
+- Small dust/debris particles for added motion
+- Dark grass base at ground level
+- All elements animate in sync at 10fps
+
+**Configuration:**
+```typescript
+GRASS_RUSTLE_CONFIG = {
+  DEPTH: 9,              // Just below Pokemon
+  Y_OFFSET: 4,           // Position at Pokemon's feet
+  FRAME_RATE: 10,        // Animation speed
+  FADE_IN_DURATION: 150,
+  FADE_OUT_DURATION: 100,
+  SCALE: 1.5,            // Larger for visibility
+  VISIBLE_ALPHA: 1.0,    // Fully opaque
+}
+```
 
 **Texture Requirements:**
-- `grass-rustle`: 4-frame sprite sheet (16x16 each)
-- Animation `grass-rustle-anim` created in GameScene
+- `grass-rustle`: 4-frame sprite sheet (24x24 each, 96x24 total)
+- `grass-particle`: Small grass blade texture (4x6) for future particle effects
+- Animation `grass-rustle-anim` created in GameScene.create()
 
 ### BallInventoryManager (Frontend)
 Client-side manager for tracking player's PokeBall inventory:
