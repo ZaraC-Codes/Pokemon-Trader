@@ -45,20 +45,20 @@ import type { Pokemon } from './Pokemon';
 // ============================================================
 
 const GRASS_RUSTLE_CONFIG = {
-  /** Depth layer (below Pokemon) */
-  DEPTH: 8,
-  /** Y offset from Pokemon position */
-  Y_OFFSET: 8,
+  /** Depth layer (below Pokemon but above ground) */
+  DEPTH: 9,
+  /** Y offset from Pokemon position (grass appears at feet) */
+  Y_OFFSET: 4,
   /** Animation frame rate */
-  FRAME_RATE: 8,
+  FRAME_RATE: 10,
   /** Fade in duration when starting */
-  FADE_IN_DURATION: 200,
+  FADE_IN_DURATION: 150,
   /** Fade out duration when stopping */
-  FADE_OUT_DURATION: 150,
-  /** Scale of the rustle effect */
-  SCALE: 1.2,
-  /** Alpha when fully visible */
-  VISIBLE_ALPHA: 0.8,
+  FADE_OUT_DURATION: 100,
+  /** Scale of the rustle effect (larger for more visibility) */
+  SCALE: 1.5,
+  /** Alpha when fully visible (fully opaque for better visibility) */
+  VISIBLE_ALPHA: 1.0,
 } as const;
 
 // ============================================================

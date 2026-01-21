@@ -765,45 +765,77 @@ export class GameScene extends Scene {
     pokemonTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
 
     // Grass rustle sprite sheet (4 frames for animation)
-    // 16x16 pixels per frame, arranged horizontally: total 64x16
+    // 24x24 pixels per frame for more visible effect, arranged horizontally: total 96x24
     const grassRustleGraphics = this.make.graphics({ x: 0, y: 0 });
     for (let frame = 0; frame < 4; frame++) {
-      const offsetX = frame * 16;
-      // Base grass color
-      grassRustleGraphics.fillStyle(0x88cc44, 0.8);
+      const offsetX = frame * 24;
 
-      // Draw rustling grass blades that vary by frame
-      const bladeOffset = frame % 2 === 0 ? 0 : 1;
+      // Animation phase determines blade positions and kicked-up particles
+      const phase = frame / 4; // 0, 0.25, 0.5, 0.75
+      const sway = Math.sin(phase * Math.PI * 2) * 3;
+      const kickHeight = Math.abs(Math.sin(phase * Math.PI * 2)) * 4;
 
-      // Left blade
-      grassRustleGraphics.fillStyle(0x66aa33, 1);
-      grassRustleGraphics.fillTriangle(
-        offsetX + 3 + bladeOffset, 14,
-        offsetX + 5, 4 + bladeOffset,
-        offsetX + 7 - bladeOffset, 14
-      );
+      // Ground-level grass base (darker)
+      grassRustleGraphics.fillStyle(0x558822, 1);
+      grassRustleGraphics.fillRect(offsetX + 4, 20, 16, 4);
 
-      // Center blade
-      grassRustleGraphics.fillStyle(0x77bb33, 1);
-      grassRustleGraphics.fillTriangle(
-        offsetX + 6 - bladeOffset, 14,
-        offsetX + 8, 2 + bladeOffset,
-        offsetX + 10 + bladeOffset, 14
-      );
+      // Main rustling grass blades (5 blades for fuller effect)
+      const bladeColors = [0x55aa22, 0x66bb33, 0x77cc44, 0x66bb33, 0x55aa22];
+      const bladePositions = [2, 6, 12, 16, 20];
 
-      // Right blade
-      grassRustleGraphics.fillStyle(0x66aa33, 1);
-      grassRustleGraphics.fillTriangle(
-        offsetX + 9 - bladeOffset, 14,
-        offsetX + 11, 4 + bladeOffset,
-        offsetX + 13 + bladeOffset, 14
-      );
+      for (let b = 0; b < 5; b++) {
+        const baseX = offsetX + bladePositions[b];
+        const bladeSway = sway * (b % 2 === 0 ? 1 : -1) * 0.7;
+        const bladeHeight = 10 + (b === 2 ? 4 : 0); // Center blade taller
+
+        grassRustleGraphics.fillStyle(bladeColors[b], 1);
+        grassRustleGraphics.fillTriangle(
+          baseX + bladeSway, 22,                    // Base left
+          baseX + 2 + bladeSway * 1.5, 22 - bladeHeight - kickHeight * 0.5, // Tip
+          baseX + 4 + bladeSway, 22                 // Base right
+        );
+      }
+
+      // Kicked-up grass particles floating upward (frame-dependent positions)
+      const particleColor = 0x88dd55;
+      grassRustleGraphics.fillStyle(particleColor, 0.9);
+
+      // Particle 1 - left side, rises and falls
+      const p1Y = 16 - kickHeight * 2 - (frame === 1 ? 4 : frame === 2 ? 6 : frame === 3 ? 3 : 0);
+      grassRustleGraphics.fillRect(offsetX + 3 + sway, p1Y, 2, 3);
+
+      // Particle 2 - right side, opposite phase
+      const p2Y = 14 - kickHeight * 1.5 - (frame === 0 ? 2 : frame === 1 ? 5 : frame === 2 ? 4 : 1);
+      grassRustleGraphics.fillRect(offsetX + 18 - sway, p2Y, 2, 3);
+
+      // Particle 3 - center, highest kick
+      const p3Y = 10 - kickHeight * 2.5 - (frame === 2 ? 6 : frame === 3 ? 4 : frame === 0 ? 2 : 5);
+      grassRustleGraphics.fillStyle(0x99ee66, 0.8);
+      grassRustleGraphics.fillRect(offsetX + 11 + sway * 0.5, p3Y, 2, 2);
+
+      // Small dust/debris particles
+      grassRustleGraphics.fillStyle(0xccdd99, 0.6);
+      if (frame === 1 || frame === 3) {
+        grassRustleGraphics.fillCircle(offsetX + 7 - sway, 12 - kickHeight, 1);
+        grassRustleGraphics.fillCircle(offsetX + 17 + sway, 14 - kickHeight * 0.8, 1);
+      }
+      if (frame === 0 || frame === 2) {
+        grassRustleGraphics.fillCircle(offsetX + 5, 8 - kickHeight * 1.2, 1);
+        grassRustleGraphics.fillCircle(offsetX + 19, 10 - kickHeight, 1);
+      }
     }
-    grassRustleGraphics.generateTexture('grass-rustle', 64, 16);
+    grassRustleGraphics.generateTexture('grass-rustle', 96, 24);
     grassRustleGraphics.destroy();
 
     const grassRustleTexture = this.textures.get('grass-rustle');
     grassRustleTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    // Create a grass particle texture for additional effects
+    const grassParticleGraphics = this.make.graphics({ x: 0, y: 0 });
+    grassParticleGraphics.fillStyle(0x77cc44, 1);
+    grassParticleGraphics.fillTriangle(0, 6, 2, 0, 4, 6); // Small grass blade shape
+    grassParticleGraphics.generateTexture('grass-particle', 4, 6);
+    grassParticleGraphics.destroy();
   }
 
   private createTileSprites(): void {
@@ -980,18 +1012,18 @@ export class GameScene extends Scene {
     // First, add frames to the grass-rustle texture manually
     const grassRustleTexture = this.textures.get('grass-rustle');
     if (grassRustleTexture) {
-      // Add 4 frames (16x16 each) to the texture
+      // Add 4 frames (24x24 each) to the texture
       for (let i = 0; i < 4; i++) {
-        grassRustleTexture.add(i, 0, i * 16, 0, 16, 16);
+        grassRustleTexture.add(i, 0, i * 24, 0, 24, 24);
       }
-      // Create the animation
+      // Create the animation with slightly faster framerate for more dynamic movement
       this.anims.create({
         key: 'grass-rustle-anim',
         frames: this.anims.generateFrameNumbers('grass-rustle', { start: 0, end: 3 }),
-        frameRate: 8,
+        frameRate: 10, // Faster for more energetic rustling
         repeat: -1,
       });
-      console.log('[GameScene] Grass rustle animation created');
+      console.log('[GameScene] Grass rustle animation created (24x24 frames)');
     } else {
       console.warn('[GameScene] grass-rustle texture not found');
     }
