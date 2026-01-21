@@ -1274,13 +1274,15 @@ const handlePokemonClick = (spawn: PokemonSpawn) => {
 
 **App.tsx Integration (already wired):**
 The CatchAttemptModal is integrated in App.tsx via:
-1. `GameCanvas` emits `pokemon-clicked` event with `PokemonClickData`
-2. `App.tsx` (AppContent) listens via `onPokemonClick` prop
-3. State `selectedPokemon` controls modal open/close
-4. `useActiveWeb3React()` provides `account` for playerAddress
+1. `GameCanvas` emits `pokemon-catch-ready` event when player is in range
+2. `GameCanvas` emits `catch-out-of-range` event when player is too far
+3. `App.tsx` (AppContent) listens via `onPokemonClick` and `onCatchOutOfRange` props
+4. State `selectedPokemon` controls modal open/close
+5. Toast notification system shows "Move closer to the Pokémon!" warning
+6. `useActiveWeb3React()` provides `account` for playerAddress
 
 ```typescript
-// GameCanvas emits:
+// GameCanvas emits (only when player is in range):
 interface PokemonClickData {
   pokemonId: bigint;
   slotIndex: number;
@@ -1289,13 +1291,18 @@ interface PokemonClickData {
   y: number;
 }
 
-// App.tsx handles:
+// App.tsx handles in-range click:
 const handlePokemonClick = (data: PokemonClickData) => {
   setSelectedPokemon({
     pokemonId: data.pokemonId,
     slotIndex: data.slotIndex,
     attemptsRemaining: 3 - data.attemptCount,
   });
+};
+
+// App.tsx handles out-of-range click:
+const handleCatchOutOfRange = (_data: CatchOutOfRangeData) => {
+  addToast('Move closer to the Pokémon!', 'warning');
 };
 ```
 
