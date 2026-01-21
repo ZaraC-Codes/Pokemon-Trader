@@ -1129,7 +1129,7 @@ function AppContent() {
 **Responsive Layout (coordinated with WalletConnector):**
 | Breakpoint | Layout |
 |------------|--------|
-| Desktop (>900px) | HUD to the left of wallet (`right: 220px`), same row |
+| Desktop (>900px) | HUD to the left of wallet (`right: 280px`), same row |
 | Tablet (≤900px) | HUD moves below wallet (`top: 70px`) |
 | Mobile (≤768px) | HUD below wallet (`top: 60px`), stacks vertically |
 | Small mobile (≤480px) | Compact spacing, smaller panels |

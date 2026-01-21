@@ -76,7 +76,7 @@ const responsiveStyles = `
   .game-hud-container {
     position: fixed;
     top: 12px;
-    right: 220px; /* Leave space for wallet button (~200px) + margin */
+    right: 280px; /* Leave space for RainbowKit wallet button (~260px) + margin */
     z-index: 100;
     font-family: 'Courier New', monospace;
     image-rendering: pixelated;
