@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import Phaser from 'phaser';
 import { GameScene } from '../game/scenes/GameScene';
-import { gameConfig } from '../game/config/gameConfig';
+import { gameConfig, MAP_WIDTH, MAP_HEIGHT, TILE_SIZE } from '../game/config/gameConfig';
 import type { TradeListing } from '../services/contractService';
+import { useGetPokemonSpawns, type PokemonSpawn as ContractPokemonSpawn } from '../hooks/pokeballGame/useGetPokemonSpawns';
+import type { PokemonSpawn as ManagerPokemonSpawn } from '../game/managers/PokemonSpawnManager';
 
 /** Data emitted when a Pokemon is clicked in the Phaser scene */
 export interface PokemonClickData {
@@ -20,11 +22,35 @@ interface GameCanvasProps {
   // onMusicToggle?: () => void;
 }
 
+/**
+ * Convert contract spawn format to PokemonSpawnManager format.
+ * The contract returns position in pixels, timestamp in Unix seconds.
+ */
+function toManagerSpawn(contract: ContractPokemonSpawn): ManagerPokemonSpawn {
+  return {
+    id: contract.id,
+    slotIndex: contract.slotIndex,
+    x: contract.x,
+    y: contract.y,
+    attemptCount: contract.attemptCount,
+    timestamp: Number(contract.spawnTime) * 1000, // Convert seconds to ms
+    // entity and grassRustle are set by PokemonSpawnManager
+  };
+}
+
 export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onTradeClickRef = useRef(onTradeClick);
   const onPokemonClickRef = useRef(onPokemonClick);
+
+  // Track whether the scene is ready (pokemonSpawnManager has been created)
+  const sceneReadyRef = useRef<boolean>(false);
+  // Buffer to hold spawns if they arrive before scene is ready
+  const pendingSpawnsRef = useRef<ContractPokemonSpawn[] | null>(null);
+
+  // Fetch on-chain Pokemon spawns (polls every 5 seconds)
+  const { data: contractSpawns, isLoading: spawnsLoading } = useGetPokemonSpawns();
 
   // Keep the callback refs updated without causing re-renders
   useEffect(() => {
@@ -34,6 +60,35 @@ export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasP
   useEffect(() => {
     onPokemonClickRef.current = onPokemonClick;
   }, [onPokemonClick]);
+
+  /**
+   * Sync spawns to PokemonSpawnManager.
+   * Handles race condition: if scene isn't ready, buffers spawns for later.
+   */
+  const syncSpawnsToManager = useCallback((spawns: ContractPokemonSpawn[]) => {
+    const game = gameRef.current;
+    if (!game) return;
+
+    const scene = game.scene.getScene('GameScene') as GameScene | undefined;
+    const manager = scene?.getPokemonSpawnManager();
+
+    if (!manager) {
+      // Scene not ready yet - buffer the spawns
+      console.log('[GameCanvas] Scene not ready, buffering', spawns.length, 'spawns');
+      pendingSpawnsRef.current = spawns;
+      return;
+    }
+
+    // Convert to manager format and sync
+    const managerSpawns = spawns.map(toManagerSpawn);
+    const worldBounds = {
+      width: MAP_WIDTH * TILE_SIZE,
+      height: MAP_HEIGHT * TILE_SIZE,
+    };
+
+    console.log('[GameCanvas] Syncing', managerSpawns.length, 'spawns to PokemonSpawnManager');
+    manager.syncFromContract(managerSpawns, worldBounds);
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
@@ -48,13 +103,14 @@ export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasP
     // Create Phaser game instance
     const game = new Phaser.Game(config);
     gameRef.current = game;
-    
+
     // Expose game instance to window for volume control
     (window as any).__PHASER_GAME__ = game;
 
-    // Listen for trade icon clicks from the scene
-    const gameScene = game.scene.getScene('GameScene') as GameScene;
-    if (gameScene) {
+    // Wait for scene to start before attaching listeners
+    // Phaser's scene.getScene() returns the scene immediately, but it may not be initialized
+    // We need to wait for the 'create' event which fires after create() completes
+    const setupSceneListeners = (gameScene: GameScene) => {
       // Use ref to avoid re-registering the event listener
       gameScene.events.on('show-trade-modal', (listing: TradeListing) => {
         if (onTradeClickRef.current) {
@@ -69,18 +125,54 @@ export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasP
         }
       });
 
-      // Music disabled
+      // Mark scene as ready and flush any pending spawns
+      sceneReadyRef.current = true;
+      console.log('[GameCanvas] Scene is ready, manager available:', !!gameScene.getPokemonSpawnManager());
+
+      if (pendingSpawnsRef.current) {
+        console.log('[GameCanvas] Flushing', pendingSpawnsRef.current.length, 'buffered spawns');
+        syncSpawnsToManager(pendingSpawnsRef.current);
+        pendingSpawnsRef.current = null;
+      }
+    };
+
+    // Try to get the scene - it may or may not be ready
+    const gameScene = game.scene.getScene('GameScene') as GameScene | undefined;
+
+    if (gameScene && gameScene.scene.isActive()) {
+      // Scene is already active (rare, but handle it)
+      setupSceneListeners(gameScene);
+    } else {
+      // Wait for scene to start - listen on the scene manager
+      game.events.once('ready', () => {
+        const scene = game.scene.getScene('GameScene') as GameScene;
+        if (scene) {
+          // Wait for create() to complete
+          scene.events.once('create', () => {
+            setupSceneListeners(scene);
+          });
+        }
+      });
     }
 
     // Cleanup only on unmount
     return () => {
+      sceneReadyRef.current = false;
       if (gameRef.current) {
         gameRef.current.destroy(true);
         gameRef.current = null;
         (window as any).__PHASER_GAME__ = null;
       }
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, [syncSpawnsToManager]); // Include syncSpawnsToManager in deps
+
+  // Sync spawns whenever contract data changes
+  useEffect(() => {
+    if (!contractSpawns || spawnsLoading) return;
+
+    // Sync to manager (handles buffering if scene not ready)
+    syncSpawnsToManager(contractSpawns);
+  }, [contractSpawns, spawnsLoading, syncSpawnsToManager]);
 
   return (
     <div

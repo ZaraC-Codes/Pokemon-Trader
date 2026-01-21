@@ -28,7 +28,8 @@ export class GameScene extends Scene {
   private mapManager?: MapManager;
   private tradeIconManager?: TradeIconManager;
   private npcManager?: NPCManager;
-  private pokemonSpawnManager?: PokemonSpawnManager;
+  /** Exposed for React/Web3 sync - use getPokemonSpawnManager() for safe access */
+  public pokemonSpawnManager?: PokemonSpawnManager;
   private catchMechanicsManager?: CatchMechanicsManager;
   private backgroundMusic?: ChiptuneMusic;
   private mp3Music?: MP3Music;
@@ -43,6 +44,14 @@ export class GameScene extends Scene {
 
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  /**
+   * Safe accessor for PokemonSpawnManager.
+   * Returns undefined if scene hasn't finished create() yet.
+   */
+  getPokemonSpawnManager(): PokemonSpawnManager | undefined {
+    return this.pokemonSpawnManager;
   }
 
   preload(): void {

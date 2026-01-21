@@ -42,7 +42,8 @@ npm run preview      # Preview production build
 npx hardhat compile  # Compile Solidity contracts
 npx hardhat test     # Run contract tests
 npx hardhat run contracts/deployment/deployProxies.cjs --network apechain  # Deploy both contracts
-npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 initial Pokemon
+npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 initial Pokemon (slots 0-2)
+npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Pokemon in slots 3-19 (v1.2.0)
 ```
 
 ## Project Structure
@@ -50,7 +51,7 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 ```
 ├── src/                     # Main source code
 │   ├── components/              # React UI components
-│   │   ├── GameCanvas.tsx           # Phaser game wrapper
+│   │   ├── GameCanvas.tsx           # Phaser game wrapper + Web3 spawn sync
 │   │   ├── WalletConnector.tsx      # Wallet connection
 │   │   ├── TradeModal.tsx           # Trade listing details
 │   │   ├── InventoryTerminal.tsx    # NFT inventory UI
@@ -158,7 +159,8 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 │   └── claude_agents.md         # Claude agent integration
 │
 ├── scripts/                 # Hardhat scripts
-│   └── spawnInitialPokemon.cjs  # Spawn 3 initial Pokemon on-chain
+│   ├── spawnInitialPokemon.cjs  # Spawn 3 initial Pokemon (slots 0-2)
+│   └── spawnMorePokemon.cjs     # Spawn Pokemon in slots 3-19 (v1.2.0)
 │
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
@@ -171,7 +173,7 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 | File | Purpose |
 |------|---------|
 | `src/App.tsx` | Root component with Web3 providers |
-| `src/game/scenes/GameScene.ts` | Main game logic and rendering |
+| `src/game/scenes/GameScene.ts` | Main game logic, rendering, exposes `getPokemonSpawnManager()` |
 | `src/services/apechainConfig.ts` | ApeChain network configuration |
 | `src/services/pokeballGameConfig.ts` | Centralized PokeballGame on-chain config |
 | `src/services/thirdwebConfig.ts` | ThirdWeb SDK v5 client & chain config |
@@ -188,7 +190,8 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `contracts/deployment/upgrade_PokeballGameV2.cjs` | Upgrade to v1.2.0 (20 Pokemon) |
-| `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon on-chain |
+| `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
+| `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 | `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
@@ -584,14 +587,20 @@ this.input.keyboard?.on('keydown-F3', () => {
 this.pokemonSpawnManager?.updateDebug();
 ```
 
-**Integration Example:**
+**Integration Example (GameCanvas.tsx handles this automatically):**
 ```typescript
-// In GameScene.create():
-this.pokemonSpawnManager = new PokemonSpawnManager(this);
+// GameCanvas.tsx syncs spawns via useGetPokemonSpawns() hook:
+const { data: contractSpawns } = useGetPokemonSpawns();
 
-// From React Web3 listener:
-pokemonSpawnManager.syncFromContract(contractSpawns);
-pokemonSpawnManager.onCaughtPokemon(BigInt(pokemonId));
+useEffect(() => {
+  if (contractSpawns) {
+    const manager = scene.getPokemonSpawnManager();
+    manager?.syncFromContract(contractSpawns.map(toManagerSpawn), worldBounds);
+  }
+}, [contractSpawns]);
+
+// Access manager from browser console:
+window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()
 
 // Listen for events in React:
 scene.events.on('pokemon-caught', (data) => {
@@ -875,6 +884,63 @@ import { PokeBallShop } from './components/PokeBallShop';
 - `usePlayerBallInventory(address)` - Read inventory
 - `useApeBalance(address)` - APE balance
 - `useUsdcBalance(address)` - USDC.e balance
+
+### GameCanvas Component
+React ⇄ Phaser bridge component that mounts the game and syncs Web3 data:
+
+**Location:** `src/components/GameCanvas.tsx`
+
+**Props:**
+```typescript
+interface GameCanvasProps {
+  onTradeClick?: (listing: TradeListing) => void;
+  onPokemonClick?: (data: PokemonClickData) => void;
+}
+```
+
+**Features:**
+- Mounts Phaser game with `GameScene`
+- Syncs on-chain Pokemon spawns to `PokemonSpawnManager` via `useGetPokemonSpawns()`
+- Handles race condition: buffers spawns if they arrive before scene is ready
+- Exposes game instance as `window.__PHASER_GAME__` for debugging
+- Forwards Phaser events (`show-trade-modal`, `pokemon-clicked`) to React callbacks
+
+**Web3 → Phaser Sync Flow:**
+```
+useGetPokemonSpawns() polls contract (5s interval)
+    ↓
+contractSpawns changes → useEffect triggers
+    ↓
+syncSpawnsToManager() called
+    ↓
+If scene ready: manager.syncFromContract(spawns, worldBounds)
+If scene not ready: buffer to pendingSpawnsRef
+    ↓
+On scene 'create' event: flush buffered spawns
+```
+
+**Key Functions:**
+- `toManagerSpawn(contract)` - Converts contract spawn format to manager format
+- `syncSpawnsToManager(spawns)` - Syncs to `PokemonSpawnManager` with buffering
+- `setupSceneListeners(scene)` - Attaches event listeners and flushes pending spawns
+
+**Console Logs (for debugging):**
+- `[GameCanvas] Scene is ready, manager available: true`
+- `[GameCanvas] Syncing X spawns to PokemonSpawnManager`
+- `[GameCanvas] Scene not ready, buffering X spawns`
+- `[GameCanvas] Flushing X buffered spawns`
+
+**Debug Access:**
+```javascript
+// Access game instance
+window.__PHASER_GAME__
+
+// Access PokemonSpawnManager
+window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()
+
+// Enable debug mode
+window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()?.setDebugMode(true)
+```
 
 ### GameHUD Component
 Heads-up display overlay for the game, showing real-time inventory and spawn info:
