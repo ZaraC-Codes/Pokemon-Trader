@@ -23,28 +23,61 @@ interface GameCanvasProps {
 }
 
 /**
+ * Contract coordinate system constants.
+ * The contract uses a 0-999 coordinate space for Pokemon positions.
+ */
+const CONTRACT_MAX_COORDINATE = 999;
+
+/**
+ * Convert contract coordinates (0-999) to game world pixels.
+ * Game world is MAP_WIDTH * TILE_SIZE x MAP_HEIGHT * TILE_SIZE pixels.
+ *
+ * @param contractCoord - Coordinate from contract (0-999)
+ * @param worldSize - Game world size in pixels (e.g., 2400)
+ * @returns Scaled coordinate in game world pixels
+ */
+function scaleContractToWorld(contractCoord: number, worldSize: number): number {
+  // Scale from 0-999 to 0-worldSize
+  // Add a small margin (1 tile) to avoid spawning at exact edges
+  const margin = TILE_SIZE;
+  const usableSize = worldSize - margin * 2;
+  const scaled = (contractCoord / CONTRACT_MAX_COORDINATE) * usableSize + margin;
+  return Math.floor(scaled);
+}
+
+/**
  * Convert contract spawn format to PokemonSpawnManager format.
- * The contract returns position in pixels, timestamp in Unix seconds.
+ * The contract returns position in 0-999 range, timestamp in Unix seconds.
+ * Positions are scaled to match the game world size.
  */
 function toManagerSpawn(contract: ContractPokemonSpawn, index: number): ManagerPokemonSpawn {
+  // Calculate world dimensions
+  const worldWidth = MAP_WIDTH * TILE_SIZE;   // 150 * 16 = 2400
+  const worldHeight = MAP_HEIGHT * TILE_SIZE; // 150 * 16 = 2400
+
+  // Scale contract coordinates (0-999) to game world pixels
+  const scaledX = scaleContractToWorld(contract.x, worldWidth);
+  const scaledY = scaleContractToWorld(contract.y, worldHeight);
+
   // Diagnostic logging for debugging spawn sync issues
   if (index < 3) {
     console.log(`[GameCanvas] toManagerSpawn[${index}] input:`, {
       id: contract.id?.toString() ?? 'undefined',
       slotIndex: contract.slotIndex,
-      x: contract.x,
-      y: contract.y,
+      contractX: contract.x,
+      contractY: contract.y,
       attemptCount: contract.attemptCount,
       isActive: contract.isActive,
       spawnTime: contract.spawnTime?.toString() ?? 'undefined',
     });
+    console.log(`[GameCanvas] toManagerSpawn[${index}] scaling: (${contract.x}, ${contract.y}) -> (${scaledX}, ${scaledY})`);
   }
 
   const result: ManagerPokemonSpawn = {
     id: contract.id,
     slotIndex: contract.slotIndex,
-    x: contract.x,
-    y: contract.y,
+    x: scaledX,
+    y: scaledY,
     attemptCount: contract.attemptCount,
     timestamp: Number(contract.spawnTime) * 1000, // Convert seconds to ms
     // entity and grassRustle are set by PokemonSpawnManager

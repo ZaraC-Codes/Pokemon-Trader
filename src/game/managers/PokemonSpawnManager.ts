@@ -133,6 +133,9 @@ export class PokemonSpawnManager {
   /** Debug overlay container for stats display */
   private debugOverlay?: Phaser.GameObjects.Container;
 
+  /** Debug beacon markers (always visible circles at spawn positions) */
+  private debugBeacons: Map<bigint, Phaser.GameObjects.Arc> = new Map();
+
   constructor(scene: GameScene) {
     this.scene = scene;
 
@@ -1081,6 +1084,7 @@ export class PokemonSpawnManager {
     // Clean up debug mode visuals
     this.destroyDebugOverlay();
     this.destroyAllDebugLabels();
+    this.destroyAllDebugBeacons();
 
     this.clearAllSpawns();
 
@@ -1216,10 +1220,11 @@ export class PokemonSpawnManager {
 
     if (enabled) {
       this.createDebugOverlay();
-      this.createAllDebugLabels();
+      this.createAllDebugLabels(); // Also creates beacons
     } else {
       this.destroyDebugOverlay();
       this.destroyAllDebugLabels();
+      this.destroyAllDebugBeacons();
     }
   }
 
@@ -1316,7 +1321,64 @@ export class PokemonSpawnManager {
   private createAllDebugLabels(): void {
     for (const spawn of this.spawnsById.values()) {
       this.createDebugLabel(spawn);
+      this.createDebugBeacon(spawn);
     }
+  }
+
+  /**
+   * Create a debug beacon (large colored circle) at spawn position.
+   * These are hard-to-miss visual markers to confirm rendering is working.
+   */
+  private createDebugBeacon(spawn: PokemonSpawn): void {
+    if (!this.debugMode) return;
+    if (this.debugBeacons.has(spawn.id)) return;
+
+    // Create a large, pulsing circle at the spawn position
+    // Use bright colors that stand out against any background
+    const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
+    const color = colors[spawn.slotIndex % colors.length];
+
+    const beacon = this.scene.add.circle(spawn.x, spawn.y, 24, color, 0.6);
+    beacon.setDepth(500); // High depth to ensure visibility
+    beacon.setStrokeStyle(3, 0xffffff, 1);
+
+    // Add pulsing animation
+    this.scene.tweens.add({
+      targets: beacon,
+      scale: { from: 0.8, to: 1.2 },
+      alpha: { from: 0.4, to: 0.8 },
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    this.debugBeacons.set(spawn.id, beacon);
+
+    console.log(`[PokemonSpawnManager] Debug beacon created at (${spawn.x}, ${spawn.y}) for slot ${spawn.slotIndex}`);
+  }
+
+  /**
+   * Destroy a debug beacon for a Pokemon.
+   */
+  private destroyDebugBeacon(pokemonId: bigint): void {
+    const beacon = this.debugBeacons.get(pokemonId);
+    if (beacon) {
+      this.scene.tweens.killTweensOf(beacon);
+      beacon.destroy();
+      this.debugBeacons.delete(pokemonId);
+    }
+  }
+
+  /**
+   * Destroy all debug beacons.
+   */
+  private destroyAllDebugBeacons(): void {
+    for (const beacon of this.debugBeacons.values()) {
+      this.scene.tweens.killTweensOf(beacon);
+      beacon.destroy();
+    }
+    this.debugBeacons.clear();
   }
 
   /**
