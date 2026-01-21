@@ -296,13 +296,8 @@ function AppContent() {
   }, []);
 
   // Handle out-of-range catch attempt
-  const handleCatchOutOfRange = useCallback((data: CatchOutOfRangeData) => {
-    const distancePixels = Math.round(data.distance);
-    const rangePixels = data.requiredRange;
-    addToast(
-      `Move closer to the Pokémon! (${distancePixels}px away, need ${rangePixels}px)`,
-      'warning'
-    );
+  const handleCatchOutOfRange = useCallback((_data: CatchOutOfRangeData) => {
+    addToast('Move closer to the Pokémon!', 'warning');
   }, [addToast]);
 
   const handleCloseCatchModal = useCallback(() => {

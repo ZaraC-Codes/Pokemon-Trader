@@ -27,7 +27,7 @@
  * ```
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, Component, Suspense, lazy, type ReactNode } from 'react';
 import {
   usePurchaseBalls,
   usePlayerBallInventory,
@@ -44,25 +44,65 @@ import {
   isThirdwebConfigured,
 } from '../../services/thirdwebConfig';
 
-// Lazy import BuyWidget to avoid issues if thirdweb is not configured
-let BuyWidget: React.ComponentType<{
-  client: NonNullable<typeof thirdwebClient>;
-  chain: typeof apechain;
-  tokenAddress?: string;
-  title?: string;
-  theme?: 'light' | 'dark';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
-}> | null = null;
+// ============================================================
+// ERROR BOUNDARY FOR THIRDWEB COMPONENTS
+// ============================================================
 
-// Only import BuyWidget if thirdweb is configured
-if (isThirdwebConfigured()) {
-  import('thirdweb/react').then((module) => {
-    BuyWidget = module.PayEmbed as typeof BuyWidget;
-  }).catch((err) => {
-    console.warn('[PokeBallShop] Failed to load ThirdWeb BuyWidget:', err);
-  });
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback: ReactNode;
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ThirdwebErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    console.error('[ThirdwebErrorBoundary] Caught error:', error, errorInfo);
+    this.props.onError?.(error, errorInfo);
+  }
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+// ============================================================
+// LAZY LOADED THIRDWEB COMPONENTS
+// ============================================================
+
+// Lazy load thirdweb components only when needed
+const LazyPayEmbed = lazy(async () => {
+  if (!isThirdwebConfigured()) {
+    throw new Error('ThirdWeb not configured');
+  }
+  const module = await import('thirdweb/react');
+  // Return as default export for lazy()
+  return { default: module.PayEmbed };
+});
+
+const LazyThirdwebProvider = lazy(async () => {
+  if (!isThirdwebConfigured()) {
+    throw new Error('ThirdWeb not configured');
+  }
+  const module = await import('thirdweb/react');
+  return { default: module.ThirdwebProvider };
+});
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -513,27 +553,85 @@ interface BuyCryptoModalProps {
   selectedToken: BuyCryptoToken;
 }
 
-function BuyCryptoModal({ isOpen, onClose, selectedToken }: BuyCryptoModalProps) {
-  const [widgetLoaded, setWidgetLoaded] = useState(false);
-  const [widgetError, setWidgetError] = useState<string | null>(null);
+/** Loading fallback for ThirdWeb widget */
+function ThirdwebLoadingFallback() {
+  return (
+    <div style={styles.loadingOverlay}>
+      <div style={styles.loadingText}>Loading payment widget...</div>
+    </div>
+  );
+}
 
-  // Load the widget component
+/** Error fallback for ThirdWeb widget */
+function ThirdwebErrorFallback({ error, onRetry }: { error?: string; onRetry?: () => void }) {
+  return (
+    <div style={styles.errorBox}>
+      <span style={styles.errorText}>
+        {error || 'Failed to load payment widget. Please try again.'}
+      </span>
+      {onRetry && (
+        <button style={styles.dismissButton} onClick={onRetry}>
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Inner PayEmbed wrapper that requires ThirdwebProvider context */
+function PayEmbedWithProvider({
+  tokenAddress,
+  title,
+}: {
+  tokenAddress?: string;
+  title: string;
+}) {
+  if (!thirdwebClient) {
+    return <ThirdwebErrorFallback error="ThirdWeb client not initialized" />;
+  }
+
+  return (
+    <LazyThirdwebProvider>
+      <LazyPayEmbed
+        client={thirdwebClient}
+        theme="dark"
+        payOptions={{
+          mode: 'fund_wallet',
+          metadata: {
+            name: title,
+          },
+          prefillBuy: {
+            chain: apechain,
+            token: tokenAddress
+              ? { address: tokenAddress, symbol: 'USDC.e', name: 'USDC.e' }
+              : undefined,
+          },
+        }}
+      />
+    </LazyThirdwebProvider>
+  );
+}
+
+function BuyCryptoModal({ isOpen, onClose, selectedToken }: BuyCryptoModalProps) {
+  const [widgetError, setWidgetError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+
+  // Reset error state when modal opens/closes
   React.useEffect(() => {
-    if (isOpen && isThirdwebConfigured() && !BuyWidget) {
-      import('thirdweb/react')
-        .then((module) => {
-          // Use PayEmbed which is the current component in thirdweb v5
-          BuyWidget = module.PayEmbed as typeof BuyWidget;
-          setWidgetLoaded(true);
-        })
-        .catch((err) => {
-          console.error('[BuyCryptoModal] Failed to load PayEmbed:', err);
-          setWidgetError('Failed to load payment widget');
-        });
-    } else if (BuyWidget) {
-      setWidgetLoaded(true);
+    if (!isOpen) {
+      setWidgetError(null);
     }
   }, [isOpen]);
+
+  const handleError = useCallback((error: Error) => {
+    console.error('[BuyCryptoModal] Widget error:', error);
+    setWidgetError(error.message || 'Failed to load payment widget');
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setWidgetError(null);
+    setRetryKey((k) => k + 1);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -560,34 +658,19 @@ function BuyCryptoModal({ isOpen, onClose, selectedToken }: BuyCryptoModalProps)
         )}
 
         {isThirdwebConfigured() && widgetError && (
-          <div style={styles.errorBox}>
-            <span style={styles.errorText}>{widgetError}</span>
-          </div>
+          <ThirdwebErrorFallback error={widgetError} onRetry={handleRetry} />
         )}
 
-        {isThirdwebConfigured() && !widgetError && !widgetLoaded && (
-          <div style={styles.loadingOverlay}>
-            <div style={styles.loadingText}>Loading payment widget...</div>
-          </div>
-        )}
-
-        {isThirdwebConfigured() && widgetLoaded && BuyWidget && thirdwebClient && (
-          <BuyWidget
-            client={thirdwebClient}
-            chain={apechain}
-            tokenAddress={tokenAddress}
-            theme="dark"
-            payOptions={{
-              mode: 'fund_wallet',
-              metadata: {
-                name: title,
-              },
-              prefillBuy: {
-                chain: apechain,
-                token: tokenAddress ? { address: tokenAddress, symbol: 'USDC.e', name: 'USDC.e' } : undefined,
-              },
-            }}
-          />
+        {isThirdwebConfigured() && !widgetError && (
+          <ThirdwebErrorBoundary
+            key={retryKey}
+            fallback={<ThirdwebErrorFallback onRetry={handleRetry} />}
+            onError={handleError}
+          >
+            <Suspense fallback={<ThirdwebLoadingFallback />}>
+              <PayEmbedWithProvider tokenAddress={tokenAddress} title={title} />
+            </Suspense>
+          </ThirdwebErrorBoundary>
         )}
 
         <div style={{ marginTop: '12px', textAlign: 'center' as const }}>

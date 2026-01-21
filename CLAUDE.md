@@ -399,6 +399,8 @@ Buy crypto directly in the PokeBall Shop using ThirdWeb Pay:
 - Integrated into PokeBallShop as "NEED CRYPTO?" section
 - Uses ThirdWeb SDK v5 PayEmbed component
 - Graceful degradation if not configured
+- Error boundary prevents app crashes from ThirdWeb widget failures
+- Retry functionality for failed widget loads
 
 **Setup:**
 1. Get a free client ID at https://thirdweb.com/create-api-key
@@ -417,6 +419,30 @@ if (isThirdwebConfigured()) {
 **Token Addresses (exported from thirdwebConfig):**
 - `APECHAIN_TOKENS.USDC` - USDC.e on ApeChain
 - `APECHAIN_TOKENS.APE` - Native APE (undefined for native token)
+
+**Error Handling Architecture:**
+The ThirdWeb integration uses a layered error handling approach to prevent app crashes:
+
+1. **`ThirdwebErrorBoundary`** - React class component that catches runtime errors
+2. **`React.lazy()` + `Suspense`** - Proper async loading with fallback UI
+3. **`ThirdwebLoadingFallback`** - Shows "Loading payment widget..." during load
+4. **`ThirdwebErrorFallback`** - Shows error message with "Retry" button
+5. **`PayEmbedWithProvider`** - Wraps PayEmbed with ThirdwebProvider context
+
+```typescript
+// Component hierarchy in BuyCryptoModal:
+<ThirdwebErrorBoundary fallback={<ThirdwebErrorFallback />}>
+  <Suspense fallback={<ThirdwebLoadingFallback />}>
+    <PayEmbedWithProvider tokenAddress={...} title={...} />
+  </Suspense>
+</ThirdwebErrorBoundary>
+```
+
+**Troubleshooting:**
+- If widget shows "Failed to load payment widget", click Retry
+- Check browser console for `[BuyCryptoModal] Widget error:` logs
+- Verify `VITE_THIRDWEB_CLIENT_ID` is set correctly in `.env`
+- ThirdWeb may fail if user blocks third-party cookies/scripts
 
 ### Bike Rental System
 - `BikeRentalModal.tsx` - UI for renting bikes
