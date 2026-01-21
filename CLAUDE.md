@@ -42,6 +42,7 @@ npm run preview      # Preview production build
 npx hardhat compile  # Compile Solidity contracts
 npx hardhat test     # Run contract tests
 npx hardhat run contracts/deployment/deployProxies.cjs --network apechain  # Deploy both contracts
+npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 initial Pokemon
 ```
 
 ## Project Structure
@@ -152,6 +153,9 @@ npx hardhat run contracts/deployment/deployProxies.cjs --network apechain  # Dep
 │   ├── SETUP_POKEBALL_GAME.md   # PokeballGame integration setup guide
 │   └── claude_agents.md         # Claude agent integration
 │
+├── scripts/                 # Hardhat scripts
+│   └── spawnInitialPokemon.cjs  # Spawn 3 initial Pokemon on-chain
+│
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
     ├── abi_SlabMachine.json     # Slab Machine ABI
@@ -177,6 +181,7 @@ npx hardhat run contracts/deployment/deployProxies.cjs --network apechain  # Dep
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
+| `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon on-chain |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 | `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
