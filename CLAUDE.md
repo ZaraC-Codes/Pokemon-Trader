@@ -1021,10 +1021,10 @@ import { PokeBallShop } from './components/PokeBallShop';
 ```
 
 **Features:**
-- Displays all 4 ball types with name, price, catch rate
+- Displays all 4 ball types with name, price, catch rate (circular ball icons)
 - APE / USDC.e payment toggle
-- Shows current APE and USDC.e balances
-- Player inventory display (color-coded balls)
+- Shows current APE and USDC.e balances with USD value
+- Player inventory display (color-coded circular ball icons)
 - Quantity input per ball type
 - Insufficient balance warning per row
 - Transaction loading state with wallet prompt
@@ -1035,7 +1035,7 @@ import { PokeBallShop } from './components/PokeBallShop';
 **Hooks Used:**
 - `usePurchaseBalls()` - Contract write
 - `usePlayerBallInventory(address)` - Read inventory
-- `useApeBalance(address)` - APE balance
+- `useApeBalanceWithUsd(address)` - APE balance with USD value
 - `useUsdcBalance(address)` - USDC.e balance
 
 ### GameCanvas Component
@@ -1202,7 +1202,7 @@ function AppContent() {
 
 **Features:**
 - Responsive positioning coordinated with WalletConnector
-- Ball inventory display (2x2 grid with color-coded dots and counts)
+- Ball inventory display (2x2 grid with color-coded **circular** icons and counts)
 - "SHOP" button opens PokeBallShop modal
 - Returns `null` when wallet not connected (WalletConnector handles connection UI)
 - Real-time updates via polling hooks (10s for inventory)
@@ -1222,7 +1222,13 @@ function AppContent() {
 - `.game-hud-container` - HUD panel positioning and layout
 
 **Sub-Components:**
-- `BallInventorySection` - 2x2 grid showing ball counts by type
+- `BallInventorySection` - 2x2 grid showing ball counts by type (circular icons)
+
+**Ball Icon Styling:**
+All ball icons use circular styling (`borderRadius: '50%'`) for visual consistency:
+- HUD ball dots: 12×12px circles with 1px white border
+- Shop inventory: 14×14px circles with 1px white border
+- Shop purchase rows: 20×20px circles with 2px white border
 
 **Ball Colors:**
 | Ball Type | Color |

@@ -202,8 +202,9 @@ const styles = {
     gap: '4px',
   },
   ballDot: {
-    width: '10px',
-    height: '10px',
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
     border: '1px solid #fff',
     flexShrink: 0,
   },

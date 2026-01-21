@@ -491,10 +491,12 @@ function BallRow({
       {/* Ball color indicator */}
       <div
         style={{
-          width: '16px',
-          height: '16px',
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
           backgroundColor: BALL_COLORS[ballType],
           border: '2px solid #fff',
+          flexShrink: 0,
         }}
       />
 
@@ -898,8 +900,9 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
                 <div key={ballType} style={styles.inventoryItem}>
                   <div
                     style={{
-                      width: '12px',
-                      height: '12px',
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
                       backgroundColor: BALL_COLORS[ballType],
                       border: '1px solid #fff',
                     }}
