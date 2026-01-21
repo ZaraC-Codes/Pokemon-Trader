@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useActiveWeb3React } from "./useActiveWeb3React";
-import { tokenContractConfig } from "../config";
+import { tokenContractConfig } from "../services/config";
 import { useQuery } from "@tanstack/react-query";
 
 export function useTokenBalance(tokenAddress?: string) {

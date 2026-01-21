@@ -91,7 +91,7 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 │   ├── services/                # Web3 services
 │   │   ├── apechainConfig.ts        # Network & wallet config
 │   │   ├── contractService.ts       # Contract interactions
-│   │   ├── config.ts                # Contract addresses & ABIs
+│   │   ├── config.ts                # Contract configs & ABIs (tokenContractConfig, swapContractConfig, nftUtils)
 │   │   ├── thirdwebConfig.ts        # ThirdWeb SDK v5 config (Pay/Checkout)
 │   │   └── types.ts                 # Type definitions
 │   │
