@@ -814,13 +814,24 @@ function AppContent() {
 ```
 
 **Features:**
-- Fixed position (top-right corner), non-intrusive design
+- Responsive positioning coordinated with WalletConnector
 - Ball inventory display (2x2 grid with color-coded dots and counts)
 - Active Pokemon count with attempt indicators per spawn
 - "SHOP" button opens PokeBallShop modal
 - "Connect Wallet" message if not connected
 - Real-time updates via polling hooks (5s for spawns, 10s for inventory)
-- Mobile-responsive layout (horizontal on desktop, stacks vertically on ≤768px)
+
+**Responsive Layout (coordinated with WalletConnector):**
+| Breakpoint | Layout |
+|------------|--------|
+| Desktop (>900px) | HUD to the left of wallet (`right: 220px`), same row |
+| Tablet (≤900px) | HUD moves below wallet (`top: 70px`) |
+| Mobile (≤768px) | HUD below wallet (`top: 60px`), stacks vertically |
+| Small mobile (≤480px) | Compact spacing, smaller panels |
+
+**CSS Classes:**
+- `.wallet-connector` - Wallet button positioning (defined in GameHUD styles)
+- `.game-hud-container` - HUD panel positioning and layout
 
 **Sub-Components:**
 - `BallInventorySection` - 2x2 grid showing ball counts by type
