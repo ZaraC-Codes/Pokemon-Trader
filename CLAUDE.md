@@ -594,6 +594,7 @@ interface PokemonSpawn {
 - `getPokemonInCatchRange(playerX, playerY)` - Find nearest catchable Pokemon
 - `getPokemonInRange(playerX, playerY, range?)` - Get all Pokemon within range, sorted by distance
 - `isPlayerInCatchRange(...)` - Check if player can throw
+- `getCatchRange()` - Get configured catch range in pixels (96)
 - `getRemainingAttempts(pokemonId)` - Get attempts left
 - `getOccupiedSlots()` - Get array of active slot indices
 - `getAvailableSlots()` - Get array of empty slot indices
@@ -606,13 +607,15 @@ interface PokemonSpawn {
 - `pokemon-caught` - Successful catch (includes slotIndex)
 - `pokemon-catch-failed` - Failed attempt (includes slotIndex)
 - `pokemon-spawn-effects` - For GrassRustle/sound integration
+- `pokemon-catch-ready` - Player clicked Pokemon AND is within catch range (ready to throw)
+- `catch-out-of-range` - Player clicked Pokemon but is too far away (includes distance info)
 
 **Configuration:**
 ```typescript
 SPAWN_CONFIG = {
   MAX_ACTIVE_SPAWNS: 20,         // Max Pokemon at once (v1.2.0 contract)
   MAX_ATTEMPTS: 3,               // Throws before relocate
-  CATCH_RANGE_PIXELS: 48,        // Interaction distance
+  CATCH_RANGE_PIXELS: 96,        // Proximity required to catch (pixels)
   SPAWN_QUERY_RADIUS: 32,        // Click detection radius
   ENTITY_POOL_SIZE: 24,          // Pre-allocated entities (>= MAX_ACTIVE_SPAWNS)
   USE_POOLING: true,             // Enable object pooling
@@ -653,6 +656,7 @@ Visual debugging for spawn system testing:
 - **Stats Overlay**: Fixed panel showing active count, pool usage, occupied slots
 - **Console Logging**: Detailed spawn/remove events with position and ID
 - **Debug Beacons**: Large pulsing colored circles at spawn positions (high visibility)
+- **Range Circles**: Green semi-transparent circles showing catch range (96px radius)
 
 **Debug Beacons:**
 Visual markers that appear at spawn positions regardless of entity rendering:
@@ -1017,7 +1021,26 @@ React ⇄ Phaser bridge component that mounts the game and syncs Web3 data:
 ```typescript
 interface GameCanvasProps {
   onTradeClick?: (listing: TradeListing) => void;
+  /** Called when player clicks Pokemon AND is in range (ready to catch) */
   onPokemonClick?: (data: PokemonClickData) => void;
+  /** Called when player clicks Pokemon but is OUT of range */
+  onCatchOutOfRange?: (data: CatchOutOfRangeData) => void;
+}
+
+interface PokemonClickData {
+  pokemonId: bigint;
+  slotIndex: number;
+  attemptCount: number;
+  x: number;
+  y: number;
+}
+
+interface CatchOutOfRangeData {
+  pokemonId: bigint;
+  distance: number;
+  requiredRange: number;
+  playerX: number;
+  playerY: number;
 }
 ```
 
@@ -1026,7 +1049,7 @@ interface GameCanvasProps {
 - Syncs on-chain Pokemon spawns to `PokemonSpawnManager` via `useGetPokemonSpawns()`
 - Handles race condition: buffers spawns if they arrive before scene is ready
 - Exposes game instance as `window.__PHASER_GAME__` for debugging
-- Forwards Phaser events (`show-trade-modal`, `pokemon-clicked`) to React callbacks
+- **Proximity-aware events**: Forwards `pokemon-catch-ready` (in range) and `catch-out-of-range` (too far) to React
 - **Coordinate Scaling**: Transforms contract coordinates (0-999) to game world pixels (0-2400)
 
 **Coordinate System:**
@@ -1429,10 +1452,14 @@ type ErrorHandler = (error: string, pokemonId?: bigint) => void;
 - `playFailAnimation(x, y)` - Ball fragments and "ESCAPED!" shake
 - `playRelocateAnimation(fromX, fromY, toX, toY)` - Teleport fade effect
 
+**Query Methods:**
+- `getCatchRange()` - Get configured catch range in pixels (96)
+
 **Phaser Events Emitted:**
 - `catch-state-changed` - State transition with oldState, newState, pokemonId
 - `catch-error` - Error occurred with message
-- `catch-out-of-range` - Player too far from Pokemon
+- `pokemon-catch-ready` - Player clicked Pokemon AND is in range (triggers modal)
+- `catch-out-of-range` - Player too far (includes distance, requiredRange, playerX, playerY)
 - `catch-success` - Successful catch with pokemonId, ballType
 - `catch-failure` - Failed catch with attemptsRemaining
 - `catch-transaction-failed` - Contract call failed
