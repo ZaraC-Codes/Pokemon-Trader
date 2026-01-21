@@ -147,6 +147,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 │   ├── pop_vrng_integration.md  # POP VRNG integration guide
 │   ├── WALLET_CONFIG.md         # Wallet setup guide
 │   ├── UUPS_UPGRADE_GUIDE.md    # UUPS proxy upgrade documentation
+│   ├── SETUP_POKEBALL_GAME.md   # PokeballGame integration setup guide
 │   └── claude_agents.md         # Claude agent integration
 │
 └── [root files]
@@ -162,6 +163,7 @@ npx hardhat run contracts/deployment/deploy_PokeballGame.js --network apechain  
 | `src/App.tsx` | Root component with Web3 providers |
 | `src/game/scenes/GameScene.ts` | Main game logic and rendering |
 | `src/services/apechainConfig.ts` | ApeChain network configuration |
+| `src/services/pokeballGameConfig.ts` | Centralized PokeballGame on-chain config |
 | `src/services/contractService.ts` | Contract interaction layer |
 | `src/hooks/useAllListings.tsx` | Core hook for fetching listings |
 | `contracts/addresses.json` | All contract addresses and token config |
@@ -1104,6 +1106,53 @@ See `docs/UUPS_UPGRADE_GUIDE.md` for complete upgrade documentation.
 - `useLMBuyPositions.tsx` - Query liquidity manager positions with options
 - `useAllNftPositions.tsx` - Aggregate NFT position data
 
+## Environment Variables
+
+Required environment variables for the application:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_POKEBALL_GAME_ADDRESS` | Yes | PokeballGame UUPS proxy address on ApeChain |
+| `VITE_PUBLIC_RPC_URL` | No | Override default ApeChain RPC URL |
+| `VITE_WALLETCONNECT_PROJECT_ID` | No | WalletConnect project ID (has default) |
+
+Example `.env` file:
+```env
+VITE_POKEBALL_GAME_ADDRESS=0xYourPokeballGameProxy
+```
+
+See `docs/SETUP_POKEBALL_GAME.md` for complete setup instructions.
+
+## Centralized Configuration
+
+All PokeballGame on-chain configuration is centralized in `src/services/pokeballGameConfig.ts`:
+
+```typescript
+import { pokeballGameConfig, isPokeballGameConfigured } from './services/pokeballGameConfig';
+
+// Check if contract is configured
+if (!isPokeballGameConfigured()) {
+  console.warn('Set VITE_POKEBALL_GAME_ADDRESS in .env');
+}
+
+// Access configuration
+const {
+  chainId,              // 33139 (ApeChain Mainnet)
+  rpcUrl,               // Alchemy RPC URL
+  explorerUrl,          // https://apescan.io
+  pokeballGameAddress,  // From env var
+  abi,                  // PokeballGame ABI
+  tokenAddresses,       // { APE, USDC }
+  ballConfig,           // Ball prices, catch rates, colors
+} = pokeballGameConfig;
+```
+
+Helper functions:
+- `getTransactionUrl(hash)` - Get Apescan tx link
+- `getAddressUrl(addr)` - Get Apescan address link
+- `getNftUrl(contract, tokenId)` - Get Apescan NFT link
+- `getBallConfig(type)` - Get ball name, price, catch rate, color
+
 ## Documentation
 
 Comprehensive documentation available in `docs/`:
@@ -1113,4 +1162,5 @@ Comprehensive documentation available in `docs/`:
 - `pop_vrng_integration.md` - POP VRNG integration guide
 - `WALLET_CONFIG.md` - Wallet setup instructions
 - `UUPS_UPGRADE_GUIDE.md` - UUPS proxy upgrade guide
+- `SETUP_POKEBALL_GAME.md` - **PokeballGame integration setup guide**
 - `claude_agents.md` - Claude agent integration

@@ -1,0 +1,305 @@
+/**
+ * PokeballGame Centralized Configuration
+ *
+ * This file provides a single source of truth for all PokeballGame-related
+ * on-chain configuration. It consolidates settings that were previously
+ * scattered across multiple hooks and components.
+ *
+ * Architecture:
+ * - Chain config: ApeChain Mainnet (ID 33139)
+ * - Contract: PokeballGame proxy (UUPS upgradeable)
+ * - Tokens: APE (native) and USDC.e (Stargate bridged)
+ * - Randomness: POP VRNG for provably fair catch mechanics
+ *
+ * Usage:
+ * ```ts
+ * import { pokeballGameConfig, isPokeballGameConfigured } from './pokeballGameConfig';
+ *
+ * // Check if contract is configured
+ * if (!isPokeballGameConfigured()) {
+ *   console.warn('Set VITE_POKEBALL_GAME_ADDRESS in .env');
+ * }
+ *
+ * // Access config values
+ * const { chainId, explorerUrl, tokenAddresses } = pokeballGameConfig;
+ * ```
+ */
+
+import { apeChainMainnet, ALCHEMY_RPC_URL } from './apechainConfig';
+import PokeballGameABI from '../../contracts/abi/abi_PokeballGame.json';
+
+// ============================================================
+// CHAIN CONFIGURATION
+// ============================================================
+
+/**
+ * ApeChain Mainnet chain ID.
+ * Used for all PokeballGame contract interactions.
+ *
+ * @see https://docs.apechain.com/
+ */
+export const APECHAIN_CHAIN_ID = 33139 as const;
+
+/**
+ * Primary RPC URL for ApeChain.
+ * Uses Alchemy endpoint via existing apechainConfig.
+ *
+ * In development: Proxied through Vite dev server to avoid CORS
+ * In production: Direct Alchemy endpoint
+ *
+ * Alternative public RPCs:
+ * - https://apechain.calderachain.xyz/http
+ * - https://apechain.drpc.org
+ */
+export const APECHAIN_RPC_URL = ALCHEMY_RPC_URL;
+
+/**
+ * Alternative public RPC URL (no rate limiting, but may be slower).
+ * Use as fallback if Alchemy rate limits are hit.
+ */
+export const APECHAIN_PUBLIC_RPC_URL = 'https://apechain.calderachain.xyz/http' as const;
+
+/**
+ * Block explorer URL for viewing transactions and contracts.
+ * Apescan is the primary explorer for ApeChain.
+ */
+export const APECHAIN_EXPLORER_URL = 'https://apescan.io' as const;
+
+// ============================================================
+// CONTRACT CONFIGURATION
+// ============================================================
+
+/**
+ * PokeballGame contract address on ApeChain.
+ *
+ * Loaded from VITE_POKEBALL_GAME_ADDRESS environment variable.
+ * This is the UUPS proxy address - implementation can be upgraded.
+ *
+ * Set in .env file:
+ * ```
+ * VITE_POKEBALL_GAME_ADDRESS=0xYourPokeballGameProxy
+ * ```
+ */
+export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS as
+  | `0x${string}`
+  | undefined;
+
+/**
+ * PokeballGame contract ABI.
+ * Imported from contracts/abi/abi_PokeballGame.json (v1.1.0).
+ *
+ * Key functions:
+ * - purchaseBalls(ballType, quantity, useAPE) - Buy balls
+ * - throwBall(pokemonSlot, ballType) - Attempt catch
+ * - getAllPlayerBalls(player) - Get player inventory
+ * - getAllActivePokemons() - Get spawned Pokemon
+ */
+export const POKEBALL_GAME_ABI = PokeballGameABI.abi as typeof PokeballGameABI.abi;
+
+// ============================================================
+// TOKEN ADDRESSES
+// ============================================================
+
+/**
+ * Token contract addresses on ApeChain Mainnet.
+ *
+ * APE: Native ApeCoin (ERC-20 wrapper for native currency)
+ * USDC: USDC.e (Stargate Bridged USDC from Ethereum)
+ *
+ * Both tokens are accepted for ball purchases in PokeballGame.
+ * 97% of revenue goes to SlabNFTManager, 3% platform fee to treasury.
+ */
+export const TOKEN_ADDRESSES = {
+  /**
+   * ApeCoin (APE) - Native currency of ApeChain.
+   * 18 decimals.
+   */
+  APE: '0x4d224452801aced8b2f0aebe155379bb5d594381' as const,
+
+  /**
+   * USDC.e - Stargate Bridged USDC from Ethereum.
+   * 6 decimals.
+   */
+  USDC: '0xF1815bd50389c46847f0Bda824eC8da914045D14' as const,
+} as const;
+
+/**
+ * Token decimals for balance formatting.
+ */
+export const TOKEN_DECIMALS = {
+  APE: 18,
+  USDC: 6,
+} as const;
+
+// ============================================================
+// RELATED CONTRACT ADDRESSES
+// ============================================================
+
+/**
+ * Additional contract addresses used by the PokeballGame ecosystem.
+ * These are referenced by PokeballGame and SlabNFTManager.
+ */
+export const RELATED_CONTRACTS = {
+  /**
+   * SlabMachine contract - Source for NFT purchases.
+   * SlabNFTManager calls this to buy NFTs when threshold is met.
+   */
+  SLAB_MACHINE: '0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466' as const,
+
+  /**
+   * Slab NFT Collection - Pokemon card NFTs awarded to catchers.
+   */
+  SLAB_NFT: '0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7' as const,
+
+  /**
+   * POP VRNG - On-chain verifiable random number generator.
+   * Used for provably fair catch mechanics.
+   */
+  POP_VRNG: '0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1' as const,
+} as const;
+
+// ============================================================
+// BALL CONFIGURATION
+// ============================================================
+
+/**
+ * Ball type enum matching the contract's BallType enum.
+ */
+export type BallType = 0 | 1 | 2 | 3;
+
+/**
+ * Ball configuration with prices and catch rates.
+ * Matches PokeballGame contract constants.
+ */
+export const BALL_CONFIG = {
+  0: { name: 'Poké Ball', price: 1.0, catchRate: 2, color: '#ff4444' },
+  1: { name: 'Great Ball', price: 10.0, catchRate: 20, color: '#4488ff' },
+  2: { name: 'Ultra Ball', price: 25.0, catchRate: 50, color: '#ffcc00' },
+  3: { name: 'Master Ball', price: 49.9, catchRate: 99, color: '#aa44ff' },
+} as const;
+
+// ============================================================
+// GAME CONSTANTS
+// ============================================================
+
+/**
+ * Game mechanics constants matching contract values.
+ */
+export const GAME_CONSTANTS = {
+  /** Maximum concurrent Pokemon spawns */
+  MAX_ACTIVE_SPAWNS: 3,
+  /** Maximum throw attempts before Pokemon relocates */
+  MAX_ATTEMPTS: 3,
+  /** Catch interaction range in pixels (frontend only) */
+  CATCH_RANGE_PIXELS: 48,
+} as const;
+
+// ============================================================
+// CONSOLIDATED CONFIG OBJECT
+// ============================================================
+
+/**
+ * Centralized configuration object for PokeballGame integration.
+ *
+ * Usage:
+ * ```ts
+ * import { pokeballGameConfig } from './pokeballGameConfig';
+ *
+ * const { chainId, explorerUrl, abi } = pokeballGameConfig;
+ * ```
+ */
+export const pokeballGameConfig = {
+  /** ApeChain Mainnet chain ID */
+  chainId: APECHAIN_CHAIN_ID,
+
+  /** Primary RPC URL (Alchemy) */
+  rpcUrl: APECHAIN_RPC_URL,
+
+  /** Public fallback RPC URL */
+  publicRpcUrl: APECHAIN_PUBLIC_RPC_URL,
+
+  /** Block explorer URL (Apescan) */
+  explorerUrl: APECHAIN_EXPLORER_URL,
+
+  /** PokeballGame proxy address (from env) */
+  pokeballGameAddress: POKEBALL_GAME_ADDRESS,
+
+  /** PokeballGame ABI */
+  abi: POKEBALL_GAME_ABI,
+
+  /** Token addresses (APE, USDC) */
+  tokenAddresses: TOKEN_ADDRESSES,
+
+  /** Token decimals */
+  tokenDecimals: TOKEN_DECIMALS,
+
+  /** Related ecosystem contracts */
+  relatedContracts: RELATED_CONTRACTS,
+
+  /** Ball type configuration */
+  ballConfig: BALL_CONFIG,
+
+  /** Game mechanics constants */
+  gameConstants: GAME_CONSTANTS,
+
+  /** Viem chain definition for Wagmi */
+  chain: apeChainMainnet,
+} as const;
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+/**
+ * Check if PokeballGame contract is properly configured.
+ *
+ * @returns true if VITE_POKEBALL_GAME_ADDRESS is set
+ */
+export function isPokeballGameConfigured(): boolean {
+  return !!POKEBALL_GAME_ADDRESS;
+}
+
+/**
+ * Get Apescan URL for a transaction hash.
+ *
+ * @param txHash - Transaction hash
+ * @returns Full Apescan URL
+ */
+export function getTransactionUrl(txHash: string): string {
+  return `${APECHAIN_EXPLORER_URL}/tx/${txHash}`;
+}
+
+/**
+ * Get Apescan URL for a contract address.
+ *
+ * @param address - Contract or wallet address
+ * @returns Full Apescan URL
+ */
+export function getAddressUrl(address: string): string {
+  return `${APECHAIN_EXPLORER_URL}/address/${address}`;
+}
+
+/**
+ * Get Apescan URL for an NFT token.
+ *
+ * @param contractAddress - NFT contract address
+ * @param tokenId - Token ID
+ * @returns Full Apescan URL
+ */
+export function getNftUrl(contractAddress: string, tokenId: string | number | bigint): string {
+  return `${APECHAIN_EXPLORER_URL}/nft/${contractAddress}/${tokenId}`;
+}
+
+/**
+ * Get ball configuration by type.
+ *
+ * @param ballType - Ball type (0-3)
+ * @returns Ball config object or undefined
+ */
+export function getBallConfig(ballType: BallType) {
+  return BALL_CONFIG[ballType];
+}
+
+// Type exports for external use
+export type { BallType as PokeballGameBallType };
+export type PokeballGameConfig = typeof pokeballGameConfig;
