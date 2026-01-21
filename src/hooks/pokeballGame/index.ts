@@ -32,6 +32,7 @@ export {
   POKEBALL_GAME_ADDRESS,
   POKEBALL_GAME_ABI,
   POKEBALL_GAME_CHAIN_ID,
+  MAX_ACTIVE_POKEMON,
   usePokeballGameAddress,
   // Type definitions
   type BallType,
@@ -55,11 +56,13 @@ export { usePurchaseBalls, type UsePurchaseBallsReturn } from './usePurchaseBall
 // Throw ball hook
 export { useThrowBall, type UseThrowBallReturn } from './useThrowBall';
 
-// Pokemon spawns hook
+// Pokemon spawns hook (v1.2.0 - supports 20 slots)
 export {
   useGetPokemonSpawns,
   usePokemonById,
   usePokemonBySlot,
+  useActivePokemonCount,
+  useActivePokemonSlots,
   type PokemonSpawn,
   type UseGetPokemonSpawnsReturn,
 } from './useGetPokemonSpawns';

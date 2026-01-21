@@ -1,13 +1,16 @@
 /**
  * useGetPokemonSpawns Hook
  *
- * Hook for reading the current active Pokemon spawns from the PokeballGame contract.
- * Returns up to 3 Pokemon that players can attempt to catch.
+ * Hook for reading the current active Pokemon spawns from the PokeballGame contract v1.2.0.
+ * Returns up to 20 Pokemon that players can attempt to catch.
  *
  * Usage:
  * ```tsx
  * const {
  *   data,
+ *   allSlots,
+ *   activeCount,
+ *   activeSlotIndices,
  *   isLoading,
  *   error,
  *   refetch,
@@ -17,7 +20,7 @@
  * {data?.map((pokemon) => (
  *   <div key={pokemon.id.toString()}>
  *     Pokemon #{pokemon.id.toString()} at ({pokemon.x}, {pokemon.y})
- *     Attempts: {pokemon.attemptCount}/3
+ *     Slot: {pokemon.slotIndex}, Attempts: {pokemon.attemptCount}/3
  *   </div>
  * ))}
  *
@@ -30,11 +33,12 @@
  */
 
 import { useMemo } from 'react';
-import { useReadContract } from 'wagmi';
+import { useReadContract, useReadContracts } from 'wagmi';
 import {
   POKEBALL_GAME_ADDRESS,
   POKEBALL_GAME_ABI,
   POKEBALL_GAME_CHAIN_ID,
+  MAX_ACTIVE_POKEMON,
   usePokeballGameAddress,
 } from './pokeballGameConfig';
 
@@ -70,10 +74,20 @@ export interface UseGetPokemonSpawnsReturn {
   data: PokemonSpawn[] | undefined;
 
   /**
-   * All spawn slots (including inactive).
+   * All 20 spawn slots (including inactive).
    * Useful for debugging or showing all slots.
    */
   allSlots: PokemonSpawn[] | undefined;
+
+  /**
+   * Number of currently active Pokemon (from getActivePokemonCount).
+   */
+  activeCount: number;
+
+  /**
+   * Array of slot indices that have active Pokemon (from getActivePokemonSlots).
+   */
+  activeSlotIndices: number[];
 
   /**
    * Whether the data is currently loading.
@@ -96,24 +110,41 @@ export interface UseGetPokemonSpawnsReturn {
 // ============================================================
 
 /**
- * Hook for reading active Pokemon spawns from the contract.
+ * Hook for reading active Pokemon spawns from the contract v1.2.0.
+ * Now supports up to 20 Pokemon slots with helper functions.
  *
- * @returns Object with spawn data, loading state, error, and refetch function
+ * @returns Object with spawn data, counts, slot indices, loading state, error, and refetch function
  */
 export function useGetPokemonSpawns(): UseGetPokemonSpawnsReturn {
   const { isConfigured } = usePokeballGameAddress();
 
-  // Read all active Pokemon from contract
+  // Batch read all three functions in a single multicall
   const {
-    data: rawData,
+    data: results,
     isLoading,
     error,
     refetch,
-  } = useReadContract({
-    address: POKEBALL_GAME_ADDRESS,
-    abi: POKEBALL_GAME_ABI,
-    functionName: 'getAllActivePokemons',
-    chainId: POKEBALL_GAME_CHAIN_ID,
+  } = useReadContracts({
+    contracts: [
+      {
+        address: POKEBALL_GAME_ADDRESS,
+        abi: POKEBALL_GAME_ABI,
+        functionName: 'getAllActivePokemons',
+        chainId: POKEBALL_GAME_CHAIN_ID,
+      },
+      {
+        address: POKEBALL_GAME_ADDRESS,
+        abi: POKEBALL_GAME_ABI,
+        functionName: 'getActivePokemonCount',
+        chainId: POKEBALL_GAME_CHAIN_ID,
+      },
+      {
+        address: POKEBALL_GAME_ADDRESS,
+        abi: POKEBALL_GAME_ABI,
+        functionName: 'getActivePokemonSlots',
+        chainId: POKEBALL_GAME_CHAIN_ID,
+      },
+    ],
     query: {
       enabled: isConfigured,
       // Poll every 5 seconds for spawn updates
@@ -122,13 +153,40 @@ export function useGetPokemonSpawns(): UseGetPokemonSpawnsReturn {
   });
 
   // Parse and transform the raw contract data
-  const { allSlots, activeSpawns } = useMemo(() => {
-    if (!rawData) {
-      return { allSlots: undefined, activeSpawns: undefined };
+  const { allSlots, activeSpawns, activeCount, activeSlotIndices } = useMemo(() => {
+    if (!results) {
+      return {
+        allSlots: undefined,
+        activeSpawns: undefined,
+        activeCount: 0,
+        activeSlotIndices: [],
+      };
     }
 
-    // rawData is a tuple array of Pokemon structs
-    const pokemons = rawData as readonly {
+    // Extract results from multicall
+    const [pokemonsResult, countResult, slotsResult] = results;
+
+    // Parse active count (uint8)
+    const count = countResult.status === 'success' ? Number(countResult.result as number) : 0;
+
+    // Parse active slot indices (uint8[])
+    const slotIndices =
+      slotsResult.status === 'success'
+        ? (slotsResult.result as readonly number[]).map(Number)
+        : [];
+
+    // Parse Pokemon array (tuple[20])
+    if (pokemonsResult.status !== 'success') {
+      return {
+        allSlots: undefined,
+        activeSpawns: undefined,
+        activeCount: count,
+        activeSlotIndices: slotIndices,
+      };
+    }
+
+    // rawData is a 20-element tuple array of Pokemon structs
+    const pokemons = pokemonsResult.result as readonly {
       id: bigint;
       positionX: bigint;
       positionY: bigint;
@@ -149,14 +207,21 @@ export function useGetPokemonSpawns(): UseGetPokemonSpawnsReturn {
 
     const active = all.filter((pokemon) => pokemon.isActive);
 
-    return { allSlots: all, activeSpawns: active };
-  }, [rawData]);
+    return {
+      allSlots: all,
+      activeSpawns: active,
+      activeCount: count,
+      activeSlotIndices: slotIndices,
+    };
+  }, [results]);
 
   // Return safe defaults if contract not configured
   if (!isConfigured) {
     return {
       data: undefined,
       allSlots: undefined,
+      activeCount: 0,
+      activeSlotIndices: [],
       isLoading: false,
       error: undefined,
       refetch: () => {},
@@ -166,6 +231,8 @@ export function useGetPokemonSpawns(): UseGetPokemonSpawnsReturn {
   return {
     data: activeSpawns,
     allSlots,
+    activeCount,
+    activeSlotIndices,
     isLoading,
     error: error as Error | undefined,
     refetch,
@@ -192,19 +259,81 @@ export function usePokemonById(pokemonId: bigint | undefined): PokemonSpawn | un
 /**
  * Hook to get a Pokemon by its slot index.
  *
- * @param slotIndex - The slot index (0-2)
+ * @param slotIndex - The slot index (0-19)
  * @returns The Pokemon spawn data or undefined if slot is empty
  */
 export function usePokemonBySlot(slotIndex: number): PokemonSpawn | undefined {
   const { allSlots } = useGetPokemonSpawns();
 
   return useMemo(() => {
-    if (!allSlots || slotIndex < 0 || slotIndex > 2) {
+    if (!allSlots || slotIndex < 0 || slotIndex >= MAX_ACTIVE_POKEMON) {
       return undefined;
     }
     const pokemon = allSlots[slotIndex];
     return pokemon?.isActive ? pokemon : undefined;
   }, [allSlots, slotIndex]);
+}
+
+/**
+ * Hook to get the active Pokemon count directly from contract.
+ * More efficient than filtering all slots if you only need the count.
+ *
+ * @returns Object with activeCount and loading state
+ */
+export function useActivePokemonCount(): {
+  count: number;
+  isLoading: boolean;
+  error: Error | undefined;
+} {
+  const { isConfigured } = usePokeballGameAddress();
+
+  const { data, isLoading, error } = useReadContract({
+    address: POKEBALL_GAME_ADDRESS,
+    abi: POKEBALL_GAME_ABI,
+    functionName: 'getActivePokemonCount',
+    chainId: POKEBALL_GAME_CHAIN_ID,
+    query: {
+      enabled: isConfigured,
+      refetchInterval: 5000,
+    },
+  });
+
+  return {
+    count: data !== undefined ? Number(data) : 0,
+    isLoading,
+    error: error as Error | undefined,
+  };
+}
+
+/**
+ * Hook to get the active slot indices directly from contract.
+ * Useful when you need to know which slots are occupied without fetching full Pokemon data.
+ *
+ * @returns Object with slot indices and loading state
+ */
+export function useActivePokemonSlots(): {
+  slots: number[];
+  isLoading: boolean;
+  error: Error | undefined;
+} {
+  const { isConfigured } = usePokeballGameAddress();
+
+  const { data, isLoading, error } = useReadContract({
+    address: POKEBALL_GAME_ADDRESS,
+    abi: POKEBALL_GAME_ABI,
+    functionName: 'getActivePokemonSlots',
+    chainId: POKEBALL_GAME_CHAIN_ID,
+    query: {
+      enabled: isConfigured,
+      refetchInterval: 5000,
+    },
+  });
+
+  return {
+    slots: data !== undefined ? (data as readonly number[]).map(Number) : [],
+    isLoading,
+    error: error as Error | undefined,
+  };
 }
 
 export default useGetPokemonSpawns;

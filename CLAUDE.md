@@ -134,8 +134,8 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 │   ├── interfaces/
 │   │   └── IPOPVRNG.sol         # POP VRNG interface (randomness)
 │   ├── abi/
-│   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0 (current)
-│   │   ├── abi_PokeballGameV2.json  # PokeballGame ABI v1.2.0 (upgrade)
+│   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0 (legacy, 3 slots)
+│   │   ├── abi_PokeballGameV2.json  # PokeballGame ABI v1.2.0 (20 slots)
 │   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
 │   ├── deployment/
 │   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
@@ -182,8 +182,8 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 | `contracts/PokeballGame.sol` | Main game smart contract v1.1.0 (deployed) |
 | `contracts/PokeballGameV2.sol` | Game contract v1.2.0 (20 Pokemon support) |
 | `contracts/SlabNFTManager.sol` | NFT inventory and auto-purchase manager |
-| `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (current) |
-| `contracts/abi/abi_PokeballGameV2.json` | PokeballGame ABI v1.2.0 (upgrade) |
+| `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (legacy, 3 slots) |
+| `contracts/abi/abi_PokeballGameV2.json` | PokeballGame ABI v1.2.0 (20 slots) |
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
@@ -373,14 +373,14 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.1.0 deployed, v1.2.0 ready)
+### PokeballGame Contract (v1.2.0)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
 | Version | MAX_ACTIVE_POKEMON | Status |
 |---------|-------------------|--------|
-| v1.1.0 | 3 | Deployed on ApeChain |
-| v1.2.0 | 20 | Ready for upgrade |
+| v1.1.0 | 3 | Legacy (deprecated) |
+| v1.2.0 | 20 | **Deployed on ApeChain** |
 
 **Ball System:**
 | Ball Type | Price | Catch Rate |
@@ -701,7 +701,7 @@ const {
 - `useBallPrice(ballType)` - Get ball price from contract
 - `useHasBall(ballType)` - Check if player has a ball type
 
-### PokeballGame Modular Hooks (New)
+### PokeballGame Modular Hooks (v1.2.0)
 Reusable Wagmi hooks for PokeballGame contract interactions:
 
 **Location:** `src/hooks/pokeballGame/`
@@ -712,8 +712,11 @@ import {
   usePurchaseBalls,
   useThrowBall,
   useGetPokemonSpawns,
+  useActivePokemonCount,
+  useActivePokemonSlots,
   usePlayerBallInventory,
   useContractEvents,
+  MAX_ACTIVE_POKEMON,
   type BallType,
   type PokemonSpawn,
 } from '../hooks/pokeballGame';
@@ -724,8 +727,10 @@ import {
 | Hook | Purpose |
 |------|---------|
 | `usePurchaseBalls()` | Buy balls with APE or USDC.e |
-| `useThrowBall()` | Throw ball at Pokemon slot, returns requestId |
-| `useGetPokemonSpawns()` | Read active Pokemon (polls every 5s) |
+| `useThrowBall()` | Throw ball at Pokemon slot (0-19), returns requestId |
+| `useGetPokemonSpawns()` | Read all 20 Pokemon slots (polls every 5s) |
+| `useActivePokemonCount()` | Get count of active Pokemon (efficient) |
+| `useActivePokemonSlots()` | Get array of occupied slot indices |
 | `usePlayerBallInventory(address)` | Read player's ball counts |
 | `useContractEvents(eventName)` | Subscribe to contract events |
 | `useSetOwnerWallet()` | Transfer ownership (owner only) |
@@ -739,12 +744,12 @@ import {
 - `usePokemonRelocatedEvents()` - Relocation events
 - `useAllGameEvents()` - All game events combined
 
-**Usage Example:**
+**Usage Example (v1.2.0):**
 ```typescript
 const { account } = useActiveWeb3React();
 
-// Read hooks
-const { data: spawns } = useGetPokemonSpawns();
+// Read hooks (v1.2.0 - supports 20 Pokemon)
+const { data: spawns, activeCount, activeSlotIndices } = useGetPokemonSpawns();
 const { pokeBalls, greatBalls } = usePlayerBallInventory(account);
 
 // Write hooks
@@ -753,7 +758,7 @@ const { write: throwBall, requestId } = useThrowBall();
 
 // Actions (always null-check write functions)
 purchase?.(0, 5, false);              // Buy 5 Poké Balls with USDC.e
-throwBall?.(spawns[0].slotIndex, 0);  // Throw Poké Ball at first spawn
+throwBall?.(spawns[0].slotIndex, 0);  // Throw Poké Ball at first spawn (slot 0-19)
 
 // Event listeners
 const { events: catches } = useCaughtPokemonEvents();
@@ -761,8 +766,8 @@ const { events: catches } = useCaughtPokemonEvents();
 
 **Configuration:**
 - Contract address: `VITE_POKEBALL_GAME_ADDRESS` env var
+- ABI: `contracts/abi/abi_PokeballGameV2.json` (20 slots)
 - Chain: ApeChain Mainnet (33139)
-- ABI: `contracts/abi/abi_PokeballGame.json`
 
 **Return Shape (write hooks):**
 ```typescript

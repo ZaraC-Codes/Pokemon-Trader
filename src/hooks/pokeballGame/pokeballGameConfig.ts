@@ -17,7 +17,8 @@
 
 import { useMemo } from 'react';
 import { apeChainMainnet } from '../../services/apechainConfig';
-import PokeballGameABI from '../../../contracts/abi/abi_PokeballGame.json';
+// v1.2.0 ABI with 20 Pokemon slots, getActivePokemonCount, getActivePokemonSlots
+import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV2.json';
 
 // ============================================================
 // CONTRACT ADDRESS
@@ -54,6 +55,12 @@ export const POKEBALL_GAME_ABI = PokeballGameABI.abi as typeof PokeballGameABI.a
  * ApeChain Mainnet chain ID for all contract interactions.
  */
 export const POKEBALL_GAME_CHAIN_ID = apeChainMainnet.id;
+
+/**
+ * Maximum number of active Pokemon slots in v1.2.0.
+ * Contract returns a tuple[20] from getAllActivePokemons().
+ */
+export const MAX_ACTIVE_POKEMON = 20;
 
 // ============================================================
 // TYPE DEFINITIONS
