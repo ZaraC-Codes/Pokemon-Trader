@@ -154,7 +154,12 @@ export function useGetPokemonSpawns(): UseGetPokemonSpawnsReturn {
 
   // Parse and transform the raw contract data
   const { allSlots, activeSpawns, activeCount, activeSlotIndices } = useMemo(() => {
+    // === DIAGNOSTIC LOGGING START ===
+    console.log('[useGetPokemonSpawns] ========== useMemo recalculating ==========');
+    console.log('[useGetPokemonSpawns] results defined:', !!results);
+
     if (!results) {
+      console.log('[useGetPokemonSpawns] No results yet, returning undefined');
       return {
         allSlots: undefined,
         activeSpawns: undefined,
@@ -166,17 +171,24 @@ export function useGetPokemonSpawns(): UseGetPokemonSpawnsReturn {
     // Extract results from multicall
     const [pokemonsResult, countResult, slotsResult] = results;
 
+    console.log('[useGetPokemonSpawns] pokemonsResult status:', pokemonsResult?.status);
+    console.log('[useGetPokemonSpawns] countResult status:', countResult?.status);
+    console.log('[useGetPokemonSpawns] slotsResult status:', slotsResult?.status);
+
     // Parse active count (uint8)
     const count = countResult.status === 'success' ? Number(countResult.result as number) : 0;
+    console.log('[useGetPokemonSpawns] Parsed activeCount:', count);
 
     // Parse active slot indices (uint8[])
     const slotIndices =
       slotsResult.status === 'success'
         ? (slotsResult.result as readonly number[]).map(Number)
         : [];
+    console.log('[useGetPokemonSpawns] Parsed slotIndices:', slotIndices);
 
     // Parse Pokemon array (tuple[20])
     if (pokemonsResult.status !== 'success') {
+      console.warn('[useGetPokemonSpawns] pokemonsResult failed:', pokemonsResult.error);
       return {
         allSlots: undefined,
         activeSpawns: undefined,
@@ -195,6 +207,21 @@ export function useGetPokemonSpawns(): UseGetPokemonSpawnsReturn {
       spawnTime: bigint;
     }[];
 
+    console.log('[useGetPokemonSpawns] Raw pokemons array length:', pokemons?.length);
+
+    // Log first 3 raw pokemon for debugging
+    for (let i = 0; i < Math.min(3, pokemons?.length ?? 0); i++) {
+      const p = pokemons[i];
+      console.log(`[useGetPokemonSpawns] Raw pokemon[${i}]:`, {
+        id: p.id?.toString(),
+        positionX: p.positionX?.toString(),
+        positionY: p.positionY?.toString(),
+        throwAttempts: p.throwAttempts,
+        isActive: p.isActive,
+        spawnTime: p.spawnTime?.toString(),
+      });
+    }
+
     const all: PokemonSpawn[] = pokemons.map((pokemon, index) => ({
       id: pokemon.id,
       x: Number(pokemon.positionX),
@@ -206,6 +233,23 @@ export function useGetPokemonSpawns(): UseGetPokemonSpawnsReturn {
     }));
 
     const active = all.filter((pokemon) => pokemon.isActive);
+
+    console.log('[useGetPokemonSpawns] Parsed all slots:', all.length);
+    console.log('[useGetPokemonSpawns] Parsed active spawns:', active.length);
+
+    // Log first 3 active spawns
+    for (let i = 0; i < Math.min(3, active.length); i++) {
+      const s = active[i];
+      console.log(`[useGetPokemonSpawns] Active spawn[${i}]:`, {
+        id: s.id?.toString(),
+        slotIndex: s.slotIndex,
+        x: s.x,
+        y: s.y,
+        isActive: s.isActive,
+      });
+    }
+
+    console.log('[useGetPokemonSpawns] ==========================================');
 
     return {
       allSlots: all,

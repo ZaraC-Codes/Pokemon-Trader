@@ -26,8 +26,21 @@ interface GameCanvasProps {
  * Convert contract spawn format to PokemonSpawnManager format.
  * The contract returns position in pixels, timestamp in Unix seconds.
  */
-function toManagerSpawn(contract: ContractPokemonSpawn): ManagerPokemonSpawn {
-  return {
+function toManagerSpawn(contract: ContractPokemonSpawn, index: number): ManagerPokemonSpawn {
+  // Diagnostic logging for debugging spawn sync issues
+  if (index < 3) {
+    console.log(`[GameCanvas] toManagerSpawn[${index}] input:`, {
+      id: contract.id?.toString() ?? 'undefined',
+      slotIndex: contract.slotIndex,
+      x: contract.x,
+      y: contract.y,
+      attemptCount: contract.attemptCount,
+      isActive: contract.isActive,
+      spawnTime: contract.spawnTime?.toString() ?? 'undefined',
+    });
+  }
+
+  const result: ManagerPokemonSpawn = {
     id: contract.id,
     slotIndex: contract.slotIndex,
     x: contract.x,
@@ -36,6 +49,19 @@ function toManagerSpawn(contract: ContractPokemonSpawn): ManagerPokemonSpawn {
     timestamp: Number(contract.spawnTime) * 1000, // Convert seconds to ms
     // entity and grassRustle are set by PokemonSpawnManager
   };
+
+  if (index < 3) {
+    console.log(`[GameCanvas] toManagerSpawn[${index}] output:`, {
+      id: result.id?.toString() ?? 'undefined',
+      slotIndex: result.slotIndex,
+      x: result.x,
+      y: result.y,
+      attemptCount: result.attemptCount,
+      timestamp: result.timestamp,
+    });
+  }
+
+  return result;
 }
 
 export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasProps) {
@@ -66,11 +92,23 @@ export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasP
    * Handles race condition: if scene isn't ready, buffers spawns for later.
    */
   const syncSpawnsToManager = useCallback((spawns: ContractPokemonSpawn[]) => {
+    // === DIAGNOSTIC LOGGING ===
+    console.log('[GameCanvas] ========== syncSpawnsToManager ==========');
+    console.log('[GameCanvas] Input spawns array length:', spawns?.length ?? 'undefined/null');
+    console.log('[GameCanvas] Input spawns type:', typeof spawns, Array.isArray(spawns));
+
     const game = gameRef.current;
-    if (!game) return;
+    if (!game) {
+      console.warn('[GameCanvas] No game reference, cannot sync');
+      return;
+    }
 
     const scene = game.scene.getScene('GameScene') as GameScene | undefined;
+    console.log('[GameCanvas] Scene exists:', !!scene);
+    console.log('[GameCanvas] Scene active:', scene?.scene?.isActive?.() ?? 'N/A');
+
     const manager = scene?.getPokemonSpawnManager();
+    console.log('[GameCanvas] Manager exists:', !!manager);
 
     if (!manager) {
       // Scene not ready yet - buffer the spawns
@@ -79,15 +117,33 @@ export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasP
       return;
     }
 
+    // Log raw contract spawn data
+    console.log('[GameCanvas] Raw contract spawns (first 3):');
+    for (let i = 0; i < Math.min(3, spawns.length); i++) {
+      const s = spawns[i];
+      console.log(`  [${i}]:`, {
+        id: s.id?.toString(),
+        slotIndex: s.slotIndex,
+        x: s.x,
+        y: s.y,
+        isActive: s.isActive,
+        attemptCount: s.attemptCount,
+        spawnTime: s.spawnTime?.toString(),
+      });
+    }
+
     // Convert to manager format and sync
-    const managerSpawns = spawns.map(toManagerSpawn);
+    const managerSpawns = spawns.map((spawn, index) => toManagerSpawn(spawn, index));
     const worldBounds = {
       width: MAP_WIDTH * TILE_SIZE,
       height: MAP_HEIGHT * TILE_SIZE,
     };
 
-    console.log('[GameCanvas] Syncing', managerSpawns.length, 'spawns to PokemonSpawnManager');
+    console.log('[GameCanvas] Converted managerSpawns length:', managerSpawns.length);
+    console.log('[GameCanvas] World bounds:', worldBounds);
+    console.log('[GameCanvas] Calling manager.syncFromContract()...');
     manager.syncFromContract(managerSpawns, worldBounds);
+    console.log('[GameCanvas] ==========================================');
   }, []);
 
   useEffect(() => {

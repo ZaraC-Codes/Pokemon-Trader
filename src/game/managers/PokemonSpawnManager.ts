@@ -363,11 +363,46 @@ export class PokemonSpawnManager {
     initialSpawns: PokemonSpawn[],
     worldBounds?: { width: number; height: number }
   ): void {
-    console.log('[PokemonSpawnManager] Syncing from contract with', initialSpawns.length, 'spawns');
+    // === DIAGNOSTIC LOGGING START ===
+    console.log('[PokemonSpawnManager] ========== SYNC FROM CONTRACT ==========');
+    console.log('[PokemonSpawnManager] Received array length:', initialSpawns?.length ?? 'undefined/null');
+    console.log('[PokemonSpawnManager] Array type:', typeof initialSpawns, Array.isArray(initialSpawns));
+
+    if (!initialSpawns) {
+      console.error('[PokemonSpawnManager] ERROR: initialSpawns is null/undefined!');
+      return;
+    }
+
+    if (!Array.isArray(initialSpawns)) {
+      console.error('[PokemonSpawnManager] ERROR: initialSpawns is not an array!', initialSpawns);
+      return;
+    }
+
+    if (initialSpawns.length === 0) {
+      console.warn('[PokemonSpawnManager] WARNING: initialSpawns array is empty!');
+      console.warn('[PokemonSpawnManager] This could mean: (1) No active Pokemon on-chain, (2) Hook data not ready, (3) Type conversion issue');
+    }
+
+    // Log first 5 spawns for debugging
+    const previewCount = Math.min(5, initialSpawns.length);
+    for (let i = 0; i < previewCount; i++) {
+      const spawn = initialSpawns[i];
+      console.log(`[PokemonSpawnManager] Spawn[${i}]:`, {
+        id: spawn?.id?.toString() ?? 'undefined',
+        slotIndex: spawn?.slotIndex,
+        x: spawn?.x,
+        y: spawn?.y,
+        attemptCount: spawn?.attemptCount,
+        timestamp: spawn?.timestamp,
+        hasEntity: !!spawn?.entity,
+      });
+    }
+    // === DIAGNOSTIC LOGGING END ===
 
     // Update world bounds if provided
     if (worldBounds) {
       this.worldBounds = worldBounds;
+      console.log('[PokemonSpawnManager] World bounds set to:', worldBounds);
     }
 
     // Clear any existing spawns (cleanup on re-sync)
@@ -375,11 +410,24 @@ export class PokemonSpawnManager {
 
     // Add each spawn (respecting max limit)
     const spawnsToAdd = initialSpawns.slice(0, SPAWN_CONFIG.MAX_ACTIVE_SPAWNS);
+    console.log('[PokemonSpawnManager] Adding', spawnsToAdd.length, 'spawns (after slice)');
+
     for (const spawn of spawnsToAdd) {
       this.addSpawn(spawn);
     }
 
     this.isInitialized = true;
+
+    // === POST-SYNC DIAGNOSTIC ===
+    console.log('[PokemonSpawnManager] ===== POST-SYNC STATE =====');
+    console.log('[PokemonSpawnManager] spawnsById.size:', this.spawnsById.size);
+    console.log('[PokemonSpawnManager] slotToId.size:', this.slotToId.size);
+    console.log('[PokemonSpawnManager] spatialGrid.size:', this.spatialGrid.size);
+    if (this.spawnsById.size > 0) {
+      console.log('[PokemonSpawnManager] First spawn in map:',
+        Array.from(this.spawnsById.values())[0]);
+    }
+    console.log('[PokemonSpawnManager] ========================================');
 
     // Emit event for UI layer
     this.scene.events.emit('pokemon-spawns-synced', {
@@ -1077,18 +1125,63 @@ export class PokemonSpawnManager {
 
   /**
    * Log current state for debugging.
+   * Call this from browser console: window.__PHASER_GAME__.scene.getScene('GameScene').pokemonSpawnManager.debugLogState()
    */
   debugLogState(): void {
-    console.log('[PokemonSpawnManager] Debug State:');
-    console.log('  - Initialized:', this.isInitialized);
-    console.log('  - Active spawns:', this.spawnsById.size, '/', SPAWN_CONFIG.MAX_ACTIVE_SPAWNS);
-    console.log('  - Pool size:', this.entityPool.length, 'in use:', this.entityPool.filter(e => e.inUse).length);
-    console.log('  - Spatial grid cells:', this.spatialGrid.size);
-    console.log('  - Occupied slots:', Array.from(this.slotToId.keys()).join(', '));
-    console.log('  - Spawns:');
-    for (const spawn of this.spawnsById.values()) {
-      console.log(`    - ID: ${spawn.id.toString()}, Slot: ${spawn.slotIndex}, Pos: (${spawn.x}, ${spawn.y}), Attempts: ${spawn.attemptCount}, HasEntity: ${!!spawn.entity}`);
+    console.log('\n[PokemonSpawnManager] ============ DEBUG STATE ============');
+    console.log('  Initialized:', this.isInitialized);
+    console.log('  Debug Mode:', this.debugMode);
+
+    console.log('\n  --- Collections ---');
+    console.log('  spawnsById.size:', this.spawnsById.size);
+    console.log('  slotToId.size:', this.slotToId.size);
+    console.log('  entityPool.length:', this.entityPool.length);
+    console.log('  spatialGrid.size:', this.spatialGrid.size);
+
+    console.log('\n  --- Pool Status ---');
+    const inUse = this.entityPool.filter(e => e.inUse).length;
+    console.log(`  Pool usage: ${inUse} / ${this.entityPool.length} in use`);
+
+    console.log('\n  --- Slot Mapping (slotToId) ---');
+    if (this.slotToId.size === 0) {
+      console.log('  (empty - no slots occupied)');
+    } else {
+      for (const [slot, id] of this.slotToId.entries()) {
+        console.log(`  Slot ${slot} -> ID ${id.toString()}`);
+      }
     }
+
+    console.log('\n  --- All Spawns (spawnsById) ---');
+    if (this.spawnsById.size === 0) {
+      console.log('  (empty - no spawns registered)');
+    } else {
+      let i = 0;
+      for (const spawn of this.spawnsById.values()) {
+        console.log(`  [${i}] ID: ${spawn.id.toString()}`);
+        console.log(`       Slot: ${spawn.slotIndex}, Pos: (${spawn.x}, ${spawn.y})`);
+        console.log(`       Attempts: ${spawn.attemptCount}, Timestamp: ${spawn.timestamp}`);
+        console.log(`       HasEntity: ${!!spawn.entity}, HasGrass: ${!!spawn.grassRustle}`);
+        if (spawn.entity) {
+          console.log(`       Entity visible: ${spawn.entity.visible}, active: ${spawn.entity.active}`);
+        }
+        i++;
+        if (i >= 10) {
+          console.log(`       ... and ${this.spawnsById.size - 10} more`);
+          break;
+        }
+      }
+    }
+
+    console.log('\n  --- Spatial Grid ---');
+    if (this.spatialGrid.size === 0) {
+      console.log('  (empty - no grid cells)');
+    } else {
+      for (const [key, cell] of this.spatialGrid.entries()) {
+        console.log(`  Cell ${key}: ${cell.spawns.size} spawn(s)`);
+      }
+    }
+
+    console.log('===============================================\n');
   }
 
   // ============================================================

@@ -263,6 +263,43 @@ window.checkListing(id)            // Inspect specific listing
 window.getListingsRange(start, max) // Batch listing check
 ```
 
+### Pokemon Spawn Debugging
+
+Console commands to debug the spawn system:
+```javascript
+// Get references
+const game = window.__PHASER_GAME__;
+const scene = game.scene.getScene('GameScene');
+const mgr = scene.pokemonSpawnManager;
+
+// View spawn state
+mgr.debugLogState();           // Detailed state dump
+mgr.printSpawnTable();         // Formatted table of all spawns
+console.log(mgr.getSummary()); // One-line status
+
+// Enable visual debug mode (slot labels + overlay)
+mgr.setDebugMode(true);        // Turn on
+mgr.toggleDebugMode();         // Toggle on/off
+mgr.isDebugMode();             // Check current state
+
+// Query spawns
+mgr.getStats();                // { activeCount, maxCount, poolSize, poolInUse, gridCells }
+mgr.getOccupiedSlots();        // Array of slot indices with Pokemon
+mgr.getAllSpawns();            // Array of all PokemonSpawn objects
+mgr.getSpawnBySlot(0);         // Get Pokemon in slot 0
+```
+
+**Diagnostic Logging:**
+The spawn system includes extensive console logging at each step of data flow. Watch for these log prefixes:
+- `[useGetPokemonSpawns]` - Contract read hook (raw data from chain)
+- `[GameCanvas]` - React-to-Phaser bridge (conversion and sync)
+- `[PokemonSpawnManager]` - Phaser manager (entity creation)
+
+**Common Issues to Check:**
+1. `[useGetPokemonSpawns] Parsed active spawns: 0` → No Pokemon with `isActive: true` on-chain
+2. `[GameCanvas] Manager exists: false` → Scene not ready, spawns buffered
+3. `[PokemonSpawnManager] Received array length: 0` → Data lost in conversion
+
 ## Development Notes
 
 ### Rate Limiting
