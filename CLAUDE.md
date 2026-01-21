@@ -1421,25 +1421,69 @@ User clicks "Try Again" → onTryAgain → CatchAttemptModal reopens
 ```
 
 ### useTokenBalances Hook
-Shared hooks for APE and USDC.e token balances:
+Hooks for APE (native) and USDC.e (ERC-20) balances on ApeChain:
 
 **Location:** `src/hooks/useTokenBalances.ts`
 
+**IMPORTANT:** On ApeChain, APE is the **native gas token** (like ETH on Ethereum), not an ERC-20:
+- `useApeBalance()` uses wagmi's `useBalance` hook for native balance
+- `useUsdcBalance()` uses `useReadContract` for ERC-20 `balanceOf`
+
+**Available Hooks:**
+| Hook | Purpose |
+|------|---------|
+| `useApeBalance(address)` | Native APE balance |
+| `useUsdcBalance(address)` | USDC.e ERC-20 balance |
+| `useApeUsdPrice()` | APE/USD price from CoinGecko |
+| `useApeBalanceWithUsd(address)` | APE balance + USD value |
+| `useTokenBalances(address)` | Both balances combined |
+
 **Usage:**
 ```typescript
-import { useApeBalance, useUsdcBalance, useTokenBalances } from '../hooks/useTokenBalances';
+import { useApeBalanceWithUsd, useUsdcBalance, useApeUsdPrice } from '../hooks/useTokenBalances';
 
-// Individual hooks
-const { balance, raw, isLoading, refetch } = useApeBalance(address);
-const { balance, raw, isLoading, refetch } = useUsdcBalance(address);
+// APE balance with USD value
+const { balance, usdValue, isLoading, isError, refetch } = useApeBalanceWithUsd(address);
+// balance: 12.34 (APE amount)
+// usdValue: 7.89 (USD equivalent, or null if price unavailable)
 
-// Combined hook
+// USDC.e balance
+const { balance, isLoading, isError, refetch } = useUsdcBalance(address);
+// balance: 25.00 (already in USD)
+
+// APE price only
+const { price, isLoading, isError } = useApeUsdPrice();
+// price: 0.64 (USD per APE)
+
+// Combined balances
 const { ape, usdc, isLoading, refetchAll } = useTokenBalances(address);
 ```
 
+**Return Shape:**
+```typescript
+interface TokenBalanceResult {
+  balance: number;          // Formatted (e.g., 12.34)
+  raw: bigint | undefined;  // Wei value
+  isLoading: boolean;
+  isError: boolean;
+  error: string | null;
+  refetch: () => void;
+}
+
+interface BalanceWithUsdResult extends TokenBalanceResult {
+  usdValue: number | null;  // balance * apePrice (null if price unavailable)
+  isUsdLoading: boolean;    // True if balance OR price still loading
+}
+```
+
 **Token Addresses (ApeChain Mainnet):**
-- USDC.e: `0xF1815bd50389c46847f0Bda824eC8da914045D14` (6 decimals)
-- APE: `0x4d224452801aced8b2f0aebe155379bb5d594381` (18 decimals)
+- USDC.e: `0xF1815bd50389c46847f0Bda824eC8da914045D14` (6 decimals, ERC-20)
+- APE: Native token (18 decimals, NOT an ERC-20 contract)
+
+**Price Caching:**
+- APE/USD price fetched from CoinGecko API
+- 60-second stale time, 5-minute cache
+- Retry on failure (2 retries, 1s delay)
 
 ### CatchMechanicsManager (Frontend)
 Manages the Pokemon catching flow, state machine, and animations:

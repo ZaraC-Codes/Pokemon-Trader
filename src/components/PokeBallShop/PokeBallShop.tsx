@@ -36,7 +36,7 @@ import {
   getCatchRatePercent,
   type BallType,
 } from '../../hooks/pokeballGame';
-import { useApeBalance, useUsdcBalance } from '../../hooks/useTokenBalances';
+import { useApeBalanceWithUsd, useUsdcBalance } from '../../hooks/useTokenBalances';
 import {
   thirdwebClient,
   apechain,
@@ -188,6 +188,11 @@ const styles = {
   balanceValue: {
     fontSize: '16px',
     fontWeight: 'bold',
+  },
+  usdEstimate: {
+    fontSize: '12px',
+    color: '#aaa',
+    fontWeight: 'normal',
   },
   inventorySection: {
     marginBottom: '20px',
@@ -705,28 +710,29 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   // Hooks
   const { write, isLoading, isPending, error, receipt, reset } = usePurchaseBalls();
   const inventory = usePlayerBallInventory(playerAddress);
-  const apeBalance = useApeBalance(playerAddress);
+  const apeBalance = useApeBalanceWithUsd(playerAddress);
   const usdcBalance = useUsdcBalance(playerAddress);
 
   // Check if a purchase has sufficient balance
   const hasInsufficientBalance = useCallback(
     (ballType: BallType): boolean => {
-      const cost = getBallPriceUSD(ballType) * quantities[ballType];
-      if (cost <= 0) return false;
+      const costUsd = getBallPriceUSD(ballType) * quantities[ballType];
+      if (costUsd <= 0) return false;
 
-      // For APE, we need to estimate APE amount from USD price
-      // This is approximate - actual conversion happens on-chain
+      // For APE, convert USD cost to APE using current price
       if (paymentToken === 'APE') {
-        // Rough estimate: assume APE price around $1 for safety check
-        // TODO: Get actual APE/USD price from contract or oracle
-        const estimatedApeNeeded = cost; // 1:1 estimate for now
-        return apeBalance.balance < estimatedApeNeeded;
+        // Use APE USD value if available, otherwise fall back to raw balance comparison
+        if (apeBalance.usdValue !== null) {
+          return apeBalance.usdValue < costUsd;
+        }
+        // Fallback: if price not available, use 1:1 estimate
+        return apeBalance.balance < costUsd;
       }
 
       // For USDC, it's direct USD comparison
-      return usdcBalance.balance < cost;
+      return usdcBalance.balance < costUsd;
     },
-    [quantities, paymentToken, apeBalance.balance, usdcBalance.balance]
+    [quantities, paymentToken, apeBalance.balance, apeBalance.usdValue, usdcBalance.balance]
   );
 
   // Handle quantity change
@@ -805,13 +811,35 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           <div style={styles.balanceItem}>
             <span style={styles.balanceLabel}>APE Balance</span>
             <span style={{ ...styles.balanceValue, color: '#ffcc00' }}>
-              {apeBalance.isLoading ? '...' : apeBalance.balance.toFixed(2)}
+              {apeBalance.isLoading ? (
+                <span style={{ opacity: 0.6 }}>...</span>
+              ) : apeBalance.isError ? (
+                <span style={{ color: '#ff6666' }}>—</span>
+              ) : (
+                <>
+                  {apeBalance.balance.toFixed(2)}
+                  {apeBalance.usdValue !== null && (
+                    <span style={styles.usdEstimate}>
+                      {' '}(~${apeBalance.usdValue.toFixed(2)})
+                    </span>
+                  )}
+                  {apeBalance.isUsdLoading && apeBalance.usdValue === null && (
+                    <span style={{ ...styles.usdEstimate, opacity: 0.5 }}> (~$...)</span>
+                  )}
+                </>
+              )}
             </span>
           </div>
           <div style={styles.balanceItem}>
             <span style={styles.balanceLabel}>USDC.e Balance</span>
             <span style={{ ...styles.balanceValue, color: '#00ff00' }}>
-              {usdcBalance.isLoading ? '...' : `$${usdcBalance.balance.toFixed(2)}`}
+              {usdcBalance.isLoading ? (
+                <span style={{ opacity: 0.6 }}>...</span>
+              ) : usdcBalance.isError ? (
+                <span style={{ color: '#ff6666' }}>—</span>
+              ) : (
+                `$${usdcBalance.balance.toFixed(2)}`
+              )}
             </span>
           </div>
         </div>
