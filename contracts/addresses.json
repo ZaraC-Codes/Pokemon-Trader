@@ -6,7 +6,7 @@
   "contracts": {
     "pokeballGame": {
       "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
-      "implementation": "0xb73A5eE21489c8b09f46538A5DA33146BD3E7D3e"
+      "implementation": "0x71ED694476909FD5182afE1fDc9098a9975EA6b5"
     },
     "slabNFTManager": {
       "proxy": "0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71",
@@ -41,5 +41,11 @@
       "source": "Native ApeCoin",
       "verified": true
     }
+  },
+  "upgrade_v1_2_0": {
+    "timestamp": "2026-01-21T16:40:59.283Z",
+    "oldImplementation": "0x71ED694476909FD5182afE1fDc9098a9975EA6b5",
+    "newImplementation": "0x71ED694476909FD5182afE1fDc9098a9975EA6b5",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06"
   }
 }

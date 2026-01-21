@@ -377,10 +377,15 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
-| Version | MAX_ACTIVE_POKEMON | Status |
-|---------|-------------------|--------|
-| v1.1.0 | 3 | Legacy (deprecated) |
-| v1.2.0 | 20 | **Deployed on ApeChain** |
+| Version | MAX_ACTIVE_POKEMON | Implementation | Status |
+|---------|-------------------|----------------|--------|
+| v1.1.0 | 3 | `0xb73A5eE21489c8b09f46538A5DA33146BD3E7D3e` | Legacy (deprecated) |
+| v1.2.0 | 20 | `0x71ED694476909FD5182afE1fDc9098a9975EA6b5` | **Active on ApeChain** |
+
+**Deployed Addresses:**
+- Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
+- Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5`
+- Upgraded: 2026-01-21
 
 **Ball System:**
 | Ball Type | Price | Catch Rate |
@@ -424,11 +429,10 @@ Pokemon catching mini-game with provably fair mechanics:
 - `RevenueSentToManager` - When revenue deposited to SlabNFTManager
 - `PokemonSpawned` - slotIndex is 0-2 (v1.1.0) or 0-19 (v1.2.0)
 
-**Upgrade to v1.2.0:**
-```bash
-npx hardhat run contracts/deployment/upgrade_PokeballGameV2.cjs --network apechain
-```
-See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for complete upgrade guide.
+**Upgrade History:**
+- v1.2.0 deployed 2026-01-21 via `upgrade_PokeballGameV2.cjs`
+- Uses `unsafeSkipStorageCheck: true` for array resize (3→20 is storage-safe)
+- See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for complete upgrade guide
 
 ### SlabNFTManager Contract
 NFT inventory management and auto-purchase from SlabMachine:

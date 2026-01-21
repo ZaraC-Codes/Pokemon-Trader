@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "ISlabMachine",
-  "sourceName": "contracts/PokeballGame.sol",
+  "sourceName": "contracts/SlabNFTManager.sol",
   "abi": [
     {
       "inputs": [],
@@ -9,28 +9,28 @@
       "outputs": [
         {
           "internalType": "uint256",
-          "name": "usdcPullPrice",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "apePullPrice",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
           "name": "maxPulls",
           "type": "uint256"
         },
         {
           "internalType": "uint256",
-          "name": "totalPulls",
+          "name": "buybackExpiry",
           "type": "uint256"
         },
         {
-          "internalType": "bool",
-          "name": "isActive",
-          "type": "bool"
+          "internalType": "uint256",
+          "name": "buybackPercentage",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minBuybackValue",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "usdcPullPrice",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -53,7 +53,7 @@
       "outputs": [
         {
           "internalType": "uint256",
-          "name": "requestId",
+          "name": "requestId_",
           "type": "uint256"
         }
       ],
