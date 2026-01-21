@@ -328,10 +328,28 @@ export class CatchMechanicsManager {
     );
 
     if (!inRange) {
-      console.log('[CatchMechanicsManager] Player not in range');
-      this.scene.events.emit('catch-out-of-range', { pokemonId, spawn });
+      console.log('[CatchMechanicsManager] Player not in range of Pokemon', pokemonId.toString());
+      const distance = this.calculateDistance(this.playerX, this.playerY, spawn.x, spawn.y);
+      this.scene.events.emit('catch-out-of-range', {
+        pokemonId,
+        spawn,
+        playerX: this.playerX,
+        playerY: this.playerY,
+        distance,
+        requiredRange: this.getCatchRange(),
+      });
       return;
     }
+
+    // Player is in range - emit event for React to open the modal
+    console.log('[CatchMechanicsManager] Player in range, emitting pokemon-catch-ready');
+    this.scene.events.emit('pokemon-catch-ready', {
+      pokemonId: spawn.id,
+      slotIndex: spawn.slotIndex,
+      attemptCount: spawn.attemptCount,
+      x: spawn.x,
+      y: spawn.y,
+    });
 
     // Check if player has any balls
     if (!this.inventoryManager.hasAnyBalls()) {
@@ -365,6 +383,22 @@ export class CatchMechanicsManager {
       console.error('[CatchMechanicsManager] Ball selection error:', error);
       this.handleError('Failed to select ball');
     }
+  }
+
+  /**
+   * Calculate distance between two points.
+   * @internal
+   */
+  private calculateDistance(x1: number, y1: number, x2: number, y2: number): number {
+    return Phaser.Math.Distance.Between(x1, y1, x2, y2);
+  }
+
+  /**
+   * Get the current catch range in pixels.
+   * Exposes the SPAWN_CONFIG.CATCH_RANGE_PIXELS value for external use.
+   */
+  getCatchRange(): number {
+    return this.spawnManager.getCatchRange();
   }
 
   /**

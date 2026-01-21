@@ -6,7 +6,7 @@ import type { TradeListing } from '../services/contractService';
 import { useGetPokemonSpawns, type PokemonSpawn as ContractPokemonSpawn } from '../hooks/pokeballGame/useGetPokemonSpawns';
 import type { PokemonSpawn as ManagerPokemonSpawn } from '../game/managers/PokemonSpawnManager';
 
-/** Data emitted when a Pokemon is clicked in the Phaser scene */
+/** Data emitted when a Pokemon is ready to catch (player in range) */
 export interface PokemonClickData {
   pokemonId: bigint;
   slotIndex: number;
@@ -15,9 +15,21 @@ export interface PokemonClickData {
   y: number;
 }
 
+/** Data emitted when player tries to catch Pokemon but is out of range */
+export interface CatchOutOfRangeData {
+  pokemonId: bigint;
+  distance: number;
+  requiredRange: number;
+  playerX: number;
+  playerY: number;
+}
+
 interface GameCanvasProps {
   onTradeClick?: (listing: TradeListing) => void;
+  /** Called when player clicks Pokemon AND is in range (ready to catch) */
   onPokemonClick?: (data: PokemonClickData) => void;
+  /** Called when player clicks Pokemon but is OUT of range */
+  onCatchOutOfRange?: (data: CatchOutOfRangeData) => void;
   // Music disabled
   // onMusicToggle?: () => void;
 }
@@ -97,11 +109,12 @@ function toManagerSpawn(contract: ContractPokemonSpawn, index: number): ManagerP
   return result;
 }
 
-export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasProps) {
+export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfRange }: GameCanvasProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onTradeClickRef = useRef(onTradeClick);
   const onPokemonClickRef = useRef(onPokemonClick);
+  const onCatchOutOfRangeRef = useRef(onCatchOutOfRange);
 
   // Track whether the scene is ready (pokemonSpawnManager has been created)
   const sceneReadyRef = useRef<boolean>(false);
@@ -119,6 +132,10 @@ export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasP
   useEffect(() => {
     onPokemonClickRef.current = onPokemonClick;
   }, [onPokemonClick]);
+
+  useEffect(() => {
+    onCatchOutOfRangeRef.current = onCatchOutOfRange;
+  }, [onCatchOutOfRange]);
 
   /**
    * Sync spawns to PokemonSpawnManager.
@@ -207,10 +224,37 @@ export default function GameCanvas({ onTradeClick, onPokemonClick }: GameCanvasP
         }
       });
 
-      // Listen for Pokemon clicks from the scene
-      gameScene.events.on('pokemon-clicked', (data: PokemonClickData) => {
+      // Listen for Pokemon catch-ready events (player is in range)
+      // This replaces the old 'pokemon-clicked' event which didn't check proximity
+      gameScene.events.on('pokemon-catch-ready', (data: PokemonClickData) => {
+        console.log('[GameCanvas] Pokemon catch-ready event received:', data.pokemonId.toString());
         if (onPokemonClickRef.current) {
           onPokemonClickRef.current(data);
+        }
+      });
+
+      // Listen for out-of-range events (player tried to catch but too far)
+      gameScene.events.on('catch-out-of-range', (data: {
+        pokemonId: bigint;
+        spawn: { x: number; y: number };
+        playerX: number;
+        playerY: number;
+        distance: number;
+        requiredRange: number;
+      }) => {
+        console.log('[GameCanvas] Catch out-of-range event:', {
+          pokemonId: data.pokemonId.toString(),
+          distance: Math.round(data.distance),
+          requiredRange: data.requiredRange,
+        });
+        if (onCatchOutOfRangeRef.current) {
+          onCatchOutOfRangeRef.current({
+            pokemonId: data.pokemonId,
+            distance: data.distance,
+            requiredRange: data.requiredRange,
+            playerX: data.playerX,
+            playerY: data.playerY,
+          });
         }
       });
 

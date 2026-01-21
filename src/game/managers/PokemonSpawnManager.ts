@@ -40,7 +40,7 @@ const SPAWN_CONFIG = {
   /** Maximum throw attempts before Pokemon relocates */
   MAX_ATTEMPTS: 3,
   /** Catch interaction radius in pixels (how close player must be) */
-  CATCH_RANGE_PIXELS: 48,
+  CATCH_RANGE_PIXELS: 96,
   /** Distance threshold for getSpawnAt queries in pixels */
   SPAWN_QUERY_RADIUS: 32,
   /** Size of the entity pool for reuse (should be >= MAX_ACTIVE_SPAWNS) */
@@ -135,6 +135,9 @@ export class PokemonSpawnManager {
 
   /** Debug beacon markers (always visible circles at spawn positions) */
   private debugBeacons: Map<bigint, Phaser.GameObjects.Arc> = new Map();
+
+  /** Debug catch range circles (shown when debug mode is enabled) */
+  private debugRangeCircles: Map<bigint, Phaser.GameObjects.Arc> = new Map();
 
   constructor(scene: GameScene) {
     this.scene = scene;
@@ -628,6 +631,7 @@ export class PokemonSpawnManager {
     if (this.debugMode) {
       this.createDebugLabel(spawn);
       this.createDebugBeacon(spawn);
+      this.createDebugRangeCircle(spawn);
     }
 
     console.log('[PokemonSpawnManager] Added spawn:', spawn.id.toString(), 'at', spawn.x, spawn.y, '(slot:', spawn.slotIndex, ')');
@@ -668,6 +672,7 @@ export class PokemonSpawnManager {
     if (this.debugMode) {
       this.destroyDebugLabel(pokemonId);
       this.destroyDebugBeacon(pokemonId);
+      this.destroyDebugRangeCircle(pokemonId);
     }
 
     // Remove from main map
@@ -821,6 +826,14 @@ export class PokemonSpawnManager {
   isPlayerInCatchRange(playerX: number, playerY: number, pokemonX: number, pokemonY: number): boolean {
     const distance = this.calculateDistance(playerX, playerY, pokemonX, pokemonY);
     return distance <= SPAWN_CONFIG.CATCH_RANGE_PIXELS;
+  }
+
+  /**
+   * Get the catch range in pixels.
+   * Useful for UI display and debug visualization.
+   */
+  getCatchRange(): number {
+    return SPAWN_CONFIG.CATCH_RANGE_PIXELS;
   }
 
   /**
@@ -1087,6 +1100,7 @@ export class PokemonSpawnManager {
     this.destroyDebugOverlay();
     this.destroyAllDebugLabels();
     this.destroyAllDebugBeacons();
+    this.destroyAllDebugRangeCircles();
 
     this.clearAllSpawns();
 
@@ -1224,17 +1238,19 @@ export class PokemonSpawnManager {
     console.log('[PokemonSpawnManager] Debug mode:', enabled ? 'ENABLED' : 'DISABLED');
     console.log('[PokemonSpawnManager] Current beacons count:', this.debugBeacons.size);
     console.log('[PokemonSpawnManager] Current labels count:', this.debugLabels.size);
+    console.log('[PokemonSpawnManager] Current range circles count:', this.debugRangeCircles.size);
 
     if (enabled) {
       this.createDebugOverlay();
-      this.createAllDebugLabels(); // Also creates beacons
-      console.log('[PokemonSpawnManager] After enable - beacons:', this.debugBeacons.size, 'labels:', this.debugLabels.size);
+      this.createAllDebugLabels(); // Also creates beacons and range circles
+      console.log('[PokemonSpawnManager] After enable - beacons:', this.debugBeacons.size, 'labels:', this.debugLabels.size, 'range circles:', this.debugRangeCircles.size);
     } else {
       console.log('[PokemonSpawnManager] Disabling debug mode - destroying visuals...');
       this.destroyDebugOverlay();
       this.destroyAllDebugLabels();
       this.destroyAllDebugBeacons();
-      console.log('[PokemonSpawnManager] After disable - beacons:', this.debugBeacons.size, 'labels:', this.debugLabels.size);
+      this.destroyAllDebugRangeCircles();
+      console.log('[PokemonSpawnManager] After disable - beacons:', this.debugBeacons.size, 'labels:', this.debugLabels.size, 'range circles:', this.debugRangeCircles.size);
     }
   }
 
@@ -1332,6 +1348,7 @@ export class PokemonSpawnManager {
     for (const spawn of this.spawnsById.values()) {
       this.createDebugLabel(spawn);
       this.createDebugBeacon(spawn);
+      this.createDebugRangeCircle(spawn);
     }
   }
 
@@ -1344,6 +1361,53 @@ export class PokemonSpawnManager {
     // Debug beacons disabled - grass rustle effect is the main visual indicator
     // The Pokemon entity itself is semi-transparent and hard to see on purpose
     return;
+  }
+
+  /**
+   * Create a debug catch range circle around a Pokemon.
+   * Shows the allowed proximity for catch attempts.
+   */
+  private createDebugRangeCircle(spawn: PokemonSpawn): void {
+    if (!this.debugMode) return;
+    if (this.debugRangeCircles.has(spawn.id)) return;
+
+    const rangeCircle = this.scene.add.arc(
+      spawn.x,
+      spawn.y,
+      SPAWN_CONFIG.CATCH_RANGE_PIXELS,
+      0,
+      360,
+      false,
+      0x00ff00,
+      0.15
+    );
+    rangeCircle.setStrokeStyle(1, 0x00ff00, 0.4);
+    rangeCircle.setDepth(5); // Below Pokemon but visible
+
+    this.debugRangeCircles.set(spawn.id, rangeCircle);
+    console.log(`[PokemonSpawnManager] Created catch range circle for spawn ${spawn.id.toString()}`);
+  }
+
+  /**
+   * Destroy a debug catch range circle for a Pokemon.
+   */
+  private destroyDebugRangeCircle(pokemonId: bigint): void {
+    const circle = this.debugRangeCircles.get(pokemonId);
+    if (circle) {
+      circle.destroy();
+      this.debugRangeCircles.delete(pokemonId);
+    }
+  }
+
+  /**
+   * Destroy all debug catch range circles.
+   */
+  private destroyAllDebugRangeCircles(): void {
+    console.log(`[PokemonSpawnManager] Destroying ${this.debugRangeCircles.size} catch range circles`);
+    for (const circle of this.debugRangeCircles.values()) {
+      circle.destroy();
+    }
+    this.debugRangeCircles.clear();
   }
 
   /**

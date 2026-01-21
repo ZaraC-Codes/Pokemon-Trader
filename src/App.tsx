@@ -3,7 +3,7 @@ import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { config } from './services/apechainConfig';
-import GameCanvas, { type PokemonClickData } from './components/GameCanvas';
+import GameCanvas, { type PokemonClickData, type CatchOutOfRangeData } from './components/GameCanvas';
 import WalletConnector from './components/WalletConnector';
 import TradeModal from './components/TradeModal';
 import VolumeToggle from './components/VolumeToggle';
@@ -20,6 +20,13 @@ interface SelectedPokemon {
   pokemonId: bigint;
   slotIndex: number;
   attemptsRemaining: number;
+}
+
+/** Toast notification state */
+interface ToastMessage {
+  id: number;
+  message: string;
+  type: 'warning' | 'error' | 'success';
 }
 
 const queryClient = new QueryClient();
@@ -43,8 +50,19 @@ function AppContent() {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [musicVolume, setMusicVolume] = useState(0.5);
   const [selectedPokemon, setSelectedPokemon] = useState<SelectedPokemon | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   // Music disabled
   // const [isMusicPlaying, setIsMusicPlaying] = useState(true);
+
+  // Toast management
+  const addToast = useCallback((message: string, type: ToastMessage['type'] = 'warning') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  }, []);
 
   useEffect(() => {
     // Expose test functions to window for browser console testing
@@ -267,7 +285,7 @@ function AppContent() {
     });
   }, []);
 
-  // Handle Pokemon click from Phaser scene
+  // Handle Pokemon click from Phaser scene (only fires when player is in range)
   const handlePokemonClick = useCallback((data: PokemonClickData) => {
     // Max attempts is 3, so attemptsRemaining = 3 - attemptCount
     setSelectedPokemon({
@@ -276,6 +294,16 @@ function AppContent() {
       attemptsRemaining: 3 - data.attemptCount,
     });
   }, []);
+
+  // Handle out-of-range catch attempt
+  const handleCatchOutOfRange = useCallback((data: CatchOutOfRangeData) => {
+    const distancePixels = Math.round(data.distance);
+    const rangePixels = data.requiredRange;
+    addToast(
+      `Move closer to the Pokémon! (${distancePixels}px away, need ${rangePixels}px)`,
+      'warning'
+    );
+  }, [addToast]);
 
   const handleCloseCatchModal = useCallback(() => {
     setSelectedPokemon(null);
@@ -294,8 +322,53 @@ function AppContent() {
       }}
     >
       <WalletConnector />
-      <GameCanvas onTradeClick={handleTradeClick} onPokemonClick={handlePokemonClick} />
+      <GameCanvas
+        onTradeClick={handleTradeClick}
+        onPokemonClick={handlePokemonClick}
+        onCatchOutOfRange={handleCatchOutOfRange}
+      />
       <GameHUD playerAddress={account} />
+
+      {/* Toast Notifications */}
+      <div style={{
+        position: 'fixed',
+        top: '80px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 2000,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        pointerEvents: 'none',
+      }}>
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            style={{
+              padding: '12px 20px',
+              backgroundColor: toast.type === 'warning' ? '#3a3a1a' : toast.type === 'error' ? '#3a1a1a' : '#1a3a1a',
+              border: `2px solid ${toast.type === 'warning' ? '#ffcc00' : toast.type === 'error' ? '#ff4444' : '#00ff00'}`,
+              color: toast.type === 'warning' ? '#ffcc00' : toast.type === 'error' ? '#ff4444' : '#00ff00',
+              fontFamily: "'Courier New', monospace",
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textAlign: 'center',
+              imageRendering: 'pixelated',
+              animation: 'fadeInOut 3s ease-in-out',
+            }}
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
+      <style>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateY(-10px); }
+          10% { opacity: 1; transform: translateY(0); }
+          80% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-10px); }
+        }
+      `}</style>
       {selectedTrade && (
         <TradeModal listing={selectedTrade} onClose={handleCloseModal} />
       )}
