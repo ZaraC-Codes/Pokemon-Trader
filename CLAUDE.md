@@ -128,18 +128,21 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 │   └── utilities/               # Common helpers
 │
 ├── contracts/               # Smart contract files
-│   ├── PokeballGame.sol         # Main game contract v1.1.0 (UUPS)
+│   ├── PokeballGame.sol         # Main game contract v1.1.0 (UUPS, deployed)
+│   ├── PokeballGameV2.sol       # Game contract v1.2.0 (20 Pokemon support)
 │   ├── SlabNFTManager.sol       # NFT inventory manager (UUPS)
 │   ├── interfaces/
 │   │   └── IPOPVRNG.sol         # POP VRNG interface (randomness)
 │   ├── abi/
-│   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0
+│   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0 (current)
+│   │   ├── abi_PokeballGameV2.json  # PokeballGame ABI v1.2.0 (upgrade)
 │   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
 │   ├── deployment/
 │   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
 │   │   ├── deploy_PokeballGame.js   # PokeballGame standalone deployment
 │   │   ├── deploy_SlabNFTManager.js # SlabNFTManager standalone deployment
-│   │   └── upgrade_PokeballGame.js  # UUPS upgrade example script
+│   │   ├── upgrade_PokeballGame.js  # UUPS upgrade example script
+│   │   └── upgrade_PokeballGameV2.cjs # Upgrade to v1.2.0 (20 Pokemon)
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -151,6 +154,7 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 │   ├── WALLET_CONFIG.md         # Wallet setup guide
 │   ├── UUPS_UPGRADE_GUIDE.md    # UUPS proxy upgrade documentation
 │   ├── SETUP_POKEBALL_GAME.md   # PokeballGame integration setup guide
+│   ├── UPGRADE_V1.2.0_20_POKEMON.md # v1.2.0 upgrade guide (3→20 Pokemon)
 │   └── claude_agents.md         # Claude agent integration
 │
 ├── scripts/                 # Hardhat scripts
@@ -175,12 +179,15 @@ npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 in
 | `src/hooks/useAllListings.tsx` | Core hook for fetching listings |
 | `contracts/addresses.json` | All contract addresses and token config |
 | `contracts/wallets.json` | Wallet configuration (owner, treasury, NFT revenue) |
-| `contracts/PokeballGame.sol` | Main game smart contract v1.1.0 |
+| `contracts/PokeballGame.sol` | Main game smart contract v1.1.0 (deployed) |
+| `contracts/PokeballGameV2.sol` | Game contract v1.2.0 (20 Pokemon support) |
 | `contracts/SlabNFTManager.sol` | NFT inventory and auto-purchase manager |
-| `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 for frontend |
+| `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (current) |
+| `contracts/abi/abi_PokeballGameV2.json` | PokeballGame ABI v1.2.0 (upgrade) |
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
+| `contracts/deployment/upgrade_PokeballGameV2.cjs` | Upgrade to v1.2.0 (20 Pokemon) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon on-chain |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
@@ -366,8 +373,14 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.1.0)
+### PokeballGame Contract (v1.1.0 deployed, v1.2.0 ready)
 Pokemon catching mini-game with provably fair mechanics:
+
+**Versions:**
+| Version | MAX_ACTIVE_POKEMON | Status |
+|---------|-------------------|--------|
+| v1.1.0 | 3 | Deployed on ApeChain |
+| v1.2.0 | 20 | Ready for upgrade |
 
 **Ball System:**
 | Ball Type | Price | Catch Rate |
@@ -383,19 +396,23 @@ Pokemon catching mini-game with provably fair mechanics:
 - POP VRNG integration for fair randomness
 - 97% revenue sent to SlabNFTManager, 3% platform fee
 - Delegates NFT management to SlabNFTManager
-- Up to 3 active Pokemon spawns
+- Up to 3 active Pokemon spawns (v1.1.0) / 20 spawns (v1.2.0)
 - Max 3 throw attempts per Pokemon before relocation
 
 **Key Functions:**
 - `purchaseBalls(ballType, quantity, useAPE)` - Buy balls
-- `throwBall(pokemonSlot, ballType)` - Attempt catch, returns requestId
+- `throwBall(pokemonSlot, ballType)` - Attempt catch, returns requestId (slot 0-2 in v1.1.0, 0-19 in v1.2.0)
 - `randomNumberCallback(requestId, randomNumber)` - VRNG callback (handles both throws and spawns)
 - `spawnPokemon(slot)` - Spawn Pokemon at slot (owner only, uses VRNG for position)
 - `forceSpawnPokemon(slot, posX, posY)` - Spawn with specific position (owner only)
 - `getAllPlayerBalls(player)` - Get player inventory
-- `getAllActivePokemons()` - Get spawned Pokemon
+- `getAllActivePokemons()` - Get spawned Pokemon (returns `Pokemon[3]` in v1.1.0, `Pokemon[20]` in v1.2.0)
 - `setSlabNFTManager(address)` - Set NFT manager (owner only)
 - `getNFTInventoryCount()` - Query NFT inventory via manager
+
+**New Functions (v1.2.0 only):**
+- `getActivePokemonCount()` - Returns count of active Pokemon (uint8)
+- `getActivePokemonSlots()` - Returns array of occupied slot indices (uint8[])
 
 **Internal Callback Handlers:**
 - `_handleSpawnCallback()` - Creates Pokemon at VRNG-determined position
@@ -405,6 +422,13 @@ Pokemon catching mini-game with provably fair mechanics:
 - `BallPurchased`, `ThrowAttempted`, `CaughtPokemon`
 - `FailedCatch`, `PokemonRelocated`, `WalletUpdated`
 - `RevenueSentToManager` - When revenue deposited to SlabNFTManager
+- `PokemonSpawned` - slotIndex is 0-2 (v1.1.0) or 0-19 (v1.2.0)
+
+**Upgrade to v1.2.0:**
+```bash
+npx hardhat run contracts/deployment/upgrade_PokeballGameV2.cjs --network apechain
+```
+See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for complete upgrade guide.
 
 ### SlabNFTManager Contract
 NFT inventory management and auto-purchase from SlabMachine:
@@ -491,12 +515,14 @@ interface PokemonSpawn {
 **Configuration:**
 ```typescript
 SPAWN_CONFIG = {
-  MAX_ACTIVE_SPAWNS: 3,    // Max Pokemon at once
+  MAX_ACTIVE_SPAWNS: 3,    // Max Pokemon at once (update to 20 after v1.2.0 upgrade)
   MAX_ATTEMPTS: 3,          // Throws before relocate
   CATCH_RANGE_PIXELS: 48,   // Interaction distance
   SPAWN_QUERY_RADIUS: 32,   // Click detection radius
 }
 ```
+
+**Note:** After upgrading contract to v1.2.0, update `MAX_ACTIVE_SPAWNS` to 20.
 
 **GrassRustle Lifecycle (automatic):**
 - Created when Pokemon entity spawns (`createPokemonEntity`)
@@ -1245,4 +1271,5 @@ Comprehensive documentation available in `docs/`:
 - `WALLET_CONFIG.md` - Wallet setup instructions
 - `UUPS_UPGRADE_GUIDE.md` - UUPS proxy upgrade guide
 - `SETUP_POKEBALL_GAME.md` - **PokeballGame integration setup guide**
+- `UPGRADE_V1.2.0_20_POKEMON.md` - **v1.2.0 upgrade guide (3→20 Pokemon)**
 - `claude_agents.md` - Claude agent integration
