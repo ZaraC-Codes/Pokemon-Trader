@@ -1089,6 +1089,40 @@ window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()
 window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()?.setDebugMode(true)
 ```
 
+### WalletConnector Component
+Custom-styled RainbowKit wallet connect button matching the game's pixel-art HUD:
+
+**Location:** `src/components/WalletConnector.tsx`
+
+**Features:**
+- Uses `ConnectButton.Custom` for full styling control
+- Yellow pixel-art border style matching SHOP button and HUD
+- Dark background with monospace font
+- Shows truncated address and balance when connected
+- Chain icon button for network switching
+- "WRONG NETWORK" warning with red styling if on unsupported chain
+- Hover effects consistent with game UI
+
+**States:**
+| State | Display |
+|-------|---------|
+| Not connected | Yellow "CONNECT WALLET" button |
+| Wrong network | Red "⚠️ WRONG NETWORK" button |
+| Connected | [Chain icon] [Balance + Address] |
+
+**Styling:**
+- Border: `2px solid #ffcc00` (yellow)
+- Background: `rgba(0, 0, 0, 0.85)`
+- Font: `'Courier New', monospace`, 12px, bold
+- Hover: lighter background, brighter border
+
+**Integration:**
+```tsx
+// In App.tsx
+<WalletConnector />  // Renders in top-right via .wallet-connector CSS class
+<GameHUD playerAddress={account} />  // Only renders when connected
+```
+
 ### GameHUD Component
 Minimal heads-up display overlay showing ball inventory and shop access:
 
@@ -1121,7 +1155,7 @@ function AppContent() {
 - Responsive positioning coordinated with WalletConnector
 - Ball inventory display (2x2 grid with color-coded dots and counts)
 - "SHOP" button opens PokeBallShop modal
-- "Connect Wallet" message if not connected
+- Returns `null` when wallet not connected (WalletConnector handles connection UI)
 - Real-time updates via polling hooks (10s for inventory)
 
 **Layout:** `[Balls Panel] [SHOP Button] ... [Wallet Connect]`

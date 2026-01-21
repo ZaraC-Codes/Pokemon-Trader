@@ -229,15 +229,6 @@ const styles = {
     backgroundColor: '#2a4a2a',
     borderColor: '#00ff66',
   },
-  // No wallet styles
-  noWallet: {
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    border: '2px solid #ffcc00',
-    padding: '10px 14px',
-    color: '#ffcc00',
-    fontSize: '11px',
-    textAlign: 'center' as const,
-  },
   // Loading indicator
   loadingDot: {
     display: 'inline-block',
@@ -314,13 +305,9 @@ export function GameHUD({ playerAddress }: GameHUDProps) {
 
   const inventory = usePlayerBallInventory(playerAddress);
 
-  // No wallet connected
+  // No wallet connected - don't show HUD, let the styled RainbowKit button handle connection
   if (!playerAddress) {
-    return (
-      <div className="game-hud-container">
-        <div style={styles.noWallet}>Connect Wallet</div>
-      </div>
-    );
+    return null;
   }
 
   return (
