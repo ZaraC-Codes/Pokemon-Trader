@@ -326,9 +326,33 @@ if (isThirdwebConfigured()) {
 - Provides 2x movement speed boost
 
 ### POP VRNG Integration
-- On-chain verifiable randomness for mystery mechanics
-- Interface at `contracts/interfaces/IPOPVRNG.sol`
-- See `docs/pop_vrng_integration.md` for implementation details
+On-chain verifiable randomness for fair catch mechanics and Pokemon positioning:
+
+**Contract Address:** `0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1`
+
+**Used For:**
+1. **Catch Determination** - Fair success/failure via `randomNumber % 100 < catchRate`
+2. **Pokemon Positioning** - Random spawn/relocation coordinates
+
+**Request Flow:**
+```
+throwBall() → vrng.requestRandomNumberWithTraceId() → 1-2 blocks → randomNumberCallback()
+```
+
+**Callback Handler:**
+- Detects request type via `pendingThrow.thrower`
+- `thrower == address(this)` → Spawn/respawn request → `_handleSpawnCallback()`
+- `thrower == player address` → Throw attempt → `_handleThrowCallback()`
+
+**Key Functions:**
+- `_handleSpawnCallback()` - Creates Pokemon at random position
+- `_handleThrowCallback()` - Determines catch success, awards NFT if caught
+
+**Interface:** `contracts/interfaces/IPOPVRNG.sol`
+- `requestRandomNumberWithTraceId(uint256 traceId)` - Request random number
+- `randomNumberCallback(uint256 requestId, uint256 randomNumber)` - VRNG calls back
+
+See `docs/pop_vrng_integration.md` for complete implementation details
 
 ### Slab Machine
 - New contract for NFT/token interactions
@@ -357,12 +381,18 @@ Pokemon catching mini-game with provably fair mechanics:
 
 **Key Functions:**
 - `purchaseBalls(ballType, quantity, useAPE)` - Buy balls
-- `throwBall(pokemonSlot, ballType)` - Attempt catch
-- `randomNumberCallback(requestId, randomNumber)` - VRNG callback
+- `throwBall(pokemonSlot, ballType)` - Attempt catch, returns requestId
+- `randomNumberCallback(requestId, randomNumber)` - VRNG callback (handles both throws and spawns)
+- `spawnPokemon(slot)` - Spawn Pokemon at slot (owner only, uses VRNG for position)
+- `forceSpawnPokemon(slot, posX, posY)` - Spawn with specific position (owner only)
 - `getAllPlayerBalls(player)` - Get player inventory
 - `getAllActivePokemons()` - Get spawned Pokemon
 - `setSlabNFTManager(address)` - Set NFT manager (owner only)
 - `getNFTInventoryCount()` - Query NFT inventory via manager
+
+**Internal Callback Handlers:**
+- `_handleSpawnCallback()` - Creates Pokemon at VRNG-determined position
+- `_handleThrowCallback()` - Determines catch success, handles NFT award
 
 **Events for Frontend:**
 - `BallPurchased`, `ThrowAttempted`, `CaughtPokemon`
