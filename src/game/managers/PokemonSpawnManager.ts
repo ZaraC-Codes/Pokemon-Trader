@@ -124,6 +124,15 @@ export class PokemonSpawnManager {
   /** Flag to prevent duplicate initialization */
   private isInitialized: boolean = false;
 
+  /** Debug mode flag - when true, shows slot labels and logs spawn activity */
+  private debugMode: boolean = false;
+
+  /** Debug labels displayed above Pokemon when debug mode is enabled */
+  private debugLabels: Map<bigint, Phaser.GameObjects.Text> = new Map();
+
+  /** Debug overlay container for stats display */
+  private debugOverlay?: Phaser.GameObjects.Container;
+
   constructor(scene: GameScene) {
     this.scene = scene;
 
@@ -564,6 +573,11 @@ export class PokemonSpawnManager {
     // Play spawn visual effects
     this.playSpawnEffects(spawn);
 
+    // Create debug label if debug mode is enabled
+    if (this.debugMode) {
+      this.createDebugLabel(spawn);
+    }
+
     console.log('[PokemonSpawnManager] Added spawn:', spawn.id.toString(), 'at', spawn.x, spawn.y, '(slot:', spawn.slotIndex, ')');
   }
 
@@ -597,6 +611,11 @@ export class PokemonSpawnManager {
 
     spawn.entity = undefined;
     spawn.grassRustle = undefined;
+
+    // Remove debug label if debug mode is enabled
+    if (this.debugMode) {
+      this.destroyDebugLabel(pokemonId);
+    }
 
     // Remove from main map
     this.spawnsById.delete(pokemonId);
@@ -1011,6 +1030,10 @@ export class PokemonSpawnManager {
    * Call from GameScene.shutdown().
    */
   destroy(): void {
+    // Clean up debug mode visuals
+    this.destroyDebugOverlay();
+    this.destroyAllDebugLabels();
+
     this.clearAllSpawns();
 
     // Destroy pooled entities
@@ -1066,6 +1089,252 @@ export class PokemonSpawnManager {
     for (const spawn of this.spawnsById.values()) {
       console.log(`    - ID: ${spawn.id.toString()}, Slot: ${spawn.slotIndex}, Pos: (${spawn.x}, ${spawn.y}), Attempts: ${spawn.attemptCount}, HasEntity: ${!!spawn.entity}`);
     }
+  }
+
+  // ============================================================
+  // DEBUG MODE
+  // ============================================================
+
+  /**
+   * Enable or disable debug mode.
+   * When enabled:
+   * - Shows slot index labels above each Pokemon
+   * - Displays a stats overlay in the corner
+   * - Logs detailed spawn activity to console
+   *
+   * @param enabled - Whether to enable debug mode
+   *
+   * Usage in GameScene:
+   * ```typescript
+   * // Enable debug mode
+   * this.pokemonSpawnManager.setDebugMode(true);
+   *
+   * // Or toggle with a key
+   * this.input.keyboard.on('keydown-F3', () => {
+   *   this.pokemonSpawnManager.toggleDebugMode();
+   * });
+   * ```
+   */
+  setDebugMode(enabled: boolean): void {
+    if (this.debugMode === enabled) return;
+
+    this.debugMode = enabled;
+    console.log('[PokemonSpawnManager] Debug mode:', enabled ? 'ENABLED' : 'DISABLED');
+
+    if (enabled) {
+      this.createDebugOverlay();
+      this.createAllDebugLabels();
+    } else {
+      this.destroyDebugOverlay();
+      this.destroyAllDebugLabels();
+    }
+  }
+
+  /**
+   * Toggle debug mode on/off.
+   * @returns The new debug mode state
+   */
+  toggleDebugMode(): boolean {
+    this.setDebugMode(!this.debugMode);
+    return this.debugMode;
+  }
+
+  /**
+   * Check if debug mode is currently enabled.
+   */
+  isDebugMode(): boolean {
+    return this.debugMode;
+  }
+
+  /**
+   * Create the debug stats overlay in the top-left corner.
+   */
+  private createDebugOverlay(): void {
+    if (this.debugOverlay) return;
+
+    // Create container fixed to camera
+    this.debugOverlay = this.scene.add.container(10, 10);
+    this.debugOverlay.setScrollFactor(0); // Fixed to camera
+    this.debugOverlay.setDepth(1000);
+
+    // Background
+    const bg = this.scene.add.rectangle(0, 0, 220, 120, 0x000000, 0.7);
+    bg.setOrigin(0, 0);
+    this.debugOverlay.add(bg);
+
+    // Title
+    const title = this.scene.add.text(10, 5, '🐾 SPAWN DEBUG', {
+      fontSize: '12px',
+      fontFamily: 'Courier New, monospace',
+      color: '#00ff00',
+    });
+    this.debugOverlay.add(title);
+
+    // Stats text (will be updated)
+    const statsText = this.scene.add.text(10, 25, '', {
+      fontSize: '10px',
+      fontFamily: 'Courier New, monospace',
+      color: '#ffffff',
+      lineSpacing: 4,
+    });
+    statsText.setName('statsText');
+    this.debugOverlay.add(statsText);
+
+    this.updateDebugOverlay();
+  }
+
+  /**
+   * Update the debug overlay with current stats.
+   */
+  private updateDebugOverlay(): void {
+    if (!this.debugOverlay) return;
+
+    const statsText = this.debugOverlay.getByName('statsText') as Phaser.GameObjects.Text;
+    if (!statsText) return;
+
+    const stats = this.getStats();
+    const occupiedSlots = Array.from(this.slotToId.keys()).sort((a, b) => a - b);
+
+    const lines = [
+      `Active: ${stats.activeCount} / ${stats.maxCount}`,
+      `Pool: ${stats.poolInUse} / ${stats.poolSize} in use`,
+      `Grid cells: ${stats.gridCells}`,
+      `Slots: ${occupiedSlots.length > 0 ? occupiedSlots.join(',') : 'none'}`,
+      ``,
+      `Press F3 to toggle`,
+    ];
+
+    statsText.setText(lines.join('\n'));
+  }
+
+  /**
+   * Destroy the debug overlay.
+   */
+  private destroyDebugOverlay(): void {
+    if (this.debugOverlay) {
+      this.debugOverlay.destroy(true);
+      this.debugOverlay = undefined;
+    }
+  }
+
+  /**
+   * Create debug labels for all current spawns.
+   */
+  private createAllDebugLabels(): void {
+    for (const spawn of this.spawnsById.values()) {
+      this.createDebugLabel(spawn);
+    }
+  }
+
+  /**
+   * Create a debug label above a Pokemon showing its slot index.
+   */
+  private createDebugLabel(spawn: PokemonSpawn): void {
+    if (!this.debugMode) return;
+    if (this.debugLabels.has(spawn.id)) return;
+
+    const label = this.scene.add.text(spawn.x, spawn.y - 24, `[${spawn.slotIndex}]`, {
+      fontSize: '10px',
+      fontFamily: 'Courier New, monospace',
+      color: '#ffff00',
+      backgroundColor: '#000000',
+      padding: { x: 2, y: 1 },
+    });
+    label.setOrigin(0.5, 1);
+    label.setDepth(200);
+
+    this.debugLabels.set(spawn.id, label);
+
+    // Log spawn details
+    console.log(
+      `[DEBUG] Spawn: slot=${spawn.slotIndex}, id=${spawn.id.toString()}, pos=(${spawn.x}, ${spawn.y}), attempts=${spawn.attemptCount}`
+    );
+  }
+
+  /**
+   * Update a debug label position to follow its Pokemon.
+   */
+  private updateDebugLabel(spawn: PokemonSpawn): void {
+    const label = this.debugLabels.get(spawn.id);
+    if (label) {
+      label.setPosition(spawn.x, spawn.y - 24);
+    }
+  }
+
+  /**
+   * Destroy a debug label for a Pokemon.
+   */
+  private destroyDebugLabel(pokemonId: bigint): void {
+    const label = this.debugLabels.get(pokemonId);
+    if (label) {
+      label.destroy();
+      this.debugLabels.delete(pokemonId);
+    }
+  }
+
+  /**
+   * Destroy all debug labels.
+   */
+  private destroyAllDebugLabels(): void {
+    for (const label of this.debugLabels.values()) {
+      label.destroy();
+    }
+    this.debugLabels.clear();
+  }
+
+  /**
+   * Update debug visuals (call from scene update loop).
+   * Updates label positions and overlay stats.
+   */
+  updateDebug(): void {
+    if (!this.debugMode) return;
+
+    // Update label positions
+    for (const spawn of this.spawnsById.values()) {
+      this.updateDebugLabel(spawn);
+    }
+
+    // Update overlay stats periodically (every 30 frames)
+    if (this.scene.game.loop.frame % 30 === 0) {
+      this.updateDebugOverlay();
+    }
+  }
+
+  /**
+   * Print a formatted table of all spawns to the console.
+   * Useful for quick debugging without enabling visual debug mode.
+   */
+  printSpawnTable(): void {
+    console.log('\n[PokemonSpawnManager] Spawn Table:');
+    console.log('┌──────┬──────────────────┬────────────────────┬──────────┐');
+    console.log('│ Slot │ Pokemon ID       │ Position           │ Attempts │');
+    console.log('├──────┼──────────────────┼────────────────────┼──────────┤');
+
+    const spawns = Array.from(this.spawnsById.values()).sort((a, b) => a.slotIndex - b.slotIndex);
+
+    if (spawns.length === 0) {
+      console.log('│  (no active spawns)                                    │');
+    } else {
+      for (const spawn of spawns) {
+        const slot = spawn.slotIndex.toString().padStart(4);
+        const id = spawn.id.toString().slice(0, 14).padEnd(16);
+        const pos = `(${spawn.x}, ${spawn.y})`.padEnd(18);
+        const attempts = `${spawn.attemptCount}/${SPAWN_CONFIG.MAX_ATTEMPTS}`.padStart(8);
+        console.log(`│ ${slot} │ ${id} │ ${pos} │ ${attempts} │`);
+      }
+    }
+
+    console.log('└──────┴──────────────────┴────────────────────┴──────────┘');
+    console.log(`Total: ${this.spawnsById.size} / ${SPAWN_CONFIG.MAX_ACTIVE_SPAWNS} spawns\n`);
+  }
+
+  /**
+   * Get a summary string for quick logging.
+   */
+  getSummary(): string {
+    const stats = this.getStats();
+    const slots = Array.from(this.slotToId.keys()).sort((a, b) => a - b);
+    return `[Spawns: ${stats.activeCount}/${stats.maxCount}] [Pool: ${stats.poolInUse}/${stats.poolSize}] [Slots: ${slots.join(',') || 'none'}]`;
   }
 }
 
