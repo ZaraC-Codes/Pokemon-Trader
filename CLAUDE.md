@@ -649,7 +649,7 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.4.0)
+### PokeballGame Contract (v1.4.1)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
@@ -659,18 +659,30 @@ Pokemon catching mini-game with provably fair mechanics:
 | v1.2.0 | 20 | 20 Pokemon support | Superseded |
 | v1.3.0 | 20 | Configurable pricing, $49.90 cap, enhanced events | Superseded |
 | v1.3.1 | 20 | WAPE token fix for APE payments | Superseded |
-| v1.4.0 | 20 | **Native APE payments via msg.value** | **Latest** |
+| v1.4.0 | 20 | Native APE payments via msg.value | Superseded |
+| v1.4.1 | 20 | **Fee calculation fix - no user markup** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
 - Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5`
-- Implementation (v1.4.0): *Deploy via `upgrade_PokeballGameV4_NativeAPE.cjs`*
+- Implementation (v1.4.1): *Deploy via `upgrade_PokeballGameV4_NativeAPE.cjs`*
 
-**Payment Methods (v1.4.0):**
+**Payment Methods (v1.4.0+):**
 | Token | Method | Approval Required |
 |-------|--------|------------------|
 | APE | Native via `msg.value` | **NO** (like ETH) |
 | USDC.e | ERC-20 `transferFrom` | Yes |
+
+**Fee Structure (v1.4.1 - Fixed):**
+Users pay the **exact ball price** with no markup. Fees are split internally:
+| User Pays | Treasury (3%) | NFT Pool (97%) |
+|-----------|--------------|----------------|
+| $1.00 | $0.03 | $0.97 |
+| $10.00 | $0.30 | $9.70 |
+| $25.00 | $0.75 | $24.25 |
+| $49.90 | $1.50 | $48.40 |
+
+**v1.4.1 Bug Fix:** Previous versions calculated fees from `msg.value` (which could include user-sent buffer), causing users to overpay. Now fees are calculated from the exact required amount.
 
 **Ball System (Default Prices - Configurable in v1.3.0+):**
 | Ball Type | Default Price | Default Catch Rate |
@@ -682,10 +694,11 @@ Pokemon catching mini-game with provably fair mechanics:
 
 **Features:**
 - UUPS upgradeable proxy pattern
-- **v1.4.0:** APE payments use native APE via `msg.value` (like ETH on Ethereum)
+- **v1.4.0+:** APE payments use native APE via `msg.value` (like ETH on Ethereum)
+- **v1.4.1:** Users pay exact ball price - no fee markup (fees split internally)
 - USDC.e payments use ERC-20 `transferFrom` (requires approval)
 - POP VRNG integration for fair randomness
-- 97% revenue sent to SlabNFTManager, 3% platform fee
+- 97% revenue sent to SlabNFTManager, 3% platform fee to treasury
 - Delegates NFT management to SlabNFTManager
 - Up to 20 active Pokemon spawns
 - Max 3 throw attempts per Pokemon before relocation
