@@ -58,6 +58,9 @@ export { usePurchaseBalls, type UsePurchaseBallsReturn } from './usePurchaseBall
 // Throw ball hook
 export { useThrowBall, type UseThrowBallReturn } from './useThrowBall';
 
+// Throw fee hook (v1.6.0 - Pyth Entropy fee for throwBall)
+export { useThrowFee, type UseThrowFeeReturn } from './useThrowFee';
+
 // Pokemon spawns hook (v1.2.0 - supports 20 slots)
 export {
   useGetPokemonSpawns,

@@ -17,8 +17,8 @@
 
 import { useMemo } from 'react';
 import { apeChainMainnet } from '../../services/apechainConfig';
-// v1.5.0 ABI with unified payments (APE auto-swap to USDC.e via Camelot)
-import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV5.json';
+// v1.6.0 ABI with Pyth Entropy (replaces POP VRNG, no whitelist required)
+import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV6.json';
 
 // ============================================================
 // CONTRACT ADDRESS
@@ -42,16 +42,16 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
 // ============================================================
 
 /**
- * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV5.json.
+ * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV6.json.
  * The JSON file is an array directly (not { abi: [...] }), so we use it as-is.
  * Type assertion ensures Wagmi type inference works correctly.
  *
- * v1.5.0 ABI includes:
- * - purchaseBalls(uint8, uint256, bool) as PAYABLE (accepts msg.value for APE)
- * - purchaseBallsWithAPE(uint8, uint256) as PAYABLE (auto-swaps APE → USDC.e)
- * - purchaseBallsWithUSDC(uint8, uint256) as NONPAYABLE
- * - withdrawUSDCFees() - owner withdraws accumulated USDC.e fees
- * - accumulatedUSDCFees() - view accumulated USDC.e platform fees
+ * v1.6.0 ABI includes (adds to v1.5.0):
+ * - throwBall() now PAYABLE - requires msg.value for Pyth Entropy fee (~0.073 APE)
+ * - spawnPokemon() now PAYABLE - requires msg.value for Entropy fee
+ * - getThrowFee() - view function to get current Entropy fee
+ * - entropy() - Pyth Entropy contract address
+ * - entropyProvider() - Pyth Entropy provider address
  */
 export const POKEBALL_GAME_ABI = PokeballGameABI as typeof PokeballGameABI;
 

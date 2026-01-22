@@ -125,7 +125,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │       ├── index.ts                 # Barrel export
 │   │       ├── pokeballGameConfig.ts    # Shared config, ABI, types, token addresses
 │   │       ├── usePurchaseBalls.ts      # Buy balls (APE/USDC.e)
-│   │       ├── useThrowBall.ts          # Throw ball at Pokemon
+│   │       ├── useThrowBall.ts          # Throw ball at Pokemon (v1.6.0 includes Entropy fee)
+│   │       ├── useThrowFee.ts           # Get Pyth Entropy fee for throwBall
 │   │       ├── useGetPokemonSpawns.ts   # Read active spawns
 │   │       ├── usePlayerBallInventory.ts # Read player inventory
 │   │       ├── useContractEvents.ts     # Event subscriptions
@@ -153,7 +154,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0 (legacy, 3 slots)
 │   │   ├── abi_PokeballGameV2.json  # PokeballGame ABI v1.2.0 (20 slots)
 │   │   ├── abi_PokeballGameV4.json  # PokeballGame ABI v1.4.x (native APE)
-│   │   ├── abi_PokeballGameV5.json  # PokeballGame ABI v1.5.0 (unified payments, current)
+│   │   ├── abi_PokeballGameV5.json  # PokeballGame ABI v1.5.0 (unified payments)
+│   │   ├── abi_PokeballGameV6.json  # PokeballGame ABI v1.6.0 (Pyth Entropy, **current**)
 │   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
 │   ├── deployment/
 │   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
@@ -213,7 +215,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (legacy, 3 slots) |
 | `contracts/abi/abi_PokeballGameV2.json` | PokeballGame ABI v1.2.0 (20 slots) |
 | `contracts/abi/abi_PokeballGameV4.json` | PokeballGame ABI v1.4.x (native APE) |
-| `contracts/abi/abi_PokeballGameV5.json` | PokeballGame ABI v1.5.0 (unified payments, **current**) |
+| `contracts/abi/abi_PokeballGameV5.json` | PokeballGame ABI v1.5.0 (unified payments) |
+| `contracts/abi/abi_PokeballGameV6.json` | PokeballGame ABI v1.6.0 (Pyth Entropy, **current**) |
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
@@ -259,10 +262,12 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
 | **WAPE (Wrapped APE)** | `0x48b62137EdfA95a428D35C09E44256a739F6B557` |
-| **PokeballGame Implementation (v1.5.0)** | `0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E` |
+| **PokeballGame Implementation (v1.6.0)** | `0x363f32ca7Cf83a215aDef4B139a47cAd323F1482` |
 | **Camelot Router (AMMv3)** | `0xC69Dc28924930583024E067b2B3d773018F4EB52` |
+| **Pyth Entropy** | `0x36825bf3Fbdf5a29E2d5148bfe7Dcf7B5639e320` |
+| **Pyth Entropy Provider** | `0x52DeaA1c84233F7bb8C8A45baeDE41091c616506` |
 
-**Note:** On ApeChain, APE is the native gas token. PokeballGame v1.5.0 uses **unified payments** - both APE and USDC.e result in USDC.e. APE is auto-swapped via Camelot DEX. 97% revenue goes to SlabNFTManager, 3% platform fees to treasury (in USDC.e).
+**Note:** On ApeChain, APE is the native gas token. PokeballGame v1.6.0 uses **Pyth Entropy** for randomness (replaced POP VRNG which required whitelisting). Both APE and USDC.e result in USDC.e. APE is auto-swapped via Camelot DEX. 97% revenue goes to SlabNFTManager, 3% platform fees to treasury (in USDC.e). `throwBall()` requires ~0.073 APE for the Entropy fee.
 
 ### Multicall3 Configuration
 
@@ -735,11 +740,13 @@ Pokemon catching mini-game with provably fair mechanics:
 | v1.4.0 | 20 | Native APE payments via msg.value | Superseded |
 | v1.4.1 | 20 | Fee calculation fix - no user markup | Superseded |
 | v1.4.2 | 20 | Division by zero fix in calculateAPEAmount() | Superseded |
-| v1.5.0 | 20 | **Unified payments: APE auto-swap to USDC.e, 97% to SlabNFTManager** | **Latest** |
+| v1.5.0 | 20 | Unified payments: APE auto-swap to USDC.e, 97% to SlabNFTManager | Superseded |
+| v1.6.0 | 20 | **Pyth Entropy for randomness (replaces POP VRNG, no whitelist needed)** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
-- Implementation (v1.5.0): `0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E` (deployed 2026-01-22)
+- Implementation (v1.6.0): `0x363f32ca7Cf83a215aDef4B139a47cAd323F1482` (deployed 2026-01-22)
+- Implementation (v1.5.0): `0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E` (superseded)
 - Implementation (v1.4.2): `0x2cbF8E954D29E2e08E4E521ac031930543962F13` (superseded)
 - Implementation (v1.4.1): `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` (superseded)
 - Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5` (legacy)
@@ -816,9 +823,9 @@ Fixed by:
 - `purchaseBalls(ballType, quantity, useAPE)` - Buy balls (if useAPE=true, send APE via msg.value)
 - `purchaseBallsWithAPE(ballType, quantity)` - **v1.4.0** Payable, send native APE
 - `purchaseBallsWithUSDC(ballType, quantity)` - **v1.4.0** Uses ERC-20 USDC.e
-- `throwBall(pokemonSlot, ballType)` - Attempt catch, returns requestId (slot 0-19)
-- `randomNumberCallback(requestId, randomNumber)` - VRNG callback (handles both throws and spawns)
-- `spawnPokemon(slot)` - Spawn Pokemon at slot (owner only, uses VRNG for position)
+- `throwBall(pokemonSlot, ballType)` - **v1.6.0 PAYABLE** - Requires ~0.073 APE for Entropy fee, returns sequence number
+- `entropyCallback(sequenceNumber, provider, randomNumber)` - **v1.6.0** Pyth Entropy callback (replaces VRNG)
+- `spawnPokemon(slot)` - **v1.6.0 PAYABLE** - Requires Entropy fee, spawn Pokemon at slot (owner only)
 - `forceSpawnPokemon(slot, posX, posY)` - Spawn with specific position (owner only)
 - `getAllPlayerBalls(player)` - Get player inventory
 - `getAllActivePokemons()` - Get spawned Pokemon (returns `Pokemon[20]`)
@@ -860,9 +867,16 @@ Fixed by:
 - `_swapAPEtoUSDC(apeAmount, expectedUSDC)` - Swap APE→USDC.e via Camelot
 - `_processUnifiedPayment(usdcAmount)` - Split 3%/97% and fund SlabNFTManager
 
+**New Functions (v1.6.0 - Pyth Entropy):**
+- `initializeV160(entropyAddress)` - Initialize Pyth Entropy integration (one-time)
+- `getThrowFee()` - View current Pyth Entropy fee for throwBall (~0.073 APE)
+- `entropy()` - View Pyth Entropy contract address
+- `entropyProvider()` - View Pyth Entropy provider address
+
 **Internal Callback Handlers:**
-- `_handleSpawnCallback()` - Creates Pokemon at VRNG-determined position
+- `_handleSpawnCallback()` - Creates Pokemon at Entropy-determined position
 - `_handleThrowCallback()` - Determines catch success, handles NFT award
+- `entropyCallback()` - **v1.6.0** Pyth Entropy calls back with randomness (internal)
 
 **Events for Frontend:**
 - `BallPurchased(buyer, ballType, quantity, usedAPE, totalAmount)` - **v1.3.0 adds totalAmount**
@@ -1303,6 +1317,7 @@ Reusable Wagmi hooks for PokeballGame contract interactions:
 import {
   usePurchaseBalls,
   useThrowBall,
+  useThrowFee,
   useGetPokemonSpawns,
   useActivePokemonCount,
   useActivePokemonSlots,
@@ -1319,7 +1334,8 @@ import {
 | Hook | Purpose |
 |------|---------|
 | `usePurchaseBalls()` | Buy balls (APE via msg.value, USDC.e via transferFrom) |
-| `useThrowBall()` | Throw ball at Pokemon slot (0-19), returns requestId |
+| `useThrowBall()` | Throw ball at Pokemon slot (0-19), includes Entropy fee automatically |
+| `useThrowFee()` | Get current Pyth Entropy fee for throwBall (~0.073 APE) |
 | `useGetPokemonSpawns()` | Read all 20 Pokemon slots (polls every 5s) |
 | `useActivePokemonCount()` | Get count of active Pokemon (efficient) |
 | `useActivePokemonSlots()` | Get array of occupied slot indices |
@@ -1340,21 +1356,25 @@ import {
 - `usePokemonRelocatedEvents()` - Relocation events
 - `useAllGameEvents()` - All game events combined
 
-**Usage Example (v1.2.0):**
+**Usage Example (v1.6.0):**
 ```typescript
 const { account } = useActiveWeb3React();
 
-// Read hooks (v1.2.0 - supports 20 Pokemon)
+// Read hooks (v1.2.0+ - supports 20 Pokemon)
 const { data: spawns, activeCount, activeSlotIndices } = useGetPokemonSpawns();
 const { pokeBalls, greatBalls } = usePlayerBallInventory(account);
+const { throwFee, formattedFee } = useThrowFee(); // v1.6.0 - ~0.073 APE
 
 // Write hooks
 const { write: purchase, isPending } = usePurchaseBalls();
-const { write: throwBall, requestId } = useThrowBall();
+const { write: throwBall, requestId, throwFee: inlineFee } = useThrowBall();
+
+// Display fee to user
+console.log(`Throw fee: ${formattedFee} APE`);
 
 // Actions (always null-check write functions)
 purchase?.(0, 5, false);              // Buy 5 Poké Balls with USDC.e
-throwBall?.(spawns[0].slotIndex, 0);  // Throw Poké Ball at first spawn (slot 0-19)
+throwBall?.(spawns[0].slotIndex, 0);  // Throw Poké Ball - fee is auto-included!
 
 // Event listeners
 const { events: catches } = useCaughtPokemonEvents();
@@ -1773,7 +1793,7 @@ const handlePokemonClick = (spawn: PokemonSpawn) => {
 - `useThrowBall()` - Contract write for throwBall()
 - `usePlayerBallInventory(address)` - Read ball counts
 
-**Note:** This modal only initiates the throw transaction. The VRNG result (caught/escaped) should be handled by the parent component via contract event listeners.
+**Note:** This modal only initiates the throw transaction. The Pyth Entropy result (caught/escaped) should be handled by the parent component via contract event listeners.
 
 **App.tsx Integration (already wired):**
 The CatchAttemptModal is integrated in App.tsx via:

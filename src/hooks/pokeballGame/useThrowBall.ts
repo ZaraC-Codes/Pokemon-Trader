@@ -2,7 +2,10 @@
  * useThrowBall Hook
  *
  * Hook for throwing a PokeBall at a Pokemon in the PokeballGame contract.
- * Initiates a catch attempt which triggers a VRNG callback.
+ * Initiates a catch attempt which triggers a Pyth Entropy callback.
+ *
+ * v1.6.0: throwBall() is now PAYABLE and requires msg.value for the Entropy fee.
+ * The hook automatically fetches and includes the fee.
  *
  * Usage:
  * ```tsx
@@ -13,6 +16,7 @@
  *   error,
  *   hash,
  *   requestId,
+ *   throwFee,
  * } = useThrowBall();
  *
  * // Throw a Great Ball at Pokemon in slot 0
@@ -22,10 +26,10 @@
  *   }
  * };
  *
- * // Monitor the request ID for VRNG callback
+ * // Monitor the request ID for Entropy callback
  * useEffect(() => {
  *   if (requestId) {
- *     console.log('Waiting for VRNG result:', requestId);
+ *     console.log('Waiting for Entropy result:', requestId);
  *   }
  * }, [requestId]);
  * ```
@@ -35,7 +39,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useReadContract } from 'wagmi';
 import { decodeEventLog, type TransactionReceipt } from 'viem';
 import {
   POKEBALL_GAME_ADDRESS,
@@ -84,10 +88,21 @@ export interface UseThrowBallReturn {
   receipt: TransactionReceipt | undefined;
 
   /**
-   * VRNG request ID from the ThrowAttempted event.
-   * Use this to track the catch result via VRNG callback.
+   * Entropy sequence number from the ThrowAttempted event (v1.6.0).
+   * Use this to track the catch result via Entropy callback.
    */
   requestId: bigint | undefined;
+
+  /**
+   * Current throw fee required by Pyth Entropy (in wei).
+   * This is automatically included when calling write().
+   */
+  throwFee: bigint | undefined;
+
+  /**
+   * Whether the throw fee is being loaded.
+   */
+  isFeeLoading: boolean;
 
   /**
    * Reset the hook state to initial values.
@@ -102,7 +117,7 @@ export interface UseThrowBallReturn {
 /**
  * Hook for throwing a PokeBall at a Pokemon.
  *
- * @returns Object with write function, loading states, error, hash, receipt, and requestId
+ * @returns Object with write function, loading states, error, hash, receipt, requestId, and throwFee
  */
 export function useThrowBall(): UseThrowBallReturn {
   const { isConfigured } = usePokeballGameAddress();
@@ -111,6 +126,22 @@ export function useThrowBall(): UseThrowBallReturn {
   // Track the current transaction hash and request ID
   const [currentHash, setCurrentHash] = useState<`0x${string}` | undefined>(undefined);
   const [requestId, setRequestId] = useState<bigint | undefined>(undefined);
+
+  // Fetch the current throw fee from contract (v1.6.0 - Pyth Entropy)
+  const {
+    data: throwFee,
+    isLoading: isFeeLoading,
+    refetch: refetchFee,
+  } = useReadContract({
+    address: POKEBALL_GAME_ADDRESS,
+    abi: POKEBALL_GAME_ABI,
+    functionName: 'getThrowFee',
+    chainId: POKEBALL_GAME_CHAIN_ID,
+    query: {
+      enabled: isConfigured,
+      staleTime: 30_000, // Refresh every 30 seconds
+    },
+  });
 
   // Wagmi write contract hook
   const {
@@ -174,7 +205,7 @@ export function useThrowBall(): UseThrowBallReturn {
   // Combined error
   const error = writeError || receiptError || undefined;
 
-  // Write function
+  // Write function - includes Entropy fee as msg.value (v1.6.0)
   const write = useCallback(
     (pokemonSlot: number, ballType: BallType) => {
       if (!POKEBALL_GAME_ADDRESS) {
@@ -187,11 +218,21 @@ export function useThrowBall(): UseThrowBallReturn {
         return;
       }
 
+      // Add 10% buffer to the fee to account for potential fee changes between read and write
+      const fee = throwFee as bigint | undefined;
+      const feeToSend = fee ? (fee * 110n) / 100n : 0n;
+
       console.log('[useThrowBall] Throwing ball:', {
         pokemonSlot,
         ballType,
         address: POKEBALL_GAME_ADDRESS,
+        throwFee: throwFee?.toString(),
+        feeWithBuffer: feeToSend.toString(),
       });
+
+      if (feeToSend === 0n) {
+        console.warn('[useThrowBall] Warning: throwFee is 0, transaction may fail');
+      }
 
       writeContract({
         address: POKEBALL_GAME_ADDRESS,
@@ -199,9 +240,10 @@ export function useThrowBall(): UseThrowBallReturn {
         functionName: 'throwBall',
         args: [pokemonSlot, ballType],
         chainId: POKEBALL_GAME_CHAIN_ID,
+        value: feeToSend, // v1.6.0: Include Entropy fee
       });
     },
-    [writeContract]
+    [writeContract, throwFee]
   );
 
   // Reset function
@@ -221,6 +263,8 @@ export function useThrowBall(): UseThrowBallReturn {
       hash: undefined,
       receipt: undefined,
       requestId: undefined,
+      throwFee: undefined,
+      isFeeLoading: false,
       reset: () => {},
     };
   }
@@ -233,6 +277,8 @@ export function useThrowBall(): UseThrowBallReturn {
     hash: currentHash,
     receipt,
     requestId,
+    throwFee: throwFee as bigint | undefined,
+    isFeeLoading,
     reset,
   };
 }

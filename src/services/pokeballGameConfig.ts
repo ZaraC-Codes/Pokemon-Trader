@@ -9,7 +9,8 @@
  * - Chain config: ApeChain Mainnet (ID 33139)
  * - Contract: PokeballGame proxy (UUPS upgradeable)
  * - Tokens: APE (native) and USDC.e (Stargate bridged)
- * - Randomness: POP VRNG for provably fair catch mechanics
+ * - Randomness: Pyth Entropy for provably fair catch mechanics (v1.6.0)
+ *   - throwBall() requires ~0.073 APE fee for entropy callback
  *
  * Usage:
  * ```ts
@@ -26,9 +27,9 @@
  */
 
 import { apeChainMainnet, ALCHEMY_RPC_URL } from './apechainConfig';
-// Use V5 ABI which matches the current deployed contract
+// Use V6 ABI with Pyth Entropy integration (v1.6.0)
 // Must be a raw array, not a Hardhat artifact object
-import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV5.json';
+import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV6.json';
 
 // ============================================================
 // CHAIN CONFIGURATION
@@ -87,13 +88,14 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
   | undefined;
 
 /**
- * PokeballGame contract ABI.
- * Imported from contracts/abi/abi_PokeballGameV5.json.
+ * PokeballGame contract ABI (v1.6.0 with Pyth Entropy).
+ * Imported from contracts/abi/abi_PokeballGameV6.json.
  * Note: The JSON file is an array directly (not { abi: [...] }).
  *
  * Key functions:
  * - purchaseBalls(ballType, quantity, useAPE) - Buy balls
- * - throwBall(pokemonSlot, ballType) - Attempt catch
+ * - throwBall(pokemonSlot, ballType) - Attempt catch (PAYABLE, requires Entropy fee)
+ * - getThrowFee() - Get current Pyth Entropy fee for throwBall
  * - getAllPlayerBalls(player) - Get player inventory
  * - getAllActivePokemons() - Get spawned Pokemon
  */
@@ -158,10 +160,22 @@ export const RELATED_CONTRACTS = {
   SLAB_NFT: '0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7' as const,
 
   /**
-   * POP VRNG - On-chain verifiable random number generator.
+   * Pyth Entropy - On-chain verifiable randomness (v1.6.0).
    * Used for provably fair catch mechanics.
+   * No whitelist required - permissionless!
    */
-  POP_VRNG: '0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1' as const,
+  PYTH_ENTROPY: '0x36825bf3Fbdf5a29E2d5148bfe7Dcf7B5639e320' as const,
+
+  /**
+   * Pyth Entropy Provider - Randomness provider address.
+   */
+  PYTH_ENTROPY_PROVIDER: '0x52DeaA1c84233F7bb8C8A45baeDE41091c616506' as const,
+
+  /**
+   * @deprecated v1.6.0 uses Pyth Entropy instead of POP VRNG.
+   * POP VRNG required whitelist which caused InvalidCaller errors.
+   */
+  POP_VRNG_DEPRECATED: '0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1' as const,
 } as const;
 
 // ============================================================
