@@ -383,10 +383,11 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Check for `[GameCanvas] Flushing X buffered spawns` in console
 
 **Wallet shows insane gas estimate (~7M APE) when purchasing balls:**
-- Cause: Missing ERC-20 token approval before `purchaseBalls` call
-- Both APE and USDC.e are ERC-20 tokens requiring approval before `safeTransferFrom`
-- Fix: PokeBallShop now shows "Approve" button when approval needed
-- The `useTokenApproval` hook handles checking and requesting approval
+- Cause: Missing ERC-20 token approval before `purchaseBalls` call (USDC.e only)
+- **v1.4.0:** APE is now native currency - NO approval needed for APE purchases!
+- USDC.e still requires ERC-20 approval before `safeTransferFrom`
+- Fix: PokeBallShop shows "Approve" button for USDC.e, direct "Buy" for APE
+- The `useTokenApproval` hook returns `isApproved: true` for APE (native)
 
 **Shop screen goes blank when entering quantity:**
 - Cause: `BigInt(NaN)` throws an error when quantity input is empty/invalid
@@ -401,12 +402,13 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Fix 2: Added try/catch guards in `GrassRustle.destroy()` and `Pokemon.destroy()`
 
 **Shop crashes when switching payment tokens (APE ↔ USDC.e):**
-- Cause: Potential division by zero in `getBallPriceInWei()` if `apePriceUSD` is 0
-- When `useApePriceFromContract()` returned `0n`, the APE price calculation crashed
+- Cause 1: Division by zero in `getBallPriceInWei()` if `apePriceUSD` is 0
+- Cause 2: `useTokenApproval` hook violated React's rules of hooks by returning early for APE
 - Fix 1: Added guard in `getBallPriceInWei()` to ensure `apePriceUSD > 0n`, fallback to $0.64
 - Fix 2: Added guard in `useApePriceFromContract()` to never return 0
-- Fix 3: Added try/catch in `requiredAmount` useMemo and `handleBuy` callback
-- Note: BigInt comparisons use `== 0n` (not `=== BigInt(0)`) for safe value equality
+- Fix 3: Refactored `useTokenApproval` to call all hooks unconditionally (uses `isNativeCurrency` flag)
+- Fix 4: For APE, hook disables queries via `enabled: false` and returns safe defaults
+- Note: Hooks must be called in the same order every render - no early returns allowed!
 
 ## External Services
 
@@ -1180,16 +1182,16 @@ import {
 
 | Hook | Purpose |
 |------|---------|
-| `usePurchaseBalls()` | Buy balls with APE or USDC.e (requires approval first) |
+| `usePurchaseBalls()` | Buy balls (APE via msg.value, USDC.e via transferFrom) |
 | `useThrowBall()` | Throw ball at Pokemon slot (0-19), returns requestId |
 | `useGetPokemonSpawns()` | Read all 20 Pokemon slots (polls every 5s) |
 | `useActivePokemonCount()` | Get count of active Pokemon (efficient) |
 | `useActivePokemonSlots()` | Get array of occupied slot indices |
 | `usePlayerBallInventory(address)` | Read player's ball counts |
 | `useContractEvents(eventName)` | Subscribe to contract events |
-| `useTokenApproval(token, amount)` | Check/request ERC-20 approval |
-| `useApeApproval(amount)` | APE token approval helper |
-| `useUsdcApproval(amount)` | USDC.e token approval helper |
+| `useTokenApproval(token, amount)` | Approval hook: APE=always approved, USDC.e=check allowance |
+| `useApeApproval(amount)` | Returns isApproved: true (native APE, no approval needed) |
+| `useUsdcApproval(amount)` | USDC.e token approval helper (requires ERC-20 approval) |
 | `useApePriceFromContract()` | Read APE price from contract |
 | `useSetOwnerWallet()` | Transfer ownership (owner only) |
 | `useSetTreasuryWallet()` | Update treasury address (owner only) |
@@ -1240,9 +1242,18 @@ const { events: catches } = useCaughtPokemonEvents();
 }
 ```
 
-**Token Approval (IMPORTANT):**
+**Token Approval (v1.4.0):**
 
-Both APE and USDC.e are ERC-20 tokens on ApeChain. The PokeballGame contract uses `safeTransferFrom` to collect payment, which requires the user to approve the contract to spend their tokens BEFORE purchasing.
+**IMPORTANT:** On ApeChain, APE is the **native gas token** (like ETH on Ethereum), NOT an ERC-20.
+
+| Token | Type | Approval Required |
+|-------|------|------------------|
+| APE | Native (msg.value) | **NO** |
+| USDC.e | ERC-20 | Yes |
+
+The `useTokenApproval` hook handles both cases automatically:
+- For APE: Returns `isApproved: true` immediately (no contract calls needed)
+- For USDC.e: Checks allowance and provides `approve()` function
 
 ```typescript
 import {
@@ -1256,29 +1267,31 @@ const { price: apePriceUSD } = useApePriceFromContract();
 const cost = calculateTotalCost(ballType, quantity, useAPE, apePriceUSD);
 
 const {
-  isApproved,      // Whether current allowance covers the required amount
-  approve,         // Request unlimited approval
-  isApproving,     // Approval transaction pending
-  allowance,       // Current allowance in wei
+  isApproved,      // true for APE (native), checks allowance for USDC.e
+  approve,         // No-op for APE, requests approval for USDC.e
+  isApproving,     // Approval transaction pending (USDC.e only)
+  allowance,       // maxUint256 for APE, actual allowance for USDC.e
 } = useTokenApproval(useAPE ? 'APE' : 'USDC', cost);
 
 // Flow:
 if (!isApproved) {
-  approve();  // Request approval first
+  approve();  // Only triggers for USDC.e
   return;
 }
-// Only after approval:
-purchaseBalls(ballType, quantity, useAPE);
+// Purchase (APE sends via msg.value, USDC.e uses transferFrom):
+purchaseBalls(ballType, quantity, useAPE, apePriceUSD);
 ```
 
 **Why this matters:**
-- Without approval, `purchaseBalls()` will fail with `InsufficientAllowance` error
-- Wallet gas estimation fails when the underlying call would revert, causing insane gas estimates
-- The PokeBallShop component handles this automatically by checking approval before purchase
+- APE purchases are simpler - no approval step needed, just send native APE
+- USDC.e still requires approval before `purchaseBalls()` can call `transferFrom`
+- The PokeBallShop component handles this automatically
+- The hook follows React's rules of hooks (calls all hooks unconditionally)
 
 **Token Addresses:**
-- APE: `0x4d224452801aced8b2f0aebe155379bb5d594381` (ERC-20, 18 decimals)
+- APE: Native gas token (18 decimals) - NO contract address
 - USDC.e: `0xF1815bd50389c46847f0Bda824eC8da914045D14` (ERC-20, 6 decimals)
+- WAPE: `0x48b62137EdfA95a428D35C09E44256a739F6B557` (wrapped APE, deprecated in v1.4.0)
 
 ### BallShop Component (Legacy)
 Test UI for ball purchasing:
