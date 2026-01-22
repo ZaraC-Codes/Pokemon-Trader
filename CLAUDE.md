@@ -389,7 +389,55 @@ Update `src/services/config.ts` or add to `src/config/abis/`
 
 ## New Features
 
-### ThirdWeb Checkout Integration
+### FundingWidget (Bridge/Swap/Buy)
+Comprehensive wallet funding widget using ThirdWeb Universal Bridge:
+
+**Location:** `src/components/FundingWidget/FundingWidget.tsx`
+
+**Features:**
+- **Bridge** tokens from other chains (Ethereum, Arbitrum, Base, Optimism, etc.)
+- **Swap** any token into APE or USDC.e
+- **Buy with fiat** (card, bank transfer) via multiple providers
+- Cross-chain swap+bridge in a single transaction
+- Destination locked to ApeChain for seamless gameplay
+
+**Props:**
+```typescript
+interface FundingWidgetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  defaultToken?: 'APE' | 'USDC';  // Pre-select destination token
+  onFundingComplete?: () => void; // Callback when transaction completes
+}
+```
+
+**Usage:**
+```tsx
+import { FundingWidget } from './components/FundingWidget';
+
+<FundingWidget
+  isOpen={showFunding}
+  onClose={() => setShowFunding(false)}
+  defaultToken="APE"
+  onFundingComplete={() => refetchBalances()}
+/>
+```
+
+**User Flow (e.g., ETH on Ethereum → APE on ApeChain):**
+1. User clicks "Get APE" or "Get USDC.e" in the SHOP
+2. FundingWidget opens with destination pre-set to ApeChain
+3. User selects source chain (Ethereum) and token (ETH)
+4. ThirdWeb Universal Bridge calculates best route
+5. User approves transaction in wallet
+6. Bridge/swap executes automatically
+7. User receives APE/USDC.e on ApeChain, ready to play
+
+**Supported Methods:**
+- 95+ EVM chains supported as source
+- 17,000+ tokens supported for swapping
+- Fiat providers: Stripe, Kado, Transak, Coinbase
+
+### ThirdWeb Checkout Integration (Legacy)
 Buy crypto directly in the PokeBall Shop using ThirdWeb Pay:
 
 **Location:** `src/services/thirdwebConfig.ts`, `src/components/PokeBallShop/PokeBallShop.tsx`

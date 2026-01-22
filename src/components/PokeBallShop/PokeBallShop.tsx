@@ -43,6 +43,7 @@ import {
   APECHAIN_TOKENS,
   isThirdwebConfigured,
 } from '../../services/thirdwebConfig';
+import { FundingWidget, type FundingToken } from '../FundingWidget';
 
 // ============================================================
 // ERROR BOUNDARY FOR THIRDWEB COMPONENTS
@@ -345,7 +346,44 @@ const styles = {
     color: '#00ff00',
     fontSize: '14px',
   },
-  // Buy Crypto Section Styles
+  // Fund Wallet Section Styles
+  fundWalletSection: {
+    marginBottom: '20px',
+    padding: '12px',
+    backgroundColor: '#1a2a2a',
+    border: '2px solid #00ff88',
+  },
+  fundWalletHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+  },
+  fundWalletTitle: {
+    fontSize: '14px',
+    color: '#00ff88',
+    fontWeight: 'bold',
+  },
+  fundWalletButtons: {
+    display: 'flex',
+    gap: '8px',
+  },
+  fundWalletButton: {
+    padding: '8px 16px',
+    border: '2px solid #00ff88',
+    backgroundColor: 'transparent',
+    color: '#00ff88',
+    cursor: 'pointer',
+    fontFamily: "'Courier New', monospace",
+    fontSize: '12px',
+    transition: 'all 0.1s',
+  },
+  fundWalletHint: {
+    fontSize: '11px',
+    color: '#888',
+    marginTop: '4px',
+  },
+  // Legacy Buy Crypto Section Styles (kept for BuyCryptoModal)
   buyCryptoSection: {
     marginBottom: '20px',
     padding: '12px',
@@ -708,6 +746,11 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     isOpen: false,
     token: 'USDC',
   });
+  // New FundingWidget state
+  const [fundingModal, setFundingModal] = useState<{ isOpen: boolean; token: FundingToken }>({
+    isOpen: false,
+    token: 'APE',
+  });
 
   // Hooks
   const { write, isLoading, isPending, error, receipt, reset } = usePurchaseBalls();
@@ -763,15 +806,30 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     reset();
   }, [reset]);
 
-  // Handle open buy crypto modal
-  const handleOpenBuyCrypto = useCallback((token: BuyCryptoToken) => {
-    setBuyCryptoModal({ isOpen: true, token });
-  }, []);
-
-  // Handle close buy crypto modal
+  // Handle close buy crypto modal (legacy - kept for backward compatibility)
   const handleCloseBuyCrypto = useCallback(() => {
     setBuyCryptoModal((prev) => ({ ...prev, isOpen: false }));
     // Refresh balances after potentially buying crypto
+    apeBalance.refetch();
+    usdcBalance.refetch();
+  }, [apeBalance, usdcBalance]);
+
+  // Handle open funding modal (Bridge/Swap/Buy)
+  const handleOpenFunding = useCallback((token: FundingToken) => {
+    setFundingModal({ isOpen: true, token });
+  }, []);
+
+  // Handle close funding modal
+  const handleCloseFunding = useCallback(() => {
+    setFundingModal((prev) => ({ ...prev, isOpen: false }));
+    // Refresh balances after potentially funding wallet
+    apeBalance.refetch();
+    usdcBalance.refetch();
+  }, [apeBalance, usdcBalance]);
+
+  // Handle funding complete callback
+  const handleFundingComplete = useCallback(() => {
+    // Refresh balances when user completes a funding transaction
     apeBalance.refetch();
     usdcBalance.refetch();
   }, [apeBalance, usdcBalance]);
@@ -846,39 +904,39 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           </div>
         </div>
 
-        {/* Buy Crypto Section */}
-        <div style={styles.buyCryptoSection}>
-          <div style={styles.buyCryptoHeader}>
-            <span style={styles.buyCryptoTitle}>NEED CRYPTO?</span>
-            <div style={styles.buyCryptoButtons}>
+        {/* Fund Wallet Section - Bridge/Swap/Buy */}
+        <div style={styles.fundWalletSection}>
+          <div style={styles.fundWalletHeader}>
+            <span style={styles.fundWalletTitle}>NEED CRYPTO?</span>
+            <div style={styles.fundWalletButtons}>
               <button
-                style={styles.buyCryptoButton}
-                onClick={() => handleOpenBuyCrypto('USDC')}
+                style={styles.fundWalletButton}
+                onClick={() => handleOpenFunding('APE')}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#1a3a5a';
+                  e.currentTarget.style.backgroundColor = '#1a3a2a';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                Buy USDC.e
+                Get APE
               </button>
               <button
-                style={styles.buyCryptoButton}
-                onClick={() => handleOpenBuyCrypto('APE')}
+                style={styles.fundWalletButton}
+                onClick={() => handleOpenFunding('USDC')}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#1a3a5a';
+                  e.currentTarget.style.backgroundColor = '#1a3a2a';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                Buy APE
+                Get USDC.e
               </button>
             </div>
           </div>
-          <div style={styles.buyCryptoHint}>
-            Purchase crypto with card, bank, or other tokens via ThirdWeb Pay
+          <div style={styles.fundWalletHint}>
+            Bridge from other chains, swap tokens, or buy with card
           </div>
         </div>
 
@@ -1001,11 +1059,19 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
         )}
       </div>
 
-      {/* Buy Crypto Modal */}
+      {/* Buy Crypto Modal (legacy - kept for backward compatibility) */}
       <BuyCryptoModal
         isOpen={buyCryptoModal.isOpen}
         onClose={handleCloseBuyCrypto}
         selectedToken={buyCryptoModal.token}
+      />
+
+      {/* Funding Widget - Bridge/Swap/Buy */}
+      <FundingWidget
+        isOpen={fundingModal.isOpen}
+        onClose={handleCloseFunding}
+        defaultToken={fundingModal.token}
+        onFundingComplete={handleFundingComplete}
       />
     </div>
   );
