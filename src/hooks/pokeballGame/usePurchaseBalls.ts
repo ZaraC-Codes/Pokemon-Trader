@@ -1,12 +1,12 @@
 /**
  * usePurchaseBalls Hook
  *
- * Hook for purchasing PokeBalls from the PokeballGame contract.
- * Supports both APE and USDC.e payment methods.
+ * Hook for purchasing PokeBalls from the PokeballGame contract (v1.4.0+).
+ * Supports both native APE and USDC.e payment methods.
  *
- * IMPORTANT: Both APE and USDC.e are ERC-20 tokens that require approval
- * before the contract can transfer them. Use useTokenApproval to check
- * and request approval before purchasing.
+ * PAYMENT METHODS (v1.4.0):
+ * - APE: Uses native APE via msg.value (like ETH on Ethereum). NO approval needed.
+ * - USDC.e: Uses ERC-20 transferFrom. Requires approval via useTokenApproval.
  *
  * Usage:
  * ```tsx
@@ -19,23 +19,23 @@
  *   receipt,
  * } = usePurchaseBalls();
  *
- * // Purchase 5 Great Balls with USDC.e
+ * // Purchase 5 Great Balls with USDC.e (requires prior approval)
  * const handlePurchase = () => {
  *   if (write) {
  *     write(1, 5, false); // ballType=1 (Great Ball), quantity=5, useAPE=false
  *   }
  * };
  *
- * // Purchase 10 Poke Balls with APE
+ * // Purchase 10 Poke Balls with native APE (no approval needed!)
  * const handlePurchaseAPE = () => {
  *   if (write) {
  *     write(0, 10, true); // ballType=0 (Poke Ball), quantity=10, useAPE=true
+ *     // The hook automatically calculates and sends msg.value
  *   }
  * };
  * ```
  *
- * Note: The caller is responsible for approving USDC.e or APE tokens
- * before calling this hook. Use useTokenApproval from this package.
+ * Note: Only USDC.e requires approval. APE payments send native currency directly.
  */
 
 import { useState, useCallback } from 'react';
@@ -58,9 +58,10 @@ export interface UsePurchaseBallsReturn {
    * Function to initiate the purchase transaction.
    * @param ballType - Ball type (0-3)
    * @param quantity - Number of balls to purchase
-   * @param useAPE - If true, pay with APE token; if false, pay with USDC.e
+   * @param useAPE - If true, pay with native APE; if false, pay with USDC.e
+   * @param apePriceUSD8Dec - Optional APE price in 8 decimals for accurate APE cost calculation
    */
-  write: ((ballType: BallType, quantity: number, useAPE: boolean) => void) | undefined;
+  write: ((ballType: BallType, quantity: number, useAPE: boolean, apePriceUSD8Dec?: bigint) => void) | undefined;
 
   /**
    * Whether the transaction is currently being submitted to the network.
@@ -140,7 +141,7 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
 
   // Write function
   const write = useCallback(
-    (ballType: BallType, quantity: number, useAPE: boolean) => {
+    (ballType: BallType, quantity: number, useAPE: boolean, apePriceUSD8Dec?: bigint) => {
       if (!POKEBALL_GAME_ADDRESS) {
         console.error('[usePurchaseBalls] Contract address not configured');
         return;
@@ -151,7 +152,7 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
         return;
       }
 
-      // Calculate expected cost for logging (using default APE price)
+      // Calculate expected cost for logging and msg.value
       // Prices in USDC.e (6 decimals)
       const BALL_PRICES_USDC: Record<BallType, bigint> = {
         0: BigInt(1_000_000),    // $1.00
@@ -162,12 +163,16 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
       const pricePerBallUSDC = BALL_PRICES_USDC[ballType];
       const totalCostUSDC = pricePerBallUSDC * BigInt(quantity);
 
-      // If using APE, convert USDC cost to APE (approximate, actual uses contract's apePriceUSD)
+      // Use provided APE price or default to ~$0.64 (64000000 in 8 decimals)
+      const effectiveApePriceUSD = apePriceUSD8Dec && apePriceUSD8Dec > 0n
+        ? apePriceUSD8Dec
+        : BigInt(64000000);
+
+      // If using APE, convert USDC cost to APE
       // Formula: apeAmount = (usdcAmount * 10^20) / apePriceUSD
-      // Assuming ~$0.64 APE price (64000000 in 8 decimals)
-      const apePriceUSD8Dec = BigInt(64000000);
+      // Add 5% buffer for price fluctuations and rounding
       const totalCostAPE = useAPE
-        ? (totalCostUSDC * BigInt(10 ** 20)) / apePriceUSD8Dec
+        ? ((totalCostUSDC * BigInt(10 ** 20)) / effectiveApePriceUSD) * BigInt(105) / BigInt(100)
         : BigInt(0);
 
       console.log('[usePurchaseBalls] Purchasing balls:', {
@@ -181,22 +186,37 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
         ...(useAPE && {
           estimatedAPECost: Number(totalCostAPE) / 1e18,
           totalCostAPEWei: totalCostAPE.toString(),
-          note: 'APE cost is estimated. Actual uses contract apePriceUSD.',
+          apePriceUSD: Number(effectiveApePriceUSD) / 1e8,
+          note: 'Sending native APE via msg.value (5% buffer included for price safety)',
         }),
       });
 
-      console.log('[usePurchaseBalls] IMPORTANT: Ensure token approval before this call!');
-      console.log(`[usePurchaseBalls] Token to approve: ${useAPE ? 'APE' : 'USDC.e'}`);
-      console.log(`[usePurchaseBalls] Spender: ${POKEBALL_GAME_ADDRESS}`);
-      console.log(`[usePurchaseBalls] Min amount needed: ${useAPE ? totalCostAPE.toString() : totalCostUSDC.toString()} wei`);
+      if (useAPE) {
+        // v1.4.0: APE payments use native APE via msg.value - NO approval needed!
+        console.log('[usePurchaseBalls] Using native APE payment (no approval required)');
+        console.log(`[usePurchaseBalls] Sending ${Number(totalCostAPE) / 1e18} APE via msg.value`);
 
-      writeContract({
-        address: POKEBALL_GAME_ADDRESS,
-        abi: POKEBALL_GAME_ABI,
-        functionName: 'purchaseBalls',
-        args: [ballType, BigInt(quantity), useAPE],
-        chainId: POKEBALL_GAME_CHAIN_ID,
-      });
+        writeContract({
+          address: POKEBALL_GAME_ADDRESS,
+          abi: POKEBALL_GAME_ABI,
+          functionName: 'purchaseBalls',
+          args: [ballType, BigInt(quantity), true],
+          value: totalCostAPE, // Native APE sent via msg.value
+          chainId: POKEBALL_GAME_CHAIN_ID,
+        });
+      } else {
+        // USDC.e payments use ERC-20 transferFrom - requires prior approval
+        console.log('[usePurchaseBalls] Using USDC.e payment (requires ERC-20 approval)');
+        console.log(`[usePurchaseBalls] Ensure USDC.e approval for ${POKEBALL_GAME_ADDRESS}`);
+
+        writeContract({
+          address: POKEBALL_GAME_ADDRESS,
+          abi: POKEBALL_GAME_ABI,
+          functionName: 'purchaseBalls',
+          args: [ballType, BigInt(quantity), false],
+          chainId: POKEBALL_GAME_CHAIN_ID,
+        });
+      }
     },
     [writeContract]
   );

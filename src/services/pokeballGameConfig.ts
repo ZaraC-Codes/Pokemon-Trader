@@ -87,6 +87,7 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
 /**
  * PokeballGame contract ABI.
  * Imported from contracts/abi/abi_PokeballGame.json (v1.1.0).
+ * Note: The JSON file is an array directly (not { abi: [...] }).
  *
  * Key functions:
  * - purchaseBalls(ballType, quantity, useAPE) - Buy balls
@@ -94,7 +95,7 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
  * - getAllPlayerBalls(player) - Get player inventory
  * - getAllActivePokemons() - Get spawned Pokemon
  */
-export const POKEBALL_GAME_ABI = PokeballGameABI.abi as typeof PokeballGameABI.abi;
+export const POKEBALL_GAME_ABI = PokeballGameABI as typeof PokeballGameABI;
 
 // ============================================================
 // TOKEN ADDRESSES
@@ -103,22 +104,24 @@ export const POKEBALL_GAME_ABI = PokeballGameABI.abi as typeof PokeballGameABI.a
 /**
  * Token contract addresses on ApeChain Mainnet.
  *
- * APE: Native ApeCoin (ERC-20 wrapper for native currency)
- * USDC: USDC.e (Stargate Bridged USDC from Ethereum)
+ * CONTRACT v1.4.0 PAYMENT METHODS:
+ * - APE: Uses NATIVE APE via msg.value (like ETH on Ethereum). NO approval needed!
+ * - USDC.e: Uses ERC-20 transferFrom. Requires approval.
  *
+ * USDC.e is the Stargate Bridged USDC from Ethereum.
  * Both tokens are accepted for ball purchases in PokeballGame.
  * 97% of revenue goes to SlabNFTManager, 3% platform fee to treasury.
  */
 export const TOKEN_ADDRESSES = {
   /**
-   * ApeCoin (APE) - Native currency of ApeChain.
-   * 18 decimals.
+   * @deprecated v1.4.0 uses native APE via msg.value. WAPE is no longer used.
+   * Kept for backwards compatibility reference only.
    */
-  APE: '0x4d224452801aced8b2f0aebe155379bb5d594381' as const,
+  WAPE: '0x48b62137EdfA95a428D35C09E44256a739F6B557' as const,
 
   /**
    * USDC.e - Stargate Bridged USDC from Ethereum.
-   * 6 decimals.
+   * 6 decimals. Requires ERC-20 approval before purchase.
    */
   USDC: '0xF1815bd50389c46847f0Bda824eC8da914045D14' as const,
 } as const;
@@ -127,7 +130,8 @@ export const TOKEN_ADDRESSES = {
  * Token decimals for balance formatting.
  */
 export const TOKEN_DECIMALS = {
-  APE: 18,
+  WAPE: 18,
+  APE: 18, // Alias for backwards compatibility
   USDC: 6,
 } as const;
 

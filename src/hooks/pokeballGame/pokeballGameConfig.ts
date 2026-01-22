@@ -76,31 +76,21 @@ export const MAX_ACTIVE_POKEMON = 20;
 
 /**
  * Token addresses used by PokeballGame contract.
- * WAPE is the wrapped APE ERC-20 token on ApeChain.
- * Native APE is the gas token, but the contract uses WAPE for ERC-20 transfers.
+ *
+ * CONTRACT v1.4.0 PAYMENT METHODS:
+ * - APE: Uses NATIVE APE via msg.value (like ETH on Ethereum). No approval needed!
+ * - USDC.e: Uses ERC-20 transferFrom. Requires approval.
+ *
  * USDC.e is the bridged USDC from Stargate.
- *
- * IMPORTANT: The PokeballGame contract was initialized with the ETH mainnet APE address
- * (0x4d224452801aced8b2f0aebe155379bb5d594381) which doesn't exist on ApeChain.
- * This needs to be fixed in the contract via upgrade to use WAPE instead.
- *
- * For now, APE payments in the shop may not work correctly until the contract
- * is upgraded to use the correct WAPE address.
  */
 export const RELATED_CONTRACTS = {
-  /** USDC.e token address (6 decimals) */
+  /** USDC.e token address (6 decimals) - requires ERC-20 approval */
   USDC: '0xF1815bd50389c46847f0Bda824eC8da914045D14' as `0x${string}`,
   /**
-   * WAPE token address on ApeChain (18 decimals)
-   * This is the wrapped ERC-20 version of APE for use in smart contracts.
-   * Users need to wrap their native APE to WAPE before approving.
+   * @deprecated v1.4.0 uses native APE via msg.value. WAPE is no longer used.
+   * Kept for backwards compatibility reference only.
    */
   WAPE: '0x48b62137EdfA95a428D35C09E44256a739F6B557' as `0x${string}`,
-  /**
-   * @deprecated The contract was incorrectly initialized with this Ethereum mainnet
-   * APE address. This address doesn't exist on ApeChain. Use WAPE instead.
-   */
-  APE: '0x4d224452801aced8b2f0aebe155379bb5d594381' as `0x${string}`,
   /** Slab NFT contract address */
   SLAB_NFT: '0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7' as `0x${string}`,
 };

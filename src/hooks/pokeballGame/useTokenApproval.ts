@@ -2,17 +2,21 @@
  * useTokenApproval Hook
  *
  * Hook for checking and requesting ERC-20 token approval for PokeballGame contract.
- * Both APE and USDC.e require approval before the contract can transfer them.
+ *
+ * IMPORTANT (v1.4.0): APE payments no longer require approval!
+ * - APE: Uses native APE via msg.value (like ETH on Ethereum). NO approval needed.
+ * - USDC.e: Still requires ERC-20 approval via this hook.
  *
  * Usage:
  * ```tsx
+ * // For USDC.e payments (requires approval)
  * const {
  *   allowance,
  *   isApproved,
  *   approve,
  *   isApproving,
  *   refetch,
- * } = useTokenApproval('APE', totalCostWei);
+ * } = useTokenApproval('USDC', totalCostWei);
  *
  * // Check if approval is needed
  * if (!isApproved) {
@@ -20,6 +24,10 @@
  * }
  *
  * // Then proceed with purchase
+ * purchaseBalls(ballType, quantity, false);
+ *
+ * // For APE payments - NO approval needed!
+ * // Just call purchaseBalls directly, the hook sends native APE via msg.value
  * purchaseBalls(ballType, quantity, true);
  * ```
  */
@@ -129,6 +137,9 @@ export function calculateTotalCost(
 /**
  * Hook for checking and requesting token approval for PokeballGame.
  *
+ * IMPORTANT (v1.4.0): APE payments use native APE via msg.value and don't need approval.
+ * This hook will return isApproved=true for APE type without making any contract calls.
+ *
  * @param tokenType - 'APE' or 'USDC'
  * @param requiredAmount - Amount needed in wei (0 to just check current allowance)
  * @returns Object with allowance info, approve function, and loading states
@@ -139,14 +150,28 @@ export function useTokenApproval(
 ): UseTokenApprovalReturn {
   const { account } = useActiveWeb3React();
 
-  // CRITICAL: On ApeChain, the PokeballGame contract was initialized with the
-  // Ethereum mainnet APE address (0x4d224452801aced8b2f0aebe155379bb5d594381)
-  // which doesn't exist on ApeChain. APE payments will NOT work until the
-  // contract is upgraded to use WAPE (0x48b62137EdfA95a428D35C09E44256a739F6B557).
-  //
-  // For now, we still use the original APE address to match what the contract expects,
-  // but users should be warned that APE payments are broken.
-  const tokenAddress = tokenType === 'APE' ? RELATED_CONTRACTS.APE : RELATED_CONTRACTS.USDC;
+  // v1.4.0: APE payments use native APE via msg.value - NO approval needed!
+  // Return early with "always approved" state for APE
+  if (tokenType === 'APE') {
+    console.log('[useTokenApproval] APE uses native currency (v1.4.0) - no approval needed');
+    return {
+      allowance: maxUint256, // Effectively unlimited
+      isApproved: true,      // Always approved - native currency
+      approve: () => {
+        console.warn('[useTokenApproval] APE does not require approval (uses native msg.value)');
+      },
+      isApproving: false,
+      isConfirming: false,
+      isConfirmed: false,
+      error: undefined,
+      hash: undefined,
+      refetch: () => {},
+      isLoading: false,
+    };
+  }
+
+  // USDC.e still requires ERC-20 approval
+  const tokenAddress = RELATED_CONTRACTS.USDC;
   const spender = POKEBALL_GAME_ADDRESS;
 
   // Log the configuration being used
@@ -156,10 +181,6 @@ export function useTokenApproval(
     spender,
     owner: account,
     chainId: POKEBALL_GAME_CHAIN_ID,
-    RELATED_CONTRACTS,
-    WARNING: tokenType === 'APE'
-      ? 'APE token address is incorrect on ApeChain! Contract needs upgrade to use WAPE.'
-      : undefined,
   });
 
   // Read current allowance

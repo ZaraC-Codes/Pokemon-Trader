@@ -882,7 +882,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     setQuantities((prev) => ({ ...prev, [ballType]: qty }));
   }, []);
 
-  // Handle buy - checks approval first
+  // Handle buy - checks approval for USDC.e only (APE uses native currency, no approval)
   const handleBuy = useCallback(
     (ballType: BallType) => {
       try {
@@ -895,11 +895,13 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           return;
         }
 
+        const useAPE = paymentToken === 'APE';
+
         // Calculate cost for this specific purchase
         const costForThisPurchase = calculateTotalCost(
           ballType,
           qty,
-          paymentToken === 'APE',
+          useAPE,
           apePriceUSD
         );
 
@@ -908,23 +910,26 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           qty,
           paymentToken,
           costWei: costForThisPurchase.toString(),
-          costFormatted: paymentToken === 'APE'
+          costFormatted: useAPE
             ? `${Number(costForThisPurchase) / 1e18} APE`
             : `$${Number(costForThisPurchase) / 1e6}`,
           currentAllowance: allowance.toString(),
           isApproved,
           spender: POKEBALL_GAME_ADDRESS,
+          note: useAPE ? 'APE uses native currency - no approval needed' : 'USDC.e requires ERC-20 approval',
         });
 
-        // Check if approval is needed
-        if (!isApproved || allowance < costForThisPurchase) {
-          console.log('[PokeBallShop] Approval needed! Requesting approval first...');
+        // v1.4.0: APE payments use native currency via msg.value - NO approval needed!
+        // Only USDC.e requires ERC-20 approval
+        if (!useAPE && (!isApproved || allowance < costForThisPurchase)) {
+          console.log('[PokeBallShop] USDC.e approval needed! Requesting approval first...');
           approve();
           return;
         }
 
         setShowSuccess(false);
-        write(ballType, qty, paymentToken === 'APE');
+        // Pass APE price for accurate msg.value calculation
+        write(ballType, qty, useAPE, apePriceUSD);
       } catch (e) {
         console.error('[PokeBallShop] Error in handleBuy:', e);
       }
@@ -1123,22 +1128,19 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             style={{
               ...styles.toggleButton,
               ...(paymentToken === 'APE' ? styles.toggleButtonActive : {}),
-              // Dim APE option since it's currently broken
-              opacity: 0.5,
             }}
             onClick={() => setPaymentToken('APE')}
-            disabled={true} // Disable APE payments until contract is fixed
-            title="APE payments temporarily unavailable"
+            disabled={isAnyPending}
           >
-            Pay with APE (Unavailable)
+            Pay with APE
           </button>
         </div>
 
-        {/* APE Payment Warning */}
+        {/* APE Payment Info - v1.4.0 uses native APE */}
         {paymentToken === 'APE' && (
-          <div style={{ ...styles.errorBox, border: '2px solid #ff8800', backgroundColor: '#2a2510' }}>
-            <span style={{ color: '#ff8800', fontSize: '12px' }}>
-              APE payments are temporarily unavailable. The contract needs an upgrade to support WAPE on ApeChain. Please use USDC.e for now.
+          <div style={{ ...styles.loadingOverlay, border: '2px solid #00ff88', backgroundColor: '#1a2a2a' }}>
+            <span style={{ color: '#00ff88', fontSize: '12px' }}>
+              APE payments send native APE directly - no approval step required!
             </span>
           </div>
         )}
@@ -1165,14 +1167,14 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           </div>
         )}
 
-        {/* Approval Status Info */}
-        {!isApproved && totalQuantity > 0 && !isApprovalPending && (
+        {/* Approval Status Info - Only for USDC.e (APE uses native currency, no approval) */}
+        {paymentToken === 'USDC' && !isApproved && totalQuantity > 0 && !isApprovalPending && (
           <div style={{ ...styles.loadingOverlay, border: '2px solid #ff8800' }}>
             <div style={{ color: '#ff8800', fontSize: '14px' }}>
-              Token approval required
+              USDC.e approval required
             </div>
             <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
-              You need to approve {paymentToken === 'APE' ? 'APE' : 'USDC.e'} before purchasing.
+              You need to approve USDC.e before purchasing.
               Click "Buy" to start the approval process.
             </div>
           </div>
@@ -1192,7 +1194,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
               isApprovalPending={isApprovalPending}
               hasInsufficientBalance={hasInsufficientBalance(ballType)}
               paymentToken={paymentToken}
-              needsApproval={!isApproved && quantities[ballType] > 0}
+              needsApproval={paymentToken === 'USDC' && !isApproved && quantities[ballType] > 0}
             />
           ))}
         </div>

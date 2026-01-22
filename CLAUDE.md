@@ -159,6 +159,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── upgrade_PokeballGame.js  # UUPS upgrade example script
 │   │   ├── upgrade_PokeballGameV2.cjs # Upgrade to v1.2.0 (20 Pokemon)
 │   │   ├── upgrade_PokeballGameV3.cjs # Upgrade to v1.3.0 (configurable pricing)
+│   │   ├── upgrade_PokeballGameV4_NativeAPE.cjs # Upgrade to v1.4.0 (native APE)
 │   │   └── upgrade_SlabNFTManagerV2.cjs # Upgrade to v2.0.0 (max 20 NFTs)
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
@@ -200,6 +201,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/PokeballGame.sol` | Main game smart contract v1.1.0 (legacy) |
 | `contracts/PokeballGameV2.sol` | Game contract v1.2.0 (20 Pokemon support) |
 | `contracts/PokeballGameV3.sol` | Game contract v1.3.0 (configurable pricing, $49.90 cap) |
+| `contracts/PokeballGameV4.sol` | Game contract v1.4.0 (native APE via msg.value) |
 | `contracts/SlabNFTManager.sol` | NFT inventory manager v1.0.0 |
 | `contracts/SlabNFTManagerV2.sol` | NFT manager v2.0.0 (max 20 NFTs) |
 | `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (legacy, 3 slots) |
@@ -209,6 +211,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `contracts/deployment/upgrade_PokeballGameV2.cjs` | Upgrade to v1.2.0 (20 Pokemon) |
 | `contracts/deployment/upgrade_PokeballGameV3.cjs` | Upgrade to v1.3.0 (configurable pricing) |
+| `contracts/deployment/upgrade_PokeballGameV4_NativeAPE.cjs` | Upgrade to v1.4.0 (native APE payments) |
 | `contracts/deployment/upgrade_SlabNFTManagerV2.cjs` | Upgrade to v2.0.0 (max 20 NFTs) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
 | `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
@@ -245,7 +248,9 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | **POP VRNG** | `0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1` |
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
-| **APE** | `0x4d224452801aced8b2f0aebe155379bb5d594381` |
+| **WAPE (Wrapped APE)** | `0x48b62137EdfA95a428D35C09E44256a739F6B557` |
+
+**Note:** On ApeChain, APE is the native gas token. For ERC-20 APE payments in smart contracts, use **WAPE** (Wrapped APE). The PokeballGame contract v1.3.1+ uses WAPE for APE payments.
 
 ### Multicall3 Configuration
 
@@ -642,7 +647,7 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.3.0)
+### PokeballGame Contract (v1.4.0)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
@@ -650,14 +655,22 @@ Pokemon catching mini-game with provably fair mechanics:
 |---------|-------------------|--------------|--------|
 | v1.1.0 | 3 | Initial release | Legacy (deprecated) |
 | v1.2.0 | 20 | 20 Pokemon support | Superseded |
-| v1.3.0 | 20 | Configurable pricing, $49.90 cap, enhanced events | **Latest** |
+| v1.3.0 | 20 | Configurable pricing, $49.90 cap, enhanced events | Superseded |
+| v1.3.1 | 20 | WAPE token fix for APE payments | Superseded |
+| v1.4.0 | 20 | **Native APE payments via msg.value** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
 - Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5`
-- Implementation (v1.3.0): *Deploy via `upgrade_PokeballGameV3.cjs`*
+- Implementation (v1.4.0): *Deploy via `upgrade_PokeballGameV4_NativeAPE.cjs`*
 
-**Ball System (Default Prices - Configurable in v1.3.0):**
+**Payment Methods (v1.4.0):**
+| Token | Method | Approval Required |
+|-------|--------|------------------|
+| APE | Native via `msg.value` | **NO** (like ETH) |
+| USDC.e | ERC-20 `transferFrom` | Yes |
+
+**Ball System (Default Prices - Configurable in v1.3.0+):**
 | Ball Type | Default Price | Default Catch Rate |
 |-----------|---------------|-------------------|
 | Poke Ball | $1.00 | 2% |
@@ -667,7 +680,8 @@ Pokemon catching mini-game with provably fair mechanics:
 
 **Features:**
 - UUPS upgradeable proxy pattern
-- Dual token payment (USDC.e and APE)
+- **v1.4.0:** APE payments use native APE via `msg.value` (like ETH on Ethereum)
+- USDC.e payments use ERC-20 `transferFrom` (requires approval)
 - POP VRNG integration for fair randomness
 - 97% revenue sent to SlabNFTManager, 3% platform fee
 - Delegates NFT management to SlabNFTManager
@@ -678,7 +692,9 @@ Pokemon catching mini-game with provably fair mechanics:
 - **v1.3.0:** Optional revert if no NFT available on catch (`revertOnNoNFT`)
 
 **Key Functions:**
-- `purchaseBalls(ballType, quantity, useAPE)` - Buy balls (enforces $49.90 cap in v1.3.0)
+- `purchaseBalls(ballType, quantity, useAPE)` - Buy balls (if useAPE=true, send APE via msg.value)
+- `purchaseBallsWithAPE(ballType, quantity)` - **v1.4.0** Payable, send native APE
+- `purchaseBallsWithUSDC(ballType, quantity)` - **v1.4.0** Uses ERC-20 USDC.e
 - `throwBall(pokemonSlot, ballType)` - Attempt catch, returns requestId (slot 0-19)
 - `randomNumberCallback(requestId, randomNumber)` - VRNG callback (handles both throws and spawns)
 - `spawnPokemon(slot)` - Spawn Pokemon at slot (owner only, uses VRNG for position)
@@ -692,7 +708,7 @@ Pokemon catching mini-game with provably fair mechanics:
 - `getActivePokemonCount()` - Returns count of active Pokemon (uint8)
 - `getActivePokemonSlots()` - Returns array of occupied slot indices (uint8[])
 
-**New Functions (v1.3.0 only):**
+**New Functions (v1.3.0+):**
 - `setBallPrice(ballType, newPrice)` - Set price for a ball type (owner only)
 - `setCatchRate(ballType, newRate)` - Set catch rate for a ball type (owner only)
 - `setPricingConfig(poke, great, ultra, master)` - Set all prices at once (owner only)
@@ -701,6 +717,13 @@ Pokemon catching mini-game with provably fair mechanics:
 - `getAllBallPrices()` - Get all 4 ball prices
 - `getAllCatchRates()` - Get all 4 catch rates
 - `initializeV130()` - One-time call after upgrade to set default prices
+
+**New Functions (v1.4.0):**
+- `purchaseBallsWithAPE(ballType, quantity)` - Payable function for native APE purchases
+- `purchaseBallsWithUSDC(ballType, quantity)` - Explicit USDC.e purchase function
+- `withdrawAPEFees()` - Withdraw accumulated native APE fees to treasury (owner only)
+- `withdrawAllAPE()` - Emergency withdraw all APE to treasury (owner only)
+- `accumulatedAPEFees()` - View accumulated native APE platform fees
 
 **Internal Callback Handlers:**
 - `_handleSpawnCallback()` - Creates Pokemon at VRNG-determined position
@@ -718,9 +741,16 @@ Pokemon catching mini-game with provably fair mechanics:
 
 **Upgrade Commands:**
 ```bash
-# Upgrade to v1.3.0 (configurable pricing, $49.90 cap)
-npx hardhat run contracts/deployment/upgrade_PokeballGameV3.cjs --network apechain
+# Upgrade to v1.4.0 (Native APE Payments)
+npx hardhat run contracts/deployment/upgrade_PokeballGameV4_NativeAPE.cjs --network apechain
 ```
+
+**Native APE vs ERC-20 (v1.4.0):**
+- On ApeChain, APE is the **native gas token** (like ETH on Ethereum)
+- **v1.4.0 uses native APE** via `msg.value` - NO approval needed for APE purchases!
+- USDC.e still uses ERC-20 `transferFrom` and requires approval
+- Frontend sends APE purchases with `{ value: costWei }` parameter
+- Contract refunds excess APE if user overpays
 
 **Post-Upgrade Configuration (v1.3.0):**
 ```solidity
@@ -743,6 +773,7 @@ await pokeballGame.setRevertOnNoNFT(true);
 **Upgrade History:**
 - v1.2.0 deployed 2026-01-21 via `upgrade_PokeballGameV2.cjs`
 - v1.3.0 adds configurable pricing, $49.90 cap, enhanced events
+- v1.4.0 adds native APE payments via msg.value (no more ERC-20 approval for APE!)
 - See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for v1.2.0 upgrade guide
 
 ### SlabNFTManager Contract (v2.0.0)
