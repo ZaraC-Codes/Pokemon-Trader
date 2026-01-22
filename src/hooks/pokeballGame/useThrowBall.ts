@@ -30,7 +30,7 @@
  * }, [requestId]);
  * ```
  *
- * Note: The contract uses pokemonSlot (0-2), not pokemonId directly.
+ * Note: The contract uses pokemonSlot (0-19), not pokemonId directly.
  * Use useGetPokemonSpawns to get the slot index for a Pokemon.
  */
 
@@ -41,6 +41,7 @@ import {
   POKEBALL_GAME_ADDRESS,
   POKEBALL_GAME_ABI,
   POKEBALL_GAME_CHAIN_ID,
+  MAX_ACTIVE_POKEMON,
   usePokeballGameAddress,
   type BallType,
 } from './pokeballGameConfig';
@@ -52,7 +53,7 @@ import {
 export interface UseThrowBallReturn {
   /**
    * Function to throw a ball at a Pokemon.
-   * @param pokemonSlot - Pokemon slot index (0-2)
+   * @param pokemonSlot - Pokemon slot index (0-19)
    * @param ballType - Ball type to throw (0-3)
    */
   write: ((pokemonSlot: number, ballType: BallType) => void) | undefined;
@@ -181,8 +182,8 @@ export function useThrowBall(): UseThrowBallReturn {
         return;
       }
 
-      if (pokemonSlot < 0 || pokemonSlot > 2) {
-        console.error('[useThrowBall] Invalid pokemon slot (must be 0-2):', pokemonSlot);
+      if (pokemonSlot < 0 || pokemonSlot >= MAX_ACTIVE_POKEMON) {
+        console.error(`[useThrowBall] Invalid pokemon slot (must be 0-${MAX_ACTIVE_POKEMON - 1}):`, pokemonSlot);
         return;
       }
 
