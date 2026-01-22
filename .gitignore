@@ -37,7 +37,6 @@ listings-output.txt
 *.output.json
 
 # Environment variables and secrets
-.env
 .env.local
 .env.*.local
 *.key

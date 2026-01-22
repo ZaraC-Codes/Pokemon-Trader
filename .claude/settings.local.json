@@ -24,7 +24,9 @@
       "Bash(timeout 15 npm run dev:*)",
       "Bash(test:*)",
       "Bash(node -e:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(python3:*)"
     ]
   }
 }

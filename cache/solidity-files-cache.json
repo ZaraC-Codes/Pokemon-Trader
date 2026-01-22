@@ -1066,8 +1066,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV3.sol": {
-      "lastModificationDate": 1769043357956,
-      "contentHash": "a29bdfb50ad2e61ccfb77cd1566fcd42",
+      "lastModificationDate": 1769050479471,
+      "contentHash": "dedd006de2611b96001cdbd3b25c2725",
       "sourceName": "contracts/PokeballGameV3.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1111,6 +1111,55 @@
       "artifacts": [
         "IPOPVRNG",
         "IPriceFeed",
+        "ISlabNFTManager",
+        "PokeballGame"
+      ]
+    },
+    "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV4.sol": {
+      "lastModificationDate": 1769056999623,
+      "contentHash": "e2d823b1f7af11ac61ea819a7333dc2c",
+      "sourceName": "contracts/PokeballGameV4.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/token/ERC721/IERC721.sol"
+      ],
+      "versionPragmas": [
+        "0.8.26"
+      ],
+      "artifacts": [
+        "IPOPVRNG",
         "ISlabNFTManager",
         "PokeballGame"
       ]

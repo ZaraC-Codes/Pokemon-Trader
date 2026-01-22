@@ -8,7 +8,7 @@ pragma solidity 0.8.26;
  * @author Z33Fi ("Z33Fi Made It")
  * @custom:artist-signature Z33Fi Made It
  * @custom:network ApeChain Mainnet (Chain ID: 33139)
- * @custom:version 1.3.0
+ * @custom:version 1.3.1
  *
  * CHANGELOG v1.3.0:
  * - Configurable ball prices via setBallPrice() - no longer constants
@@ -18,6 +18,10 @@ pragma solidity 0.8.26;
  * - Added setOwnerWallet() for ownership transfer with event
  * - Option to revert if no NFT available on catch (configurable)
  * - Storage layout compatible with v1.2.0
+ *
+ * CHANGELOG v1.3.1:
+ * - Added setApeToken() to update APE/WAPE token address
+ * - Fixes: Contract was initialized with Ethereum mainnet APE address instead of ApeChain WAPE
  */
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -922,6 +926,21 @@ contract PokeballGame is
         apePriceUSD = newPrice;
 
         emit APEPriceUpdated(oldPrice, newPrice);
+    }
+
+    /**
+     * @notice Update the APE/WAPE token address
+     * @dev Only callable by owner. Used to fix incorrect initialization with
+     *      Ethereum mainnet APE address. ApeChain uses WAPE (Wrapped APE).
+     * @param newApeToken New APE/WAPE token address
+     */
+    function setApeToken(address newApeToken) external onlyOwner {
+        if (newApeToken == address(0)) revert ZeroAddress();
+
+        address oldApeToken = address(ape);
+        ape = IERC20(newApeToken);
+
+        emit WalletUpdated("apeToken", oldApeToken, newApeToken);
     }
 
     /**

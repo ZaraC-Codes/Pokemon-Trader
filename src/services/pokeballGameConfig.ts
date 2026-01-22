@@ -74,15 +74,15 @@ export const APECHAIN_EXPLORER_URL = 'https://apescan.io' as const;
 /**
  * PokeballGame contract address on ApeChain.
  *
- * Loaded from VITE_POKEBALL_GAME_ADDRESS environment variable.
+ * Loaded from VITE_POKEBALLGAME_ADDRESS environment variable.
  * This is the UUPS proxy address - implementation can be upgraded.
  *
  * Set in .env file:
  * ```
- * VITE_POKEBALL_GAME_ADDRESS=0xYourPokeballGameProxy
+ * VITE_POKEBALLGAME_ADDRESS=0xYourPokeballGameProxy
  * ```
  */
-export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS as
+export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALLGAME_ADDRESS as
   | `0x${string}`
   | undefined;
 

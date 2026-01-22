@@ -39,8 +39,9 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount } from 'wagmi';
 import type { TransactionReceipt } from 'viem';
+import { formatEther, formatGwei } from 'viem';
 import {
   POKEBALL_GAME_ADDRESS,
   POKEBALL_GAME_ABI,
@@ -61,7 +62,7 @@ export interface UsePurchaseBallsReturn {
    * @param useAPE - If true, pay with native APE; if false, pay with USDC.e
    * @param apePriceUSD8Dec - Optional APE price in 8 decimals for accurate APE cost calculation
    */
-  write: ((ballType: BallType, quantity: number, useAPE: boolean, apePriceUSD8Dec?: bigint) => void) | undefined;
+  write: ((ballType: BallType, quantity: number, useAPE: boolean, apePriceUSD8Dec?: bigint) => Promise<void>) | undefined;
 
   /**
    * Whether the transaction is currently being submitted to the network.
@@ -105,6 +106,8 @@ export interface UsePurchaseBallsReturn {
  */
 export function usePurchaseBalls(): UsePurchaseBallsReturn {
   const { isConfigured } = usePokeballGameAddress();
+  const publicClient = usePublicClient({ chainId: POKEBALL_GAME_CHAIN_ID });
+  const { address: userAddress } = useAccount();
 
   // Track the current transaction hash for receipt fetching
   const [currentHash, setCurrentHash] = useState<`0x${string}` | undefined>(undefined);
@@ -141,7 +144,7 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
 
   // Write function
   const write = useCallback(
-    (ballType: BallType, quantity: number, useAPE: boolean, apePriceUSD8Dec?: bigint) => {
+    async (ballType: BallType, quantity: number, useAPE: boolean, apePriceUSD8Dec?: bigint) => {
       if (!POKEBALL_GAME_ADDRESS) {
         console.error('[usePurchaseBalls] Contract address not configured');
         return;
@@ -191,10 +194,90 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
         }),
       });
 
+      // Build the transaction config
+      const txConfig = {
+        address: POKEBALL_GAME_ADDRESS,
+        abi: POKEBALL_GAME_ABI,
+        functionName: 'purchaseBalls',
+        args: [ballType, BigInt(quantity), useAPE],
+        ...(useAPE && { value: totalCostAPE }),
+        chainId: POKEBALL_GAME_CHAIN_ID,
+      };
+
+      // ====== DEBUG: Log transaction parameters ======
+      console.log('='.repeat(60));
+      console.log('[usePurchaseBalls] DEBUG: Transaction Configuration');
+      console.log('='.repeat(60));
+      console.log('[usePurchaseBalls] Transaction params:', {
+        to: POKEBALL_GAME_ADDRESS,
+        account: userAddress,
+        functionName: 'purchaseBalls',
+        args: [ballType, BigInt(quantity), useAPE],
+        value: useAPE ? totalCostAPE.toString() : 'undefined (USDC.e)',
+        valueInAPE: useAPE ? formatEther(totalCostAPE) : 'N/A',
+        chainId: POKEBALL_GAME_CHAIN_ID,
+      });
+
+      // ====== DEBUG: Estimate gas and get gas price ======
+      if (publicClient) {
+        try {
+          console.log('[usePurchaseBalls] Estimating gas...');
+
+          // Get current gas price
+          const gasPrice = await publicClient.getGasPrice();
+          console.log('[usePurchaseBalls] Current gas price:', {
+            gasPrice: gasPrice.toString(),
+            gasPriceGwei: formatGwei(gasPrice),
+          });
+
+          // Estimate gas for the transaction
+          const estimatedGas = await publicClient.estimateContractGas({
+            address: POKEBALL_GAME_ADDRESS,
+            abi: POKEBALL_GAME_ABI,
+            functionName: 'purchaseBalls',
+            args: [ballType, BigInt(quantity), useAPE],
+            account: userAddress,
+            ...(useAPE && { value: totalCostAPE }),
+          });
+
+          console.log('[usePurchaseBalls] Gas estimate:', {
+            estimatedGas: estimatedGas.toString(),
+            gasPrice: gasPrice.toString(),
+            gasPriceGwei: formatGwei(gasPrice),
+            estimatedGasCostWei: (estimatedGas * gasPrice).toString(),
+            estimatedGasCostAPE: formatEther(estimatedGas * gasPrice),
+          });
+
+          // Calculate what the total cost would be
+          const totalGasCost = estimatedGas * gasPrice;
+          const totalTxCost = useAPE ? totalCostAPE + totalGasCost : totalGasCost;
+          console.log('[usePurchaseBalls] Total transaction cost breakdown:', {
+            valueToSend: useAPE ? formatEther(totalCostAPE) + ' APE' : 'N/A (USDC.e)',
+            gasCost: formatEther(totalGasCost) + ' APE',
+            totalCost: formatEther(totalTxCost) + ' APE',
+            // Check if gas is unreasonable
+            isGasReasonable: estimatedGas < 1_000_000n,
+            warningIfHigh: estimatedGas > 500_000n ? '⚠️ Gas estimate seems high!' : '✓ Gas looks normal',
+          });
+
+        } catch (gasError) {
+          console.error('[usePurchaseBalls] Gas estimation failed:', gasError);
+          console.log('[usePurchaseBalls] Will proceed anyway - MetaMask will estimate');
+        }
+      } else {
+        console.warn('[usePurchaseBalls] No public client available for gas estimation');
+      }
+
+      console.log('='.repeat(60));
+      console.log('[usePurchaseBalls] Sending transaction to Wagmi...');
+      console.log('='.repeat(60));
+
       if (useAPE) {
         // v1.4.0: APE payments use native APE via msg.value - NO approval needed!
         console.log('[usePurchaseBalls] Using native APE payment (no approval required)');
-        console.log(`[usePurchaseBalls] Sending ${Number(totalCostAPE) / 1e18} APE via msg.value`);
+        console.log(`[usePurchaseBalls] Sending ${formatEther(totalCostAPE)} APE via msg.value`);
+        console.log('[usePurchaseBalls] value (wei):', totalCostAPE.toString());
+        console.log('[usePurchaseBalls] value (APE):', formatEther(totalCostAPE));
 
         writeContract({
           address: POKEBALL_GAME_ADDRESS,
@@ -218,7 +301,7 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
         });
       }
     },
-    [writeContract]
+    [writeContract, publicClient, userAddress]
   );
 
   // Reset function
