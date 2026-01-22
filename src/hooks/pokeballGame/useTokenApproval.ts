@@ -151,42 +151,33 @@ export function useTokenApproval(
   const { account } = useActiveWeb3React();
 
   // v1.4.0: APE payments use native APE via msg.value - NO approval needed!
-  // Return early with "always approved" state for APE
-  if (tokenType === 'APE') {
-    console.log('[useTokenApproval] APE uses native currency (v1.4.0) - no approval needed');
-    return {
-      allowance: maxUint256, // Effectively unlimited
-      isApproved: true,      // Always approved - native currency
-      approve: () => {
-        console.warn('[useTokenApproval] APE does not require approval (uses native msg.value)');
-      },
-      isApproving: false,
-      isConfirming: false,
-      isConfirmed: false,
-      error: undefined,
-      hash: undefined,
-      refetch: () => {},
-      isLoading: false,
-    };
-  }
+  // We check this flag but still call all hooks unconditionally to follow React rules
+  const isNativeCurrency = tokenType === 'APE';
 
-  // USDC.e still requires ERC-20 approval
+  // For APE (native), we don't need a token address, but we still need to call hooks
+  // Use USDC address as a placeholder when APE is selected (hooks will be disabled)
   const tokenAddress = RELATED_CONTRACTS.USDC;
   const spender = POKEBALL_GAME_ADDRESS;
 
-  // Log the configuration being used
-  console.log('[useTokenApproval] Config:', {
-    tokenType,
-    tokenAddress,
-    spender,
-    owner: account,
-    chainId: POKEBALL_GAME_CHAIN_ID,
-  });
+  // Log the configuration being used (only for USDC)
+  useEffect(() => {
+    if (!isNativeCurrency) {
+      console.log('[useTokenApproval] Config:', {
+        tokenType,
+        tokenAddress,
+        spender,
+        owner: account,
+        chainId: POKEBALL_GAME_CHAIN_ID,
+      });
+    } else {
+      console.log('[useTokenApproval] APE uses native currency (v1.4.0) - no approval needed');
+    }
+  }, [isNativeCurrency, tokenType, tokenAddress, spender, account]);
 
-  // Read current allowance
+  // Read current allowance - disabled for native currency
   const {
     data: allowanceData,
-    isLoading,
+    isLoading: isAllowanceLoading,
     refetch,
   } = useReadContract({
     address: tokenAddress,
@@ -195,19 +186,21 @@ export function useTokenApproval(
     args: account && spender ? [account, spender] : undefined,
     chainId: POKEBALL_GAME_CHAIN_ID,
     query: {
-      enabled: !!account && !!spender,
+      // Disable for native currency (APE) - no allowance needed
+      enabled: !isNativeCurrency && !!account && !!spender,
     },
   });
 
-  const allowance = (allowanceData as bigint) ?? BigInt(0);
+  // For native currency, allowance is effectively unlimited
+  const allowance = isNativeCurrency ? maxUint256 : ((allowanceData as bigint) ?? BigInt(0));
 
   // Check if approved for required amount
-  // Note: Use == 0n instead of === BigInt(0) because === checks reference equality
-  // and BigInt(0) creates a new object each time
+  // Native currency is always approved
   const isApproved = useMemo(() => {
+    if (isNativeCurrency) return true;
     if (requiredAmount == 0n) return true;
     return allowance >= requiredAmount;
-  }, [allowance, requiredAmount]);
+  }, [isNativeCurrency, allowance, requiredAmount]);
 
   // Write contract for approval
   const {
@@ -230,8 +223,10 @@ export function useTokenApproval(
   // Track if we've already refetched for this confirmation
   const lastConfirmedHashRef = useRef<`0x${string}` | undefined>(undefined);
 
-  // Auto-refetch allowance when approval transaction confirms
+  // Auto-refetch allowance when approval transaction confirms (only for ERC-20)
   useEffect(() => {
+    if (isNativeCurrency) return; // No refetch needed for native currency
+
     if (isConfirmed && writeHash && writeHash !== lastConfirmedHashRef.current) {
       console.log('[useTokenApproval] Approval tx confirmed! Refetching allowance...', {
         hash: writeHash,
@@ -251,10 +246,12 @@ export function useTokenApproval(
         });
       });
     }
-  }, [isConfirmed, writeHash, refetch, tokenType, tokenAddress, spender, account]);
+  }, [isNativeCurrency, isConfirmed, writeHash, refetch, tokenType, tokenAddress, spender, account]);
 
-  // Debug logging for approval state
+  // Debug logging for approval state (only for USDC)
   useEffect(() => {
+    if (isNativeCurrency) return;
+
     console.log('[useTokenApproval] State update:', {
       token: tokenType,
       allowance: allowance.toString(),
@@ -265,10 +262,15 @@ export function useTokenApproval(
       isConfirmed,
       hash: writeHash,
     });
-  }, [tokenType, allowance, requiredAmount, isApproved, isApproving, isConfirming, isConfirmed, writeHash]);
+  }, [isNativeCurrency, tokenType, allowance, requiredAmount, isApproved, isApproving, isConfirming, isConfirmed, writeHash]);
 
-  // Approve function - requests unlimited approval
+  // Approve function - requests unlimited approval (no-op for native currency)
   const approve = useCallback(() => {
+    if (isNativeCurrency) {
+      console.warn('[useTokenApproval] APE does not require approval (uses native msg.value)');
+      return;
+    }
+
     if (!spender) {
       console.error('[useTokenApproval] Contract address not configured');
       return;
@@ -288,20 +290,24 @@ export function useTokenApproval(
       args: [spender, maxUint256],
       chainId: POKEBALL_GAME_CHAIN_ID,
     });
-  }, [tokenType, tokenAddress, spender, writeContract]);
+  }, [isNativeCurrency, tokenType, tokenAddress, spender, writeContract]);
 
-  const error = writeError || confirmError || undefined;
+  // For native currency, no errors possible from approval flow
+  const error = isNativeCurrency ? undefined : (writeError || confirmError || undefined);
+
+  // For native currency, never loading
+  const isLoading = isNativeCurrency ? false : isAllowanceLoading;
 
   return {
     allowance,
     isApproved,
     approve,
-    isApproving,
-    isConfirming,
-    isConfirmed,
+    isApproving: isNativeCurrency ? false : isApproving,
+    isConfirming: isNativeCurrency ? false : isConfirming,
+    isConfirmed: isNativeCurrency ? false : isConfirmed,
     error,
-    hash: writeHash,
-    refetch,
+    hash: isNativeCurrency ? undefined : writeHash,
+    refetch: isNativeCurrency ? () => {} : refetch,
     isLoading,
   };
 }
