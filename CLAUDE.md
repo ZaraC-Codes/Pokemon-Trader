@@ -136,9 +136,11 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   └── utilities/               # Common helpers
 │
 ├── contracts/               # Smart contract files
-│   ├── PokeballGame.sol         # Main game contract v1.1.0 (UUPS, deployed)
+│   ├── PokeballGame.sol         # Main game contract v1.1.0 (UUPS, legacy)
 │   ├── PokeballGameV2.sol       # Game contract v1.2.0 (20 Pokemon support)
-│   ├── SlabNFTManager.sol       # NFT inventory manager (UUPS)
+│   ├── PokeballGameV3.sol       # Game contract v1.3.0 (configurable pricing, $49.90 cap)
+│   ├── SlabNFTManager.sol       # NFT inventory manager v1.0.0 (UUPS)
+│   ├── SlabNFTManagerV2.sol     # NFT manager v2.0.0 (max 20 NFTs)
 │   ├── interfaces/
 │   │   └── IPOPVRNG.sol         # POP VRNG interface (randomness)
 │   ├── abi/
@@ -150,7 +152,9 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── deploy_PokeballGame.js   # PokeballGame standalone deployment
 │   │   ├── deploy_SlabNFTManager.js # SlabNFTManager standalone deployment
 │   │   ├── upgrade_PokeballGame.js  # UUPS upgrade example script
-│   │   └── upgrade_PokeballGameV2.cjs # Upgrade to v1.2.0 (20 Pokemon)
+│   │   ├── upgrade_PokeballGameV2.cjs # Upgrade to v1.2.0 (20 Pokemon)
+│   │   ├── upgrade_PokeballGameV3.cjs # Upgrade to v1.3.0 (configurable pricing)
+│   │   └── upgrade_SlabNFTManagerV2.cjs # Upgrade to v2.0.0 (max 20 NFTs)
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -188,15 +192,19 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `src/hooks/useAllListings.tsx` | Core hook for fetching listings |
 | `contracts/addresses.json` | All contract addresses and token config |
 | `contracts/wallets.json` | Wallet configuration (owner, treasury, NFT revenue) |
-| `contracts/PokeballGame.sol` | Main game smart contract v1.1.0 (deployed) |
+| `contracts/PokeballGame.sol` | Main game smart contract v1.1.0 (legacy) |
 | `contracts/PokeballGameV2.sol` | Game contract v1.2.0 (20 Pokemon support) |
-| `contracts/SlabNFTManager.sol` | NFT inventory and auto-purchase manager |
+| `contracts/PokeballGameV3.sol` | Game contract v1.3.0 (configurable pricing, $49.90 cap) |
+| `contracts/SlabNFTManager.sol` | NFT inventory manager v1.0.0 |
+| `contracts/SlabNFTManagerV2.sol` | NFT manager v2.0.0 (max 20 NFTs) |
 | `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (legacy, 3 slots) |
 | `contracts/abi/abi_PokeballGameV2.json` | PokeballGame ABI v1.2.0 (20 slots) |
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `contracts/deployment/upgrade_PokeballGameV2.cjs` | Upgrade to v1.2.0 (20 Pokemon) |
+| `contracts/deployment/upgrade_PokeballGameV3.cjs` | Upgrade to v1.3.0 (configurable pricing) |
+| `contracts/deployment/upgrade_SlabNFTManagerV2.cjs` | Upgrade to v2.0.0 (max 20 NFTs) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
 | `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
@@ -603,23 +611,24 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.2.0)
+### PokeballGame Contract (v1.3.0)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
-| Version | MAX_ACTIVE_POKEMON | Implementation | Status |
-|---------|-------------------|----------------|--------|
-| v1.1.0 | 3 | `0xb73A5eE21489c8b09f46538A5DA33146BD3E7D3e` | Legacy (deprecated) |
-| v1.2.0 | 20 | `0x71ED694476909FD5182afE1fDc9098a9975EA6b5` | **Active on ApeChain** |
+| Version | MAX_ACTIVE_POKEMON | Key Features | Status |
+|---------|-------------------|--------------|--------|
+| v1.1.0 | 3 | Initial release | Legacy (deprecated) |
+| v1.2.0 | 20 | 20 Pokemon support | Superseded |
+| v1.3.0 | 20 | Configurable pricing, $49.90 cap, enhanced events | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
 - Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5`
-- Upgraded: 2026-01-21
+- Implementation (v1.3.0): *Deploy via `upgrade_PokeballGameV3.cjs`*
 
-**Ball System:**
-| Ball Type | Price | Catch Rate |
-|-----------|-------|------------|
+**Ball System (Default Prices - Configurable in v1.3.0):**
+| Ball Type | Default Price | Default Catch Rate |
+|-----------|---------------|-------------------|
 | Poke Ball | $1.00 | 2% |
 | Great Ball | $10.00 | 20% |
 | Ultra Ball | $25.00 | 50% |
@@ -631,63 +640,131 @@ Pokemon catching mini-game with provably fair mechanics:
 - POP VRNG integration for fair randomness
 - 97% revenue sent to SlabNFTManager, 3% platform fee
 - Delegates NFT management to SlabNFTManager
-- Up to 3 active Pokemon spawns (v1.1.0) / 20 spawns (v1.2.0)
+- Up to 20 active Pokemon spawns
 - Max 3 throw attempts per Pokemon before relocation
+- **v1.3.0:** Configurable ball prices via `setBallPrice()`
+- **v1.3.0:** $49.90 max purchase cap per transaction (`MAX_PURCHASE_USD`)
+- **v1.3.0:** Optional revert if no NFT available on catch (`revertOnNoNFT`)
 
 **Key Functions:**
-- `purchaseBalls(ballType, quantity, useAPE)` - Buy balls
-- `throwBall(pokemonSlot, ballType)` - Attempt catch, returns requestId (slot 0-2 in v1.1.0, 0-19 in v1.2.0)
+- `purchaseBalls(ballType, quantity, useAPE)` - Buy balls (enforces $49.90 cap in v1.3.0)
+- `throwBall(pokemonSlot, ballType)` - Attempt catch, returns requestId (slot 0-19)
 - `randomNumberCallback(requestId, randomNumber)` - VRNG callback (handles both throws and spawns)
 - `spawnPokemon(slot)` - Spawn Pokemon at slot (owner only, uses VRNG for position)
 - `forceSpawnPokemon(slot, posX, posY)` - Spawn with specific position (owner only)
 - `getAllPlayerBalls(player)` - Get player inventory
-- `getAllActivePokemons()` - Get spawned Pokemon (returns `Pokemon[3]` in v1.1.0, `Pokemon[20]` in v1.2.0)
+- `getAllActivePokemons()` - Get spawned Pokemon (returns `Pokemon[20]`)
 - `setSlabNFTManager(address)` - Set NFT manager (owner only)
 - `getNFTInventoryCount()` - Query NFT inventory via manager
 
-**New Functions (v1.2.0 only):**
+**New Functions (v1.2.0+):**
 - `getActivePokemonCount()` - Returns count of active Pokemon (uint8)
 - `getActivePokemonSlots()` - Returns array of occupied slot indices (uint8[])
+
+**New Functions (v1.3.0 only):**
+- `setBallPrice(ballType, newPrice)` - Set price for a ball type (owner only)
+- `setCatchRate(ballType, newRate)` - Set catch rate for a ball type (owner only)
+- `setPricingConfig(poke, great, ultra, master)` - Set all prices at once (owner only)
+- `setOwnerWallet(newOwner)` - Transfer ownership with event (owner only)
+- `setRevertOnNoNFT(bool)` - Configure NFT availability behavior (owner only)
+- `getAllBallPrices()` - Get all 4 ball prices
+- `getAllCatchRates()` - Get all 4 catch rates
+- `initializeV130()` - One-time call after upgrade to set default prices
 
 **Internal Callback Handlers:**
 - `_handleSpawnCallback()` - Creates Pokemon at VRNG-determined position
 - `_handleThrowCallback()` - Determines catch success, handles NFT award
 
 **Events for Frontend:**
-- `BallPurchased`, `ThrowAttempted`, `CaughtPokemon`
-- `FailedCatch`, `PokemonRelocated`, `WalletUpdated`
+- `BallPurchased(buyer, ballType, quantity, usedAPE, totalAmount)` - **v1.3.0 adds totalAmount**
+- `ThrowAttempted`, `CaughtPokemon`, `FailedCatch`, `PokemonRelocated`
+- `WalletUpdated(walletType, oldAddress, newAddress)` - **v1.3.0 includes "owner" type**
 - `RevenueSentToManager` - When revenue deposited to SlabNFTManager
-- `PokemonSpawned` - slotIndex is 0-2 (v1.1.0) or 0-19 (v1.2.0)
+- `PokemonSpawned` - slotIndex is 0-19
+- `RandomnessReceived(requestId, randomNumber, isSpawnRequest)` - **v1.3.0 new**
+- `BallPriceUpdated(ballType, oldPrice, newPrice)` - **v1.3.0 new**
+- `CatchRateUpdated(ballType, oldRate, newRate)` - **v1.3.0 new**
+
+**Upgrade Commands:**
+```bash
+# Upgrade to v1.3.0 (configurable pricing, $49.90 cap)
+npx hardhat run contracts/deployment/upgrade_PokeballGameV3.cjs --network apechain
+```
+
+**Post-Upgrade Configuration (v1.3.0):**
+```solidity
+// Example: Change Master Ball to $75 (will fail - exceeds $49.90 cap)
+// Example: Change Poke Ball to $2
+await pokeballGame.setBallPrice(0, 2 * 1e6);
+
+// Example: Set all prices at once
+await pokeballGame.setPricingConfig(
+    1 * 1e6,    // Poke Ball: $1
+    15 * 1e6,   // Great Ball: $15
+    30 * 1e6,   // Ultra Ball: $30
+    49900000    // Master Ball: $49.90
+);
+
+// Example: Enable revert if no NFT available
+await pokeballGame.setRevertOnNoNFT(true);
+```
 
 **Upgrade History:**
 - v1.2.0 deployed 2026-01-21 via `upgrade_PokeballGameV2.cjs`
-- Uses `unsafeSkipStorageCheck: true` for array resize (3→20 is storage-safe)
-- See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for complete upgrade guide
+- v1.3.0 adds configurable pricing, $49.90 cap, enhanced events
+- See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for v1.2.0 upgrade guide
 
-### SlabNFTManager Contract
+### SlabNFTManager Contract (v2.0.0)
 NFT inventory management and auto-purchase from SlabMachine:
+
+**Versions:**
+| Version | MAX_INVENTORY_SIZE | Key Features | Status |
+|---------|-------------------|--------------|--------|
+| v1.0.0 | 10 | Initial release | Superseded |
+| v2.0.0 | 20 | Max 20 NFTs, setOwnerWallet, enhanced events | **Latest** |
+
+**Deployed Addresses:**
+- Proxy: `0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71`
+- Implementation (v2.0.0): *Deploy via `upgrade_SlabNFTManagerV2.cjs`*
 
 **Features:**
 - UUPS upgradeable proxy pattern
-- Max 10 NFTs in inventory
+- Max 10 NFTs in inventory (v1.0.0) / **Max 20 NFTs (v2.0.0)**
 - Auto-purchase when USDC.e balance >= $51
 - Awards NFTs to Pokemon catchers
 - Integrates with SlabMachine for NFT purchasing
 - ERC721Receiver for receiving NFTs
+- **v2.0.0:** `setOwnerWallet()` for ownership transfer with event
 
 **Key Functions:**
 - `depositRevenue(amount)` - Receive USDC.e from PokeballGame
-- `checkAndPurchaseNFT()` - Trigger auto-purchase if threshold met
+- `checkAndPurchaseNFT()` - Trigger auto-purchase if threshold met (respects max 20 cap)
 - `awardNFTToWinner(winner)` - Transfer NFT to winner
 - `getInventoryCount()` - Get current NFT count
 - `getInventory()` - Get all NFT token IDs
 - `setPokeballGame(address)` - Set PokeballGame address (owner only)
+- `setTreasuryWallet(address)` - Set treasury wallet (owner only)
+
+**New Functions (v2.0.0 only):**
+- `setOwnerWallet(newOwner)` - Transfer ownership with event (owner only)
+- `getMaxInventorySize()` - Returns `MAX_INVENTORY_SIZE` (20)
 
 **Events for Frontend:**
-- `RevenueDeposited` - When revenue received
-- `NFTPurchaseTriggered` - When SlabMachine purchase initiated
-- `NFTAddedToInventory` - When NFT received
-- `NFTAwardedToWinner` - When NFT sent to winner
+- `RevenueDeposited(depositor, amount, newBalance)` - When revenue received
+- `NFTPurchaseInitiated(requestId, amount, recipient)` - When SlabMachine purchase initiated
+- `NFTReceived(tokenId, inventorySize)` - When NFT received
+- `NFTAwarded(winner, tokenId, remainingInventory)` - When NFT sent to winner
+- `TreasuryWalletUpdated(oldAddress, newAddress)` - Treasury changed
+- `PokeballGameUpdated(oldAddress, newAddress)` - PokeballGame changed
+- `OwnerWalletUpdated(oldOwner, newOwner)` - **v2.0.0 new**
+- `InventoryCapacityReached(currentSize, maxSize)` - **v2.0.0 new**
+- `AutoPurchaseSkippedInventoryFull(balance, inventorySize, maxSize)` - **v2.0.0 new**
+
+**Upgrade Commands:**
+```bash
+# Upgrade to v2.0.0 (max 20 NFTs)
+npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2.cjs --network apechain
+```
 
 **Contract Integration Flow:**
 ```
@@ -1323,11 +1400,12 @@ function AppContent() {
 **Features:**
 - Responsive positioning coordinated with WalletConnector
 - Ball inventory display (2x2 grid with color-coded **circular** icons and counts)
+- **Click ball inventory to open TransactionHistory modal** (cyan hover highlight)
 - "SHOP" button opens PokeBallShop modal
 - Returns `null` when wallet not connected (WalletConnector handles connection UI)
 - Real-time updates via polling hooks (10s for inventory)
 
-**Layout:** `[Balls Panel] [SHOP Button] ... [Wallet Connect]`
+**Layout:** `[Balls Panel (clickable)] [SHOP Button] ... [Wallet Connect]`
 
 **Responsive Layout (coordinated with WalletConnector):**
 | Breakpoint | Layout |
@@ -1342,7 +1420,11 @@ function AppContent() {
 - `.game-hud-container` - HUD panel positioning and layout
 
 **Sub-Components:**
-- `BallInventorySection` - 2x2 grid showing ball counts by type (circular icons)
+- `BallInventorySection` - 2x2 grid showing ball counts by type (circular icons), clickable with cyan hover effect
+
+**Modals Managed:**
+- `PokeBallShop` - Opens via SHOP button click
+- `TransactionHistory` - Opens via ball inventory panel click
 
 **Ball Icon Styling:**
 All ball icons use circular styling (`borderRadius: '50%'`) for visual consistency:
