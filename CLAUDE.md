@@ -650,7 +650,7 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.4.1)
+### PokeballGame Contract (v1.4.2)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
@@ -661,11 +661,13 @@ Pokemon catching mini-game with provably fair mechanics:
 | v1.3.0 | 20 | Configurable pricing, $49.90 cap, enhanced events | Superseded |
 | v1.3.1 | 20 | WAPE token fix for APE payments | Superseded |
 | v1.4.0 | 20 | Native APE payments via msg.value | Superseded |
-| v1.4.1 | 20 | **Fee calculation fix - no user markup** | **Latest** |
+| v1.4.1 | 20 | Fee calculation fix - no user markup | Superseded |
+| v1.4.2 | 20 | **Division by zero fix in calculateAPEAmount()** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
-- Implementation (v1.4.1): `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` (deployed 2026-01-21)
+- Implementation (v1.4.2): `0x2cbF8E954D29E2e08E4E521ac031930543962F13` (deployed 2026-01-21)
+- Implementation (v1.4.1): `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` (superseded)
 - Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5` (legacy)
 
 **Payment Methods (v1.4.0+):**
@@ -684,6 +686,8 @@ Users pay the **exact ball price** with no markup. Fees are split internally:
 | $49.90 | $1.50 | $48.40 |
 
 **v1.4.1 Bug Fix:** Previous versions calculated fees from `msg.value` (which could include user-sent buffer), causing users to overpay. Now fees are calculated from the exact required amount.
+
+**v1.4.2 Bug Fix:** Fixed division by zero in `calculateAPEAmount()` when `apePriceUSD` was 0 (uninitialized). Now defaults to $0.64 (64000000 in 8 decimals) if `apePriceUSD` is not set. Upgrade script also auto-sets APE price after deployment.
 
 **Ball System (Default Prices - Configurable in v1.3.0+):**
 | Ball Type | Default Price | Default Catch Rate |
