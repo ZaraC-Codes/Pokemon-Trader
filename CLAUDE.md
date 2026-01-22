@@ -395,6 +395,14 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Fix 1: Changed GameCanvas useEffect to `[]` (only run on mount)
 - Fix 2: Added try/catch guards in `GrassRustle.destroy()` and `Pokemon.destroy()`
 
+**Shop crashes when switching payment tokens (APE ↔ USDC.e):**
+- Cause: Potential division by zero in `getBallPriceInWei()` if `apePriceUSD` is 0
+- When `useApePriceFromContract()` returned `0n`, the APE price calculation crashed
+- Fix 1: Added guard in `getBallPriceInWei()` to ensure `apePriceUSD > 0n`, fallback to $0.64
+- Fix 2: Added guard in `useApePriceFromContract()` to never return 0
+- Fix 3: Added try/catch in `requiredAmount` useMemo and `handleBuy` callback
+- Note: BigInt comparisons use `== 0n` (not `=== BigInt(0)`) for safe value equality
+
 ## External Services
 
 - **Alchemy**: RPC endpoint and NFT API v3

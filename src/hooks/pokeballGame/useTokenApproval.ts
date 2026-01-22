@@ -85,10 +85,15 @@ export function getBallPriceInWei(ballType: BallType, useAPE: boolean, apePriceU
     return priceUSDC;
   }
 
+  // Guard against division by zero - use default price if 0 or undefined
+  const safeApePriceUSD = apePriceUSD8Decimals && apePriceUSD8Decimals > 0n
+    ? apePriceUSD8Decimals
+    : BigInt(64000000); // Default to $0.64
+
   // Convert USDC to APE using the formula from contract:
   // apeAmount = (usdcAmount * 10^20) / apePriceUSD
   // apePriceUSD is 8 decimals (e.g., $0.64 = 64000000)
-  const apeAmount = (priceUSDC * BigInt(10 ** 20)) / apePriceUSD8Decimals;
+  const apeAmount = (priceUSDC * BigInt(10 ** 20)) / safeApePriceUSD;
   return apeAmount;
 }
 
@@ -154,8 +159,10 @@ export function useTokenApproval(
   const allowance = (allowanceData as bigint) ?? BigInt(0);
 
   // Check if approved for required amount
+  // Note: Use == 0n instead of === BigInt(0) because === checks reference equality
+  // and BigInt(0) creates a new object each time
   const isApproved = useMemo(() => {
-    if (requiredAmount === BigInt(0)) return true;
+    if (requiredAmount == 0n) return true;
     return allowance >= requiredAmount;
   }, [allowance, requiredAmount]);
 
@@ -255,8 +262,13 @@ export function useApePriceFromContract(): {
     },
   });
 
+  // Ensure price is never 0 to prevent division by zero errors
+  // Use nullish coalescing with fallback, then guard against 0
+  const rawPrice = (data as bigint) ?? BigInt(64000000);
+  const safePrice = rawPrice > 0n ? rawPrice : BigInt(64000000);
+
   return {
-    price: (data as bigint) ?? BigInt(64000000), // Default to $0.64
+    price: safePrice, // Default to $0.64, never returns 0
     isLoading,
     error: error || null,
   };

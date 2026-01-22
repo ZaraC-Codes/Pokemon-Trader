@@ -800,14 +800,19 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     if (totalQuantity === 0) return BigInt(0);
     // Calculate for the most expensive possible selection to ensure enough approval
     // In practice, we could calculate exact amounts per ball type
-    let total = BigInt(0);
-    for (let i = 0; i <= 3; i++) {
-      const qty = quantities[i as BallType];
-      // Skip invalid quantities - calculateTotalCost also guards, but we skip the call entirely
-      if (!Number.isFinite(qty) || qty <= 0) continue;
-      total += calculateTotalCost(i as BallType, qty, paymentToken === 'APE', apePriceUSD);
+    try {
+      let total = BigInt(0);
+      for (let i = 0; i <= 3; i++) {
+        const qty = quantities[i as BallType];
+        // Skip invalid quantities - calculateTotalCost also guards, but we skip the call entirely
+        if (!Number.isFinite(qty) || qty <= 0) continue;
+        total += calculateTotalCost(i as BallType, qty, paymentToken === 'APE', apePriceUSD);
+      }
+      return total;
+    } catch (e) {
+      console.error('[PokeBallShop] Error calculating required amount:', e);
+      return BigInt(0);
     }
-    return total;
   }, [quantities, paymentToken, apePriceUSD, totalQuantity]);
 
   // Token approval hooks - check if we need approval before purchase
@@ -856,45 +861,49 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   // Handle buy - checks approval first
   const handleBuy = useCallback(
     (ballType: BallType) => {
-      const rawQty = quantities[ballType];
-      // Guard against NaN/invalid quantities
-      const qty = Number.isFinite(rawQty) && rawQty > 0 ? Math.floor(rawQty) : 0;
-      if (qty <= 0 || !write) return;
+      try {
+        const rawQty = quantities[ballType];
+        // Guard against NaN/invalid quantities
+        const qty = Number.isFinite(rawQty) && rawQty > 0 ? Math.floor(rawQty) : 0;
+        if (qty <= 0 || !write) return;
 
-      if (hasInsufficientBalance(ballType)) {
-        return;
+        if (hasInsufficientBalance(ballType)) {
+          return;
+        }
+
+        // Calculate cost for this specific purchase
+        const costForThisPurchase = calculateTotalCost(
+          ballType,
+          qty,
+          paymentToken === 'APE',
+          apePriceUSD
+        );
+
+        console.log('[PokeBallShop] handleBuy:', {
+          ballType,
+          qty,
+          paymentToken,
+          costWei: costForThisPurchase.toString(),
+          costFormatted: paymentToken === 'APE'
+            ? `${Number(costForThisPurchase) / 1e18} APE`
+            : `$${Number(costForThisPurchase) / 1e6}`,
+          currentAllowance: allowance.toString(),
+          isApproved,
+          spender: POKEBALL_GAME_ADDRESS,
+        });
+
+        // Check if approval is needed
+        if (!isApproved || allowance < costForThisPurchase) {
+          console.log('[PokeBallShop] Approval needed! Requesting approval first...');
+          approve();
+          return;
+        }
+
+        setShowSuccess(false);
+        write(ballType, qty, paymentToken === 'APE');
+      } catch (e) {
+        console.error('[PokeBallShop] Error in handleBuy:', e);
       }
-
-      // Calculate cost for this specific purchase
-      const costForThisPurchase = calculateTotalCost(
-        ballType,
-        qty,
-        paymentToken === 'APE',
-        apePriceUSD
-      );
-
-      console.log('[PokeBallShop] handleBuy:', {
-        ballType,
-        qty,
-        paymentToken,
-        costWei: costForThisPurchase.toString(),
-        costFormatted: paymentToken === 'APE'
-          ? `${Number(costForThisPurchase) / 1e18} APE`
-          : `$${Number(costForThisPurchase) / 1e6}`,
-        currentAllowance: allowance.toString(),
-        isApproved,
-        spender: POKEBALL_GAME_ADDRESS,
-      });
-
-      // Check if approval is needed
-      if (!isApproved || allowance < costForThisPurchase) {
-        console.log('[PokeBallShop] Approval needed! Requesting approval first...');
-        approve();
-        return;
-      }
-
-      setShowSuccess(false);
-      write(ballType, qty, paymentToken === 'APE');
     },
     [quantities, write, paymentToken, hasInsufficientBalance, apePriceUSD, allowance, isApproved, approve]
   );
