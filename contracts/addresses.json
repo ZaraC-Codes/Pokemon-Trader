@@ -16,7 +16,8 @@
     "slabNFT": "0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7",
     "popVRNG": "0x9eC728Fce50c77e0BeF7d34F1ab28a46409b7aF1",
     "usdc": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
-    "ape": "0x4d224452801aced8b2f0aebe155379bb5d594381"
+    "wape": "0x48b62137EdfA95a428D35C09E44256a739F6B557",
+    "ape_deprecated": "0x4d224452801aced8b2f0aebe155379bb5d594381"
   },
   "deployment": {
     "timestamp": "2026-01-21T01:54:29.737Z",
@@ -34,12 +35,20 @@
       "source": "Stargate Bridged USDC",
       "verified": true
     },
-    "ape": {
-      "name": "ApeCoin",
+    "wape": {
+      "name": "Wrapped APE",
+      "symbol": "WAPE",
+      "decimals": 18,
+      "source": "ApeChain Wrapped APE (ERC-20)",
+      "verified": true,
+      "note": "Use WAPE for ERC-20 APE payments on ApeChain"
+    },
+    "ape_native": {
+      "name": "APE",
       "symbol": "APE",
       "decimals": 18,
-      "source": "Native ApeCoin",
-      "verified": true
+      "source": "Native gas token on ApeChain",
+      "note": "Native APE is used for gas, WAPE is the ERC-20 wrapper"
     }
   },
   "upgrade_v1_2_0": {

@@ -62,12 +62,17 @@ export const apechain = defineChain({
 
 /**
  * Token contract addresses on ApeChain Mainnet
+ *
+ * IMPORTANT: On ApeChain, APE is the native gas token.
+ * For ERC-20 APE payments, use WAPE (Wrapped APE).
  */
 export const APECHAIN_TOKENS = {
   /** USDC.e (Stargate Bridged) - 6 decimals */
   USDC: '0xF1815bd50389c46847f0Bda824eC8da914045D14' as const,
-  /** Native ApeCoin - 18 decimals */
-  APE: '0x4d224452801aced8b2f0aebe155379bb5d594381' as const,
+  /** WAPE (Wrapped APE) - ERC-20 token for APE payments - 18 decimals */
+  WAPE: '0x48b62137EdfA95a428D35C09E44256a739F6B557' as const,
+  /** @deprecated Use WAPE for ERC-20 APE payments. This was the wrong Ethereum mainnet address. */
+  APE_DEPRECATED: '0x4d224452801aced8b2f0aebe155379bb5d594381' as const,
 };
 
 // ============================================================
