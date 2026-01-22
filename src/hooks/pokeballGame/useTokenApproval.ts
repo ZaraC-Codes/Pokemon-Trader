@@ -24,7 +24,7 @@
  * ```
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { erc20Abi, maxUint256 } from 'viem';
 import { useActiveWeb3React } from '../useActiveWeb3React';
@@ -48,10 +48,12 @@ export interface UseTokenApprovalReturn {
   isApproved: boolean;
   /** Function to request unlimited approval */
   approve: () => void;
-  /** Whether approval transaction is pending */
+  /** Whether approval transaction is pending (wallet prompt) */
   isApproving: boolean;
-  /** Whether approval transaction is being confirmed */
+  /** Whether approval transaction is being confirmed (on-chain) */
   isConfirming: boolean;
+  /** Whether approval transaction was confirmed successfully */
+  isConfirmed: boolean;
   /** Error from approval transaction */
   error: Error | undefined;
   /** Approval transaction hash */
@@ -177,11 +179,42 @@ export function useTokenApproval(
   // Wait for confirmation
   const {
     isLoading: isConfirming,
+    isSuccess: isConfirmed,
     error: confirmError,
   } = useWaitForTransactionReceipt({
     hash: writeHash,
     chainId: POKEBALL_GAME_CHAIN_ID,
   });
+
+  // Track if we've already refetched for this confirmation
+  const lastConfirmedHashRef = useRef<`0x${string}` | undefined>(undefined);
+
+  // Auto-refetch allowance when approval transaction confirms
+  useEffect(() => {
+    if (isConfirmed && writeHash && writeHash !== lastConfirmedHashRef.current) {
+      console.log('[useTokenApproval] Approval tx confirmed! Refetching allowance...', {
+        hash: writeHash,
+        token: tokenType,
+      });
+      lastConfirmedHashRef.current = writeHash;
+      // Refetch the allowance after successful approval
+      refetch();
+    }
+  }, [isConfirmed, writeHash, refetch, tokenType]);
+
+  // Debug logging for approval state
+  useEffect(() => {
+    console.log('[useTokenApproval] State update:', {
+      token: tokenType,
+      allowance: allowance.toString(),
+      requiredAmount: requiredAmount.toString(),
+      isApproved,
+      isApproving,
+      isConfirming,
+      isConfirmed,
+      hash: writeHash,
+    });
+  }, [tokenType, allowance, requiredAmount, isApproved, isApproving, isConfirming, isConfirmed, writeHash]);
 
   // Approve function - requests unlimited approval
   const approve = useCallback(() => {
@@ -214,6 +247,7 @@ export function useTokenApproval(
     approve,
     isApproving,
     isConfirming,
+    isConfirmed,
     error,
     hash: writeHash,
     refetch,

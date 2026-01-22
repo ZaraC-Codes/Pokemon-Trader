@@ -502,10 +502,11 @@ interface BallRowProps {
   onQuantityChange: (qty: number) => void;
   onBuy: () => void;
   isDisabled: boolean;
-  isPending: boolean;
+  isPurchasePending: boolean;
+  isApprovalPending: boolean;
   hasInsufficientBalance: boolean;
   paymentToken: PaymentToken;
-  needsApproval?: boolean;
+  needsApproval: boolean;
 }
 
 function BallRow({
@@ -514,10 +515,11 @@ function BallRow({
   onQuantityChange,
   onBuy,
   isDisabled,
-  isPending,
+  isPurchasePending,
+  isApprovalPending,
   hasInsufficientBalance,
   paymentToken,
-  needsApproval = false,
+  needsApproval,
 }: BallRowProps) {
   const name = getBallTypeName(ballType);
   const price = getBallPriceUSD(ballType);
@@ -541,14 +543,18 @@ function BallRow({
     onQuantityChange(safeValue);
   };
 
+  const isPending = isPurchasePending || isApprovalPending;
   const canBuy = safeQty > 0 && !isDisabled && !isPending && !hasInsufficientBalance;
 
-  // Determine button text
-  const buttonText = isPending
-    ? '...'
-    : needsApproval
-    ? 'Approve'
-    : 'Buy';
+  // Determine button text based on state
+  let buttonText = 'Buy';
+  if (isApprovalPending) {
+    buttonText = 'Approving...';
+  } else if (isPurchasePending) {
+    buttonText = 'Buying...';
+  } else if (needsApproval && safeQty > 0) {
+    buttonText = 'Approve';
+  }
 
   return (
     <div style={styles.ballRow}>
@@ -604,7 +610,10 @@ function BallRow({
         style={{
           ...styles.buyButton,
           ...(canBuy ? {} : styles.buyButtonDisabled),
-          ...(needsApproval && canBuy ? { border: '2px solid #ff8800', color: '#ff8800', backgroundColor: '#2a2510' } : {}),
+          // Orange style for "Approve" or "Approving..."
+          ...((needsApproval || isApprovalPending) && safeQty > 0
+            ? { border: '2px solid #ff8800', color: '#ff8800', backgroundColor: '#2a2510' }
+            : {}),
         }}
       >
         {buttonText}
@@ -823,8 +832,23 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     approve,
     isApproving,
     isConfirming: isApprovalConfirming,
+    isConfirmed: isApprovalConfirmed,
     error: approvalError,
+    refetch: refetchAllowance,
   } = useTokenApproval(tokenType, requiredAmount);
+
+  // Debug logging for approval state in shop
+  React.useEffect(() => {
+    console.log('[PokeBallShop] Approval state:', {
+      tokenType,
+      requiredAmount: requiredAmount.toString(),
+      allowance: allowance.toString(),
+      isApproved,
+      isApproving,
+      isApprovalConfirming,
+      isApprovalConfirmed,
+    });
+  }, [tokenType, requiredAmount, allowance, isApproved, isApproving, isApprovalConfirming, isApprovalConfirmed]);
 
   // Check if a purchase has sufficient balance
   const hasInsufficientBalance = useCallback(
@@ -1152,7 +1176,8 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
               onQuantityChange={(qty) => handleQuantityChange(ballType, qty)}
               onBuy={() => handleBuy(ballType)}
               isDisabled={!playerAddress || !write}
-              isPending={isAnyPending}
+              isPurchasePending={isTransactionPending}
+              isApprovalPending={isApprovalPending}
               hasInsufficientBalance={hasInsufficientBalance(ballType)}
               paymentToken={paymentToken}
               needsApproval={!isApproved && quantities[ballType] > 0}
