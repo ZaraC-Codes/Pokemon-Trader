@@ -40,7 +40,8 @@ async function main() {
   console.log("");
 
   // Get current contract to check owner
-  const PokeballGameCurrent = await hre.ethers.getContractFactory("PokeballGame");
+  // Use fully qualified name to avoid ambiguity with multiple versions
+  const PokeballGameCurrent = await hre.ethers.getContractFactory("contracts/PokeballGameV4.sol:PokeballGame");
   const currentContract = PokeballGameCurrent.attach(POKEBALL_GAME_PROXY);
 
   const owner = await currentContract.owner();
@@ -67,10 +68,11 @@ async function main() {
   console.log("");
 
   // Deploy new implementation
-  console.log("Deploying new PokeballGame v1.4.0 implementation...");
+  console.log("Deploying new PokeballGame v1.4.1 implementation...");
 
   // Note: PokeballGameV4.sol contains contract named "PokeballGame"
-  const PokeballGameV4 = await hre.ethers.getContractFactory("PokeballGame");
+  // Use fully qualified name to avoid ambiguity with multiple versions
+  const PokeballGameV4 = await hre.ethers.getContractFactory("contracts/PokeballGameV4.sol:PokeballGame");
 
   // Perform upgrade with storage safety check override
   // This is safe because we only ADD one new state variable at the end

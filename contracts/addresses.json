@@ -6,7 +6,7 @@
   "contracts": {
     "pokeballGame": {
       "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
-      "implementation": "0x71ED694476909FD5182afE1fDc9098a9975EA6b5"
+      "implementation": "0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc"
     },
     "slabNFTManager": {
       "proxy": "0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71",
@@ -56,5 +56,19 @@
     "oldImplementation": "0x71ED694476909FD5182afE1fDc9098a9975EA6b5",
     "newImplementation": "0x71ED694476909FD5182afE1fDc9098a9975EA6b5",
     "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06"
+  },
+  "upgrade_v1_4_1": {
+    "timestamp": "2026-01-21T19:45:00.000Z",
+    "oldImplementation": "0x71ED694476909FD5182afE1fDc9098a9975EA6b5",
+    "newImplementation": "0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "initTxHash": "0x62b97c05003a8666fb56762085c7551e046be8689a6aa5397a3a85625ca17a3e",
+    "changes": [
+      "Native APE payments via msg.value (no ERC-20 approval needed)",
+      "Fee calculation uses requiredAPE instead of msg.value",
+      "purchaseBalls() is now payable",
+      "Added accumulatedAPEFees tracking",
+      "Added withdrawAPEFees() and withdrawAllAPE() functions"
+    ]
   }
 }
