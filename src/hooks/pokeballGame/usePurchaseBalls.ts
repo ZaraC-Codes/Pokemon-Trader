@@ -170,9 +170,9 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
 
       // If using APE, convert USDC cost to APE
       // Formula: apeAmount = (usdcAmount * 10^20) / apePriceUSD
-      // Add 5% buffer for price fluctuations and rounding
+      // NO buffer added - user pays exact price, fees are split internally by contract
       const totalCostAPE = useAPE
-        ? ((totalCostUSDC * BigInt(10 ** 20)) / effectiveApePriceUSD) * BigInt(105) / BigInt(100)
+        ? (totalCostUSDC * BigInt(10 ** 20)) / effectiveApePriceUSD
         : BigInt(0);
 
       console.log('[usePurchaseBalls] Purchasing balls:', {
@@ -187,7 +187,7 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
           estimatedAPECost: Number(totalCostAPE) / 1e18,
           totalCostAPEWei: totalCostAPE.toString(),
           apePriceUSD: Number(effectiveApePriceUSD) / 1e8,
-          note: 'Sending native APE via msg.value (5% buffer included for price safety)',
+          note: 'Sending exact APE amount via msg.value - no markup (fees split internally)',
         }),
       });
 

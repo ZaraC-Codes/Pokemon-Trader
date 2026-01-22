@@ -8,7 +8,12 @@ pragma solidity 0.8.26;
  * @author Z33Fi ("Z33Fi Made It")
  * @custom:artist-signature Z33Fi Made It
  * @custom:network ApeChain Mainnet (Chain ID: 33139)
- * @custom:version 1.4.0
+ * @custom:version 1.4.1
+ *
+ * CHANGELOG v1.4.1:
+ * - FIX: Fee calculation now based on requiredAPE, not msg.value
+ * - Users pay exact ball price, fees are split internally (3% treasury, 97% NFT pool)
+ * - No markup on user payments - ball price IS the total amount deducted
  *
  * CHANGELOG v1.4.0:
  * - APE payments now use native APE via msg.value (like ETH on Ethereum)
@@ -304,6 +309,9 @@ contract PokeballGame is
     /**
      * @notice Purchase balls using native APE (sent via msg.value)
      * @dev No approve() needed - just send APE with the transaction
+     *      User pays exact ball price. Fees are split internally:
+     *      - 3% (PLATFORM_FEE_BPS) goes to treasury
+     *      - 97% (REVENUE_POOL_BPS) goes to NFT pool
      * @param ballType Type of ball to purchase (0-3)
      * @param quantity Number of balls to purchase
      */
@@ -323,7 +331,7 @@ contract PokeballGame is
             revert PurchaseExceedsMaximum(totalCostUSDC, MAX_PURCHASE_USD);
         }
 
-        // Calculate required APE amount
+        // Calculate required APE amount (exact amount user should pay)
         uint256 requiredAPE = calculateAPEAmount(totalCostUSDC);
 
         // Verify sufficient APE was sent
@@ -331,15 +339,18 @@ contract PokeballGame is
             revert InsufficientAPESent(requiredAPE, msg.value);
         }
 
-        // Calculate fee split
+        // Calculate fee split from the REQUIRED amount (not msg.value)
+        // User pays exactly requiredAPE, which is split internally:
+        // - 3% to treasury (platform fee)
+        // - 97% to NFT pool (revenue)
         uint256 platformFeeUSDC = (totalCostUSDC * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
-        uint256 platformFeeAPE = (msg.value * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
+        uint256 platformFeeAPE = (requiredAPE * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
 
         // Track platform fee in both USDC equivalent and APE
         totalPlatformFees += platformFeeUSDC;
         accumulatedAPEFees += platformFeeAPE;
 
-        // Refund excess APE if any
+        // Refund excess APE if any (e.g., if user sent more than required)
         uint256 excess = msg.value - requiredAPE;
         if (excess > 0) {
             (bool refundSuccess, ) = payable(msg.sender).call{value: excess}("");
@@ -385,6 +396,7 @@ contract PokeballGame is
     /**
      * @notice Legacy function - redirects to appropriate payment method
      * @dev DEPRECATED: Use purchaseBallsWithAPE() or purchaseBallsWithUSDC() instead
+     *      User pays exact ball price. Fees are split internally (no markup).
      * @param ballType Type of ball to purchase (0-3)
      * @param quantity Number of balls to purchase
      * @param useAPE If true, must call purchaseBallsWithAPE() with msg.value instead
@@ -408,18 +420,22 @@ contract PokeballGame is
                 revert PurchaseExceedsMaximum(totalCostUSDC, MAX_PURCHASE_USD);
             }
 
+            // Calculate exact required APE amount
             uint256 requiredAPE = calculateAPEAmount(totalCostUSDC);
 
             if (msg.value < requiredAPE) {
                 revert InsufficientAPESent(requiredAPE, msg.value);
             }
 
+            // Calculate fee split from REQUIRED amount (not msg.value)
+            // User pays exactly requiredAPE, which is split internally
             uint256 platformFeeUSDC = (totalCostUSDC * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
-            uint256 platformFeeAPE = (msg.value * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
+            uint256 platformFeeAPE = (requiredAPE * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
 
             totalPlatformFees += platformFeeUSDC;
             accumulatedAPEFees += platformFeeAPE;
 
+            // Refund excess
             uint256 excess = msg.value - requiredAPE;
             if (excess > 0) {
                 (bool refundSuccess, ) = payable(msg.sender).call{value: excess}("");
