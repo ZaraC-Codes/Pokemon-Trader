@@ -413,9 +413,19 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Fix 4: For APE, hook disables queries via `enabled: false` and returns safe defaults
 - Note: Hooks must be called in the same order every render - no early returns allowed!
 
+**Transaction History shows "No transactions found" or 400/429 RPC errors:**
+- Cause: Alchemy free tier limits `eth_getLogs` to 10 blocks per request
+- Symptom 1: 400 Bad Request with "block range exceeded" message
+- Symptom 2: 429 Too Many Requests when chunking into many small requests
+- Fix: `useTransactionHistory` uses Caldera public RPC for historical queries (no block limits)
+- The hook creates a separate viem client: `createPublicClient({ transport: http(CALDERA_URL) })`
+- Wagmi's Alchemy client is still used for real-time event subscriptions
+- Default lookback: 25,000 blocks (~14 hours) covers most recent activity
+
 ## External Services
 
-- **Alchemy**: RPC endpoint and NFT API v3
+- **Alchemy**: Primary RPC endpoint (wagmi client) and NFT API v3
+- **Caldera**: Public RPC for historical event queries (no block range limits)
 - **Apescan**: Block explorer and ABI fetching
 - **Magic Eden**: Pokemon card collection viewing
 
@@ -553,10 +563,31 @@ const {
 | `failed` | FailedCatch | pokemonId, attemptsRemaining |
 
 **Event Querying:**
-- Queries ~1 week of blocks by default (302,400 blocks at 2s/block)
-- Uses Wagmi `useWatchContractEvent` for real-time updates
-- Filters events by player address (indexed parameter)
+- Uses **Caldera public RPC** (`https://apechain.calderachain.xyz/http`) for historical queries
+- Caldera has NO block range limits (unlike Alchemy's 10-block free tier limit)
+- Queries 25,000 blocks (~14 hours at 2s/block) by default
+- Creates separate viem `PublicClient` for historical event fetching
+- Uses Wagmi `useWatchContractEvent` for real-time updates (new events)
+- Filters events by player address (indexed parameter: `buyer`, `thrower`, `catcher`)
 - Sorts transactions by timestamp (newest first)
+
+**RPC Architecture:**
+```typescript
+// Historical queries - Caldera public RPC (no limits)
+const publicRpcClient = createPublicClient({
+  chain: apeChainMainnet,
+  transport: http('https://apechain.calderachain.xyz/http'),
+});
+
+// Real-time subscriptions - Wagmi's configured client (Alchemy)
+useWatchContractEvent({ ... });
+```
+
+**Why Two RPC Clients:**
+- Alchemy free tier limits `eth_getLogs` to 10 blocks per request (400 errors)
+- Too many chunked requests hit rate limits (429 errors)
+- Caldera public RPC has no block range limits, ideal for historical queries
+- Wagmi client still used for real-time event subscriptions
 
 ### ThirdWeb Checkout Integration (Legacy)
 Buy crypto directly in the PokeBall Shop using ThirdWeb Pay:
