@@ -297,7 +297,8 @@ export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfR
         (window as any).__PHASER_GAME__ = null;
       }
     };
-  }, [syncSpawnsToManager]); // Include syncSpawnsToManager in deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount - syncSpawnsToManager is stable via useCallback
 
   // Sync spawns whenever contract data changes
   useEffect(() => {

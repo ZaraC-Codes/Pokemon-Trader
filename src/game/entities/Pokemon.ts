@@ -579,13 +579,21 @@ export class Pokemon extends Phaser.GameObjects.Sprite {
   destroy(fromScene?: boolean): void {
     this.isDestroying = true;
 
-    // Stop idle animation
-    this.stopIdleAnimation();
+    // Stop idle animation (wrapped in try-catch for scene destruction safety)
+    try {
+      this.stopIdleAnimation();
+    } catch {
+      // Ignore - scene may already be destroyed
+    }
 
-    // Destroy shadow
-    if (this.shadow) {
-      this.shadow.destroy();
-      this.shadow = undefined;
+    // Destroy shadow (wrapped in try-catch for scene destruction safety)
+    try {
+      if (this.shadow) {
+        this.shadow.destroy();
+        this.shadow = undefined;
+      }
+    } catch {
+      // Ignore - shadow may already be destroyed
     }
 
     console.log('[Pokemon] Destroyed entity:', this.id.toString());

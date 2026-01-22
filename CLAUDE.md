@@ -388,6 +388,13 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Fix: `calculateTotalCost()` guards against NaN with `Number.isFinite()` checks
 - All quantity handling in PokeBallShop validates before using `BigInt()`
 
+**Phaser game crashes/recreates when interacting with shop:**
+- Cause: GameCanvas useEffect had `syncSpawnsToManager` in dependency array
+- When React detects dependency change, it triggers cleanup (game.destroy()) and recreates
+- This caused `GrassRustle.destroy()` to crash accessing undefined `this.anims`
+- Fix 1: Changed GameCanvas useEffect to `[]` (only run on mount)
+- Fix 2: Added try/catch guards in `GrassRustle.destroy()` and `Pokemon.destroy()`
+
 ## External Services
 
 - **Alchemy**: RPC endpoint and NFT API v3

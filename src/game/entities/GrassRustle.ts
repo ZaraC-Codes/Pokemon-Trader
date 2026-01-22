@@ -316,11 +316,23 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
     // Remove update listener
     this.removeUpdateListener();
 
-    // Stop any animations
-    this.anims.stop();
+    // Stop any animations (guard against undefined during scene destruction)
+    try {
+      if (this.anims) {
+        this.anims.stop();
+      }
+    } catch {
+      // Ignore - scene may already be destroyed
+    }
 
-    // Kill any tweens
-    this.gameScene.tweens.killTweensOf(this);
+    // Kill any tweens (guard against undefined scene/tweens)
+    try {
+      if (this.gameScene?.tweens) {
+        this.gameScene.tweens.killTweensOf(this);
+      }
+    } catch {
+      // Ignore - scene may already be destroyed
+    }
 
     // Clear target reference
     this.followTarget = null;
