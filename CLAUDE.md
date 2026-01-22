@@ -144,6 +144,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   ├── PokeballGame.sol         # Main game contract v1.1.0 (UUPS, legacy)
 │   ├── PokeballGameV2.sol       # Game contract v1.2.0 (20 Pokemon support)
 │   ├── PokeballGameV3.sol       # Game contract v1.3.0 (configurable pricing, $49.90 cap)
+│   ├── PokeballGameV5.sol       # Game contract v1.5.0 (unified payments, auto-swap)
 │   ├── SlabNFTManager.sol       # NFT inventory manager v1.0.0 (UUPS)
 │   ├── SlabNFTManagerV2.sol     # NFT manager v2.0.0 (max 20 NFTs)
 │   ├── interfaces/
@@ -151,7 +152,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   ├── abi/
 │   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0 (legacy, 3 slots)
 │   │   ├── abi_PokeballGameV2.json  # PokeballGame ABI v1.2.0 (20 slots)
-│   │   ├── abi_PokeballGameV4.json  # PokeballGame ABI v1.4.x (native APE, current)
+│   │   ├── abi_PokeballGameV4.json  # PokeballGame ABI v1.4.x (native APE)
+│   │   ├── abi_PokeballGameV5.json  # PokeballGame ABI v1.5.0 (unified payments, current)
 │   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
 │   ├── deployment/
 │   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
@@ -161,6 +163,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── upgrade_PokeballGameV2.cjs # Upgrade to v1.2.0 (20 Pokemon)
 │   │   ├── upgrade_PokeballGameV3.cjs # Upgrade to v1.3.0 (configurable pricing)
 │   │   ├── upgrade_PokeballGameV4_NativeAPE.cjs # Upgrade to v1.4.0 (native APE)
+│   │   ├── upgrade_PokeballGameV5.cjs   # Upgrade to v1.5.0 (unified payments)
+│   │   ├── set_slabNFTManager.cjs       # Configure SlabNFTManager on PokeballGame
 │   │   └── upgrade_SlabNFTManagerV2.cjs # Upgrade to v2.0.0 (max 20 NFTs)
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
@@ -203,17 +207,21 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/PokeballGameV2.sol` | Game contract v1.2.0 (20 Pokemon support) |
 | `contracts/PokeballGameV3.sol` | Game contract v1.3.0 (configurable pricing, $49.90 cap) |
 | `contracts/PokeballGameV4.sol` | Game contract v1.4.0 (native APE via msg.value) |
+| `contracts/PokeballGameV5.sol` | Game contract v1.5.0 (unified payments, auto-swap) |
 | `contracts/SlabNFTManager.sol` | NFT inventory manager v1.0.0 |
 | `contracts/SlabNFTManagerV2.sol` | NFT manager v2.0.0 (max 20 NFTs) |
 | `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (legacy, 3 slots) |
 | `contracts/abi/abi_PokeballGameV2.json` | PokeballGame ABI v1.2.0 (20 slots) |
-| `contracts/abi/abi_PokeballGameV4.json` | PokeballGame ABI v1.4.x (native APE, **current**) |
+| `contracts/abi/abi_PokeballGameV4.json` | PokeballGame ABI v1.4.x (native APE) |
+| `contracts/abi/abi_PokeballGameV5.json` | PokeballGame ABI v1.5.0 (unified payments, **current**) |
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `contracts/deployment/upgrade_PokeballGameV2.cjs` | Upgrade to v1.2.0 (20 Pokemon) |
 | `contracts/deployment/upgrade_PokeballGameV3.cjs` | Upgrade to v1.3.0 (configurable pricing) |
 | `contracts/deployment/upgrade_PokeballGameV4_NativeAPE.cjs` | Upgrade to v1.4.0 (native APE payments) |
+| `contracts/deployment/upgrade_PokeballGameV5.cjs` | Upgrade to v1.5.0 (unified payments, auto-swap) |
+| `contracts/deployment/set_slabNFTManager.cjs` | Configure SlabNFTManager on PokeballGame |
 | `contracts/deployment/upgrade_SlabNFTManagerV2.cjs` | Upgrade to v2.0.0 (max 20 NFTs) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
 | `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
@@ -251,9 +259,10 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
 | **WAPE (Wrapped APE)** | `0x48b62137EdfA95a428D35C09E44256a739F6B557` |
-| **PokeballGame Implementation (v1.4.1)** | `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` |
+| **PokeballGame Implementation (v1.5.0)** | `0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E` |
+| **Camelot Router (AMMv3)** | `0xC69Dc28924930583024E067b2B3d773018F4EB52` |
 
-**Note:** On ApeChain, APE is the native gas token. PokeballGame v1.4.1 uses **native APE via msg.value** for APE payments - no ERC-20 approval needed. USDC.e payments still require ERC-20 approval.
+**Note:** On ApeChain, APE is the native gas token. PokeballGame v1.5.0 uses **unified payments** - both APE and USDC.e result in USDC.e. APE is auto-swapped via Camelot DEX. 97% revenue goes to SlabNFTManager, 3% platform fees to treasury (in USDC.e).
 
 ### Multicall3 Configuration
 
@@ -683,7 +692,7 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.4.2)
+### PokeballGame Contract (v1.5.0)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
@@ -695,21 +704,41 @@ Pokemon catching mini-game with provably fair mechanics:
 | v1.3.1 | 20 | WAPE token fix for APE payments | Superseded |
 | v1.4.0 | 20 | Native APE payments via msg.value | Superseded |
 | v1.4.1 | 20 | Fee calculation fix - no user markup | Superseded |
-| v1.4.2 | 20 | **Division by zero fix in calculateAPEAmount()** | **Latest** |
+| v1.4.2 | 20 | Division by zero fix in calculateAPEAmount() | Superseded |
+| v1.5.0 | 20 | **Unified payments: APE auto-swap to USDC.e, 97% to SlabNFTManager** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
-- Implementation (v1.4.2): `0x2cbF8E954D29E2e08E4E521ac031930543962F13` (deployed 2026-01-21)
+- Implementation (v1.5.0): `0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E` (deployed 2026-01-22)
+- Implementation (v1.4.2): `0x2cbF8E954D29E2e08E4E521ac031930543962F13` (superseded)
 - Implementation (v1.4.1): `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` (superseded)
 - Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5` (legacy)
 
-**Payment Methods (v1.4.0+):**
-| Token | Method | Approval Required |
-|-------|--------|------------------|
-| APE | Native via `msg.value` | **NO** (like ETH) |
-| USDC.e | ERC-20 `transferFrom` | Yes |
+**v1.5.0 Unified Payment Flow:**
+All payments (APE or USDC.e) follow the same economics:
+```
+User pays in APE or USDC.e
+    ↓
+APE → auto-swap to USDC.e via Camelot DEX
+USDC.e → pass through directly
+    ↓
+Split: 3% → accumulatedUSDCFees, 97% → SlabNFTManager.depositRevenue()
+    ↓
+SlabNFTManager.checkAndPurchaseNFT() triggers auto-buy if ≥$51
+```
 
-**Fee Structure (v1.4.1 - Fixed):**
+**Payment Methods (v1.5.0):**
+| Token | Method | Approval Required | What Happens |
+|-------|--------|------------------|--------------|
+| APE | Native via `msg.value` | **NO** | Auto-swapped to USDC.e via Camelot |
+| USDC.e | ERC-20 `transferFrom` | Yes | Direct USDC.e payment |
+
+**Camelot DEX Integration:**
+- Router: `0xC69Dc28924930583024E067b2B3d773018F4EB52` (SwapRouter AMMv3)
+- WAPE: `0x48b62137EdfA95a428D35C09E44256a739F6B557`
+- Slippage: Configurable (default 1%)
+
+**Fee Structure (v1.5.0 - Unified USDC.e):**
 Users pay the **exact ball price** with no markup. Fees are split internally:
 | User Pays | Treasury (3%) | NFT Pool (97%) |
 |-----------|--------------|----------------|
@@ -721,6 +750,15 @@ Users pay the **exact ball price** with no markup. Fees are split internally:
 **v1.4.1 Bug Fix:** Previous versions calculated fees from `msg.value` (which could include user-sent buffer), causing users to overpay. Now fees are calculated from the exact required amount.
 
 **v1.4.2 Bug Fix:** Fixed division by zero in `calculateAPEAmount()` when `apePriceUSD` was 0 (uninitialized). Now defaults to $0.64 (64000000 in 8 decimals) if `apePriceUSD` is not set. Upgrade script also auto-sets APE price after deployment.
+
+**v1.5.0 Swap Fix:** The initial v1.5.0 deployment had swap failures due to:
+1. Missing WAPE approval to Camelot router before swap
+2. Slippage check used contract's `apePriceUSD` ($0.64) but DEX pool rate was different (~$0.19)
+
+Fixed by:
+- Adding WAPE approval in `_swapAPEtoUSDC()` before calling Camelot
+- Setting `amountOutMinimum: 0` to accept market rate (DEX handles slippage via deadline)
+- Processing whatever USDC.e the market gives (3%/97% split on actual received amount)
 
 **Ball System (Default Prices - Configurable in v1.3.0+):**
 | Ball Type | Default Price | Default Catch Rate |
@@ -778,6 +816,20 @@ Users pay the **exact ball price** with no markup. Fees are split internally:
 - `withdrawAllAPE()` - Emergency withdraw all APE to treasury (owner only)
 - `accumulatedAPEFees()` - View accumulated native APE platform fees
 
+**New Functions (v1.5.0):**
+- `initializeV150(router, wape, slippage)` - Initialize Camelot swap integration (one-time)
+- `withdrawUSDCFees()` - Withdraw accumulated USDC.e fees to treasury (owner only)
+- `setCamelotRouter(router)` - Update Camelot router address (owner only)
+- `setSwapSlippage(bps)` - Set swap slippage tolerance in basis points (owner only)
+- `accumulatedUSDCFees()` - View accumulated USDC.e platform fees
+- `camelotRouter()` - View configured Camelot router address
+- `wape()` - View WAPE token address
+- `swapSlippageBps()` - View current slippage tolerance
+
+**Internal Functions (v1.5.0):**
+- `_swapAPEtoUSDC(apeAmount, expectedUSDC)` - Swap APE→USDC.e via Camelot
+- `_processUnifiedPayment(usdcAmount)` - Split 3%/97% and fund SlabNFTManager
+
 **Internal Callback Handlers:**
 - `_handleSpawnCallback()` - Creates Pokemon at VRNG-determined position
 - `_handleThrowCallback()` - Determines catch success, handles NFT award
@@ -791,20 +843,22 @@ Users pay the **exact ball price** with no markup. Fees are split internally:
 - `RandomnessReceived(requestId, randomNumber, isSpawnRequest)` - **v1.3.0 new**
 - `BallPriceUpdated(ballType, oldPrice, newPrice)` - **v1.3.0 new**
 - `CatchRateUpdated(ballType, oldRate, newRate)` - **v1.3.0 new**
+- `APESwappedToUSDC(apeAmount, usdcAmount)` - **v1.5.0 new** - When APE swapped
+- `USDCFeesWithdrawn(recipient, amount)` - **v1.5.0 new** - When USDC fees withdrawn
+- `SwapSlippageUpdated(oldSlippage, newSlippage)` - **v1.5.0 new**
+- `CamelotRouterUpdated(oldRouter, newRouter)` - **v1.5.0 new**
 
 **Upgrade Commands:**
 ```bash
-# Upgrade to v1.4.1 (Native APE Payments - fee fix)
-npx hardhat run contracts/deployment/upgrade_PokeballGameV4_NativeAPE.cjs --network apechain
+# Upgrade to v1.5.0 (Unified Payments + Auto-Swap)
+npx hardhat run contracts/deployment/upgrade_PokeballGameV5.cjs --network apechain
 ```
 
-**Native APE vs ERC-20 (v1.4.1):**
-- On ApeChain, APE is the **native gas token** (like ETH on Ethereum)
-- **v1.4.1 uses native APE** via `msg.value` - NO approval needed for APE purchases!
-- USDC.e still uses ERC-20 `transferFrom` and requires approval
-- Frontend sends APE purchases with `{ value: costWei }` parameter
-- Contract refunds excess APE if user overpays
-- **v1.4.1 Fix:** Fees calculated from `requiredAPE`, not `msg.value` (no user markup)
+**v1.5.0 Payment Flow:**
+- **APE payments**: User sends native APE → contract wraps to WAPE → swaps via Camelot to USDC.e → splits 3%/97%
+- **USDC.e payments**: User sends USDC.e (requires approval) → splits 3%/97% directly
+- **Both paths**: 97% goes to `SlabNFTManager.depositRevenue()` then `checkAndPurchaseNFT()`
+- **Fee withdrawal**: Owner calls `withdrawUSDCFees()` to send accumulated USDC.e to treasury
 
 **Post-Upgrade Configuration (v1.3.0):**
 ```solidity

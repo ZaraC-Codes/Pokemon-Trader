@@ -6,8 +6,10 @@
   "contracts": {
     "pokeballGame": {
       "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
-      "implementation": "0x2cbF8E954D29E2e08E4E521ac031930543962F13"
+      "implementation": "0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E",
+      "version": "1.5.0"
     },
+    "camelotRouter": "0xC69Dc28924930583024E067b2B3d773018F4EB52",
     "slabNFTManager": {
       "proxy": "0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71",
       "implementation": "0x27f2c682668e966F98724c65E0abF8F9225a7194"
@@ -81,6 +83,25 @@
       "Fixed division by zero in calculateAPEAmount() when apePriceUSD is 0",
       "Default to $0.64 APE price (64000000 in 8 decimals) if not set",
       "APE price set to 64000000 ($0.64)"
+    ]
+  },
+  "upgrade_v1_5_0": {
+    "timestamp": "2026-01-22T00:00:00.000Z",
+    "oldImplementation": "0x2cbF8E954D29E2e08E4E521ac031930543962F13",
+    "newImplementation": "0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "setSlabNFTManagerTxHash": "0x0fc22a64fec7135ef6970e35702a99d9d61544e6143c6821efeeb92dabe5c5a3",
+    "camelotRouter": "0xC69Dc28924930583024E067b2B3d773018F4EB52",
+    "wape": "0x48b62137EdfA95a428D35C09E44256a739F6B557",
+    "swapSlippageBps": 100,
+    "changes": [
+      "Unified payments: APE auto-swaps to USDC.e via Camelot DEX",
+      "3% fees accumulated in USDC.e (accumulatedUSDCFees)",
+      "97% revenue auto-sent to SlabNFTManager.depositRevenue()",
+      "SlabNFTManager.checkAndPurchaseNFT() called after each deposit",
+      "Added withdrawUSDCFees() for owner to withdraw USDC.e fees",
+      "Configurable swap slippage (default 1%)",
+      "SlabNFTManager set to 0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71"
     ]
   }
 }

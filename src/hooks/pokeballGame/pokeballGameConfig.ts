@@ -17,8 +17,8 @@
 
 import { useMemo } from 'react';
 import { apeChainMainnet } from '../../services/apechainConfig';
-// v1.2.0 ABI with 20 Pokemon slots, getActivePokemonCount, getActivePokemonSlots
-import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV2.json';
+// v1.5.0 ABI with unified payments (APE auto-swap to USDC.e via Camelot)
+import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV5.json';
 
 // ============================================================
 // CONTRACT ADDRESS
@@ -42,9 +42,16 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
 // ============================================================
 
 /**
- * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV2.json.
+ * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV5.json.
  * The JSON file is an array directly (not { abi: [...] }), so we use it as-is.
  * Type assertion ensures Wagmi type inference works correctly.
+ *
+ * v1.5.0 ABI includes:
+ * - purchaseBalls(uint8, uint256, bool) as PAYABLE (accepts msg.value for APE)
+ * - purchaseBallsWithAPE(uint8, uint256) as PAYABLE (auto-swaps APE → USDC.e)
+ * - purchaseBallsWithUSDC(uint8, uint256) as NONPAYABLE
+ * - withdrawUSDCFees() - owner withdraws accumulated USDC.e fees
+ * - accumulatedUSDCFees() - view accumulated USDC.e platform fees
  */
 export const POKEBALL_GAME_ABI = PokeballGameABI as typeof PokeballGameABI;
 
