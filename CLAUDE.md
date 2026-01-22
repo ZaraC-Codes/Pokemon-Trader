@@ -184,7 +184,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │
 ├── scripts/                 # Hardhat scripts
 │   ├── spawnInitialPokemon.cjs  # Spawn 3 initial Pokemon (slots 0-2)
-│   └── spawnMorePokemon.cjs     # Spawn Pokemon in slots 3-19 (v1.2.0)
+│   ├── spawnMorePokemon.cjs     # Spawn Pokemon in slots 3-19 (v1.2.0)
+│   └── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.6.0)
 │
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
@@ -228,6 +229,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/deployment/upgrade_SlabNFTManagerV2.cjs` | Upgrade to v2.0.0 (max 20 NFTs) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
 | `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
+| `scripts/verify_revenue_flow.cjs` | Verify 3%/97% fee/revenue split on-chain (v1.6.0) |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 | `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
@@ -465,6 +467,13 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
   - `src/hooks/pokeballGame/pokeballGameConfig.ts` - Used by pokeball hooks
 - Both must use the same env var name (`VITE_POKEBALL_GAME_ADDRESS`) and ABI version
 - Fix: Ensure both configs import the same ABI (currently V5) and read the same env var
+
+**Verify 3%/97% revenue split is working correctly:**
+- Run: `node scripts/verify_revenue_flow.cjs` to check on-chain balances
+- Compares `APESwappedToUSDC` events against `accumulatedUSDCFees` and SlabNFTManager balance
+- Expected: 3% of USDC.e goes to PokeballGame fee pool, 97% to SlabNFTManager
+- Script shows actual vs expected values with variance check
+- If variance > 1%, investigate swap events and revert history
 
 ## External Services
 
