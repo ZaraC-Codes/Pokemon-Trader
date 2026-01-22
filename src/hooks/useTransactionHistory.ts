@@ -11,7 +11,7 @@
  * - FailedCatch: Failed catch attempts with remaining attempts
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { usePublicClient, useWatchContractEvent } from 'wagmi';
 import { type Log, formatUnits, parseAbiItem } from 'viem';
 import { pokeballGameConfig, getBallConfig, isPokeballGameConfigured, getTransactionUrl } from '../services/pokeballGameConfig';
@@ -107,10 +107,11 @@ const BALL_PRICES_USDC: Record<number, bigint> = {
   3: BigInt(49_900000), // $49.90
 };
 
-// Event signatures
+// Event signatures (v1.4.x contract)
+// NOTE: BallPurchased includes totalAmount field added in v1.4.0
 const EVENT_SIGNATURES = {
   BallPurchased: parseAbiItem(
-    'event BallPurchased(address indexed buyer, uint8 ballType, uint256 quantity, bool usedAPE)'
+    'event BallPurchased(address indexed buyer, uint8 ballType, uint256 quantity, bool usedAPE, uint256 totalAmount)'
   ),
   ThrowAttempted: parseAbiItem(
     'event ThrowAttempted(address indexed thrower, uint256 pokemonId, uint8 ballTier, uint256 requestId)'
@@ -156,7 +157,7 @@ export function useTransactionHistory(
   const { pageSize = DEFAULT_PAGE_SIZE, fromBlock: initialFromBlock } = options;
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start false, set true when actually loading
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oldestBlock, setOldestBlock] = useState<bigint | null>(null);
@@ -165,33 +166,64 @@ export function useTransactionHistory(
   const publicClient = usePublicClient();
   const contractAddress = pokeballGameConfig.pokeballGameAddress;
 
+  // DEBUG: Log hook initialization
+  console.log('[useTransactionHistory] Hook called with:', {
+    playerAddress,
+    contractAddress,
+    hasPublicClient: !!publicClient,
+    isPokeballGameConfigured: isPokeballGameConfigured(),
+  });
+
   // Check if configured
   const isConfigured = isPokeballGameConfigured() && !!playerAddress && !!publicClient;
+
+  console.log('[useTransactionHistory] isConfigured:', isConfigured);
 
   // Fetch logs for a specific event type
   const fetchEventLogs = useCallback(
     async (
       eventAbi: ReturnType<typeof parseAbiItem>,
+      eventName: string,
       from: bigint,
       to: bigint | 'latest'
     ): Promise<Log[]> => {
-      if (!publicClient || !contractAddress) return [];
+      if (!publicClient || !contractAddress) {
+        console.log(`[useTransactionHistory] Skipping ${eventName} - no client or address`);
+        return [];
+      }
+
+      // Determine the correct indexed parameter name for this event
+      // Each event has a different indexed address parameter
+      let indexedArg: Record<string, `0x${string}`> = {};
+      if (eventName === 'BallPurchased') {
+        indexedArg = { buyer: playerAddress! };
+      } else if (eventName === 'ThrowAttempted' || eventName === 'FailedCatch') {
+        indexedArg = { thrower: playerAddress! };
+      } else if (eventName === 'CaughtPokemon') {
+        indexedArg = { catcher: playerAddress! };
+      }
+
+      console.log(`[useTransactionHistory] Fetching ${eventName} logs:`, {
+        contractAddress,
+        playerAddress,
+        indexedArg,
+        fromBlock: from.toString(),
+        toBlock: to === 'latest' ? 'latest' : to.toString(),
+      });
 
       try {
         const logs = await publicClient.getLogs({
           address: contractAddress,
-          event: eventAbi as Parameters<typeof publicClient.getLogs>[0]['event'],
-          args: {
-            buyer: playerAddress,
-            thrower: playerAddress,
-            catcher: playerAddress,
-          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          event: eventAbi as any,
+          args: indexedArg,
           fromBlock: from,
           toBlock: to,
         });
+        console.log(`[useTransactionHistory] ${eventName} returned ${logs.length} logs`);
         return logs as Log[];
       } catch (err) {
-        console.warn(`[useTransactionHistory] Error fetching logs:`, err);
+        console.warn(`[useTransactionHistory] Error fetching ${eventName} logs:`, err);
         return [];
       }
     },
@@ -230,6 +262,8 @@ export function useTransactionHistory(
             const ballType = Number(args.ballType ?? 0);
             const quantity = BigInt(args.quantity?.toString() ?? '0');
             const usedAPE = Boolean(args.usedAPE);
+            // v1.4.0+ includes totalAmount in the event
+            const totalAmount = args.totalAmount ? BigInt(args.totalAmount.toString()) : null;
             txs.push({
               ...baseData,
               type: 'purchase',
@@ -237,7 +271,12 @@ export function useTransactionHistory(
               ballName: getBallConfig(ballType as 0 | 1 | 2 | 3).name,
               quantity,
               usedAPE,
-              estimatedCost: formatCost(ballType, quantity, usedAPE),
+              // Use actual totalAmount from event if available, otherwise estimate
+              estimatedCost: totalAmount
+                ? (usedAPE
+                    ? `${formatUnits(totalAmount, 18)} APE`
+                    : `${formatUnits(totalAmount, 6)} USDC`)
+                : formatCost(ballType, quantity, usedAPE),
             } as PurchaseTransaction);
             break;
           }
@@ -282,16 +321,21 @@ export function useTransactionHistory(
   // Fetch historical transactions
   const fetchHistory = useCallback(
     async (from: bigint, to: bigint | 'latest') => {
-      if (!isConfigured) return [];
+      if (!isConfigured) {
+        console.log('[useTransactionHistory] fetchHistory: not configured, skipping');
+        return [];
+      }
+
+      console.log('[useTransactionHistory] fetchHistory: fetching from', from.toString(), 'to', to);
 
       const allTxs: Transaction[] = [];
 
       // Fetch all event types in parallel
       const [purchaseLogs, throwLogs, caughtLogs, failedLogs] = await Promise.all([
-        fetchEventLogs(EVENT_SIGNATURES.BallPurchased, from, to),
-        fetchEventLogs(EVENT_SIGNATURES.ThrowAttempted, from, to),
-        fetchEventLogs(EVENT_SIGNATURES.CaughtPokemon, from, to),
-        fetchEventLogs(EVENT_SIGNATURES.FailedCatch, from, to),
+        fetchEventLogs(EVENT_SIGNATURES.BallPurchased, 'BallPurchased', from, to),
+        fetchEventLogs(EVENT_SIGNATURES.ThrowAttempted, 'ThrowAttempted', from, to),
+        fetchEventLogs(EVENT_SIGNATURES.CaughtPokemon, 'CaughtPokemon', from, to),
+        fetchEventLogs(EVENT_SIGNATURES.FailedCatch, 'FailedCatch', from, to),
       ]);
 
       // Parse all logs
@@ -312,40 +356,99 @@ export function useTransactionHistory(
     [isConfigured, fetchEventLogs, parseLogsToTransactions]
   );
 
-  // Initial load
+  // Store fetchHistory in a ref so we can use it in useEffect without dependency issues
+  const fetchHistoryRef = useRef(fetchHistory);
+  fetchHistoryRef.current = fetchHistory;
+
+  // Track which address we've loaded - use state so it resets on remount/HMR
+  const [loadedForAddress, setLoadedForAddress] = useState<string | null>(null);
+
+  // Track if initial load has been attempted (to distinguish "not loaded" from "loaded with 0 results")
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+
+  // Debug logging
+  console.log('[useTransactionHistory] State:', {
+    loadedForAddress,
+    playerAddress,
+    isLoading,
+    hasAttemptedLoad,
+    transactionCount: transactions.length
+  });
+
+  // Initial load - runs when playerAddress changes
   useEffect(() => {
-    if (!isConfigured) {
-      setIsLoading(false);
-      setTransactions([]);
+    console.log('[useTransactionHistory] Effect running, checking conditions...', {
+      hasPublicClient: !!publicClient,
+      playerAddress,
+      contractAddress,
+      loadedForAddress,
+      hasAttemptedLoad,
+      isLoading,
+    });
+
+    // Skip if not configured
+    if (!publicClient || !playerAddress || !contractAddress) {
+      console.log('[useTransactionHistory] Not configured yet - missing:', {
+        publicClient: !publicClient,
+        playerAddress: !playerAddress,
+        contractAddress: !contractAddress,
+      });
       return;
     }
 
-    const loadInitial = async () => {
-      setIsLoading(true);
-      setError(null);
+    // Skip if already attempted load for this address
+    if (hasAttemptedLoad && loadedForAddress === playerAddress) {
+      console.log('[useTransactionHistory] Already loaded for', playerAddress);
+      return;
+    }
 
+    // Skip if currently loading
+    if (isLoading) {
+      console.log('[useTransactionHistory] Already loading, skipping');
+      return;
+    }
+
+    console.log('[useTransactionHistory] ✅ Starting load for', playerAddress);
+    setIsLoading(true);
+    setHasAttemptedLoad(true);
+    setError(null);
+
+    // Inline async execution - not a separate function
+    (async () => {
+      console.log('[useTransactionHistory] 🚀 Async IIFE started');
       try {
-        const currentBlock = await publicClient!.getBlockNumber();
+        console.log('[useTransactionHistory] Getting block number...');
+        const currentBlock = await publicClient.getBlockNumber();
+        console.log('[useTransactionHistory] Current block:', currentBlock.toString());
+
         const from = initialFromBlock ?? (currentBlock - DEFAULT_LOOKBACK_BLOCKS);
         const safeFrom = from < BigInt(0) ? BigInt(0) : from;
 
-        const txs = await fetchHistory(safeFrom, 'latest');
+        console.log('[useTransactionHistory] Fetching from block', safeFrom.toString(), 'to latest');
 
-        // Limit to pageSize and track if there's more
+        const txs = await fetchHistoryRef.current(safeFrom, 'latest');
+
+        console.log('[useTransactionHistory] ✅ Got', txs.length, 'transactions');
+
         const limited = txs.slice(0, pageSize);
         setTransactions(limited);
         setHasMore(txs.length > pageSize);
         setOldestBlock(safeFrom);
+        setLoadedForAddress(playerAddress); // Mark as loaded AFTER success
+        console.log('[useTransactionHistory] ✅ Load complete, setting loadedForAddress to', playerAddress);
       } catch (err) {
-        console.error('[useTransactionHistory] Initial load error:', err);
+        console.error('[useTransactionHistory] ❌ Load error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load transaction history');
       } finally {
+        console.log('[useTransactionHistory] Setting isLoading to false');
         setIsLoading(false);
       }
-    };
-
-    loadInitial();
-  }, [isConfigured, publicClient, initialFromBlock, pageSize, fetchHistory]);
+    })().catch(err => {
+      console.error('[useTransactionHistory] ❌ Unhandled async error:', err);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerAddress, publicClient, contractAddress, initialFromBlock, pageSize, hasAttemptedLoad, loadedForAddress]);
+  // Note: isLoading intentionally omitted - it's a guard, not a trigger
 
   // Load more (older) transactions
   const loadMore = useCallback(async () => {

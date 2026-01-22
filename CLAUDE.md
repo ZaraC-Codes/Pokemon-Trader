@@ -151,6 +151,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   ├── abi/
 │   │   ├── abi_PokeballGame.json    # PokeballGame ABI v1.1.0 (legacy, 3 slots)
 │   │   ├── abi_PokeballGameV2.json  # PokeballGame ABI v1.2.0 (20 slots)
+│   │   ├── abi_PokeballGameV4.json  # PokeballGame ABI v1.4.x (native APE, current)
 │   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
 │   ├── deployment/
 │   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
@@ -206,6 +207,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/SlabNFTManagerV2.sol` | NFT manager v2.0.0 (max 20 NFTs) |
 | `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (legacy, 3 slots) |
 | `contracts/abi/abi_PokeballGameV2.json` | PokeballGame ABI v1.2.0 (20 slots) |
+| `contracts/abi/abi_PokeballGameV4.json` | PokeballGame ABI v1.4.x (native APE, **current**) |
 | `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
@@ -1245,7 +1247,7 @@ const { events: catches } = useCaughtPokemonEvents();
 
 **Configuration:**
 - Contract address: `VITE_POKEBALL_GAME_ADDRESS` env var
-- ABI: `contracts/abi/abi_PokeballGameV2.json` (20 slots)
+- ABI: `contracts/abi/abi_PokeballGameV4.json` (v1.4.x, native APE)
 - Chain: ApeChain Mainnet (33139)
 
 **Return Shape (write hooks):**

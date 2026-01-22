@@ -26,7 +26,9 @@
  */
 
 import { apeChainMainnet, ALCHEMY_RPC_URL } from './apechainConfig';
-import PokeballGameABI from '../../contracts/abi/abi_PokeballGame.json';
+// Use V4 ABI which matches the current deployed contract (v1.4.2)
+// The event signatures changed (BallPurchased now includes totalAmount)
+import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV4.json';
 
 // ============================================================
 // CHAIN CONFIGURATION
