@@ -123,12 +123,13 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── useNFTBalances/          # NFT balance queries (IPFS, LM, NFT)
 │   │   └── pokeballGame/            # PokeballGame Wagmi hooks (modular)
 │   │       ├── index.ts                 # Barrel export
-│   │       ├── pokeballGameConfig.ts    # Shared config, ABI, types
+│   │       ├── pokeballGameConfig.ts    # Shared config, ABI, types, token addresses
 │   │       ├── usePurchaseBalls.ts      # Buy balls (APE/USDC.e)
 │   │       ├── useThrowBall.ts          # Throw ball at Pokemon
 │   │       ├── useGetPokemonSpawns.ts   # Read active spawns
 │   │       ├── usePlayerBallInventory.ts # Read player inventory
 │   │       ├── useContractEvents.ts     # Event subscriptions
+│   │       ├── useTokenApproval.ts      # ERC-20 approval for APE/USDC.e
 │   │       ├── useSetOwnerWallet.ts     # Transfer ownership (owner)
 │   │       └── useSetTreasuryWallet.ts  # Update treasury (owner)
 │   │
@@ -375,6 +376,17 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - `GameCanvas.tsx` buffers spawns in `pendingSpawnsRef` if scene not ready
 - Spawns are flushed after Phaser scene emits `create` event
 - Check for `[GameCanvas] Flushing X buffered spawns` in console
+
+**Wallet shows insane gas estimate (~7M APE) when purchasing balls:**
+- Cause: Missing ERC-20 token approval before `purchaseBalls` call
+- Both APE and USDC.e are ERC-20 tokens requiring approval before `safeTransferFrom`
+- Fix: PokeBallShop now shows "Approve" button when approval needed
+- The `useTokenApproval` hook handles checking and requesting approval
+
+**Shop screen goes blank when entering quantity:**
+- Cause: `BigInt(NaN)` throws an error when quantity input is empty/invalid
+- Fix: `calculateTotalCost()` guards against NaN with `Number.isFinite()` checks
+- All quantity handling in PokeBallShop validates before using `BigInt()`
 
 ## External Services
 
@@ -1122,13 +1134,17 @@ import {
 
 | Hook | Purpose |
 |------|---------|
-| `usePurchaseBalls()` | Buy balls with APE or USDC.e |
+| `usePurchaseBalls()` | Buy balls with APE or USDC.e (requires approval first) |
 | `useThrowBall()` | Throw ball at Pokemon slot (0-19), returns requestId |
 | `useGetPokemonSpawns()` | Read all 20 Pokemon slots (polls every 5s) |
 | `useActivePokemonCount()` | Get count of active Pokemon (efficient) |
 | `useActivePokemonSlots()` | Get array of occupied slot indices |
 | `usePlayerBallInventory(address)` | Read player's ball counts |
 | `useContractEvents(eventName)` | Subscribe to contract events |
+| `useTokenApproval(token, amount)` | Check/request ERC-20 approval |
+| `useApeApproval(amount)` | APE token approval helper |
+| `useUsdcApproval(amount)` | USDC.e token approval helper |
+| `useApePriceFromContract()` | Read APE price from contract |
 | `useSetOwnerWallet()` | Transfer ownership (owner only) |
 | `useSetTreasuryWallet()` | Update treasury address (owner only) |
 
@@ -1178,6 +1194,46 @@ const { events: catches } = useCaughtPokemonEvents();
 }
 ```
 
+**Token Approval (IMPORTANT):**
+
+Both APE and USDC.e are ERC-20 tokens on ApeChain. The PokeballGame contract uses `safeTransferFrom` to collect payment, which requires the user to approve the contract to spend their tokens BEFORE purchasing.
+
+```typescript
+import {
+  useTokenApproval,
+  calculateTotalCost,
+  useApePriceFromContract,
+} from '../hooks/pokeballGame';
+
+// In your component:
+const { price: apePriceUSD } = useApePriceFromContract();
+const cost = calculateTotalCost(ballType, quantity, useAPE, apePriceUSD);
+
+const {
+  isApproved,      // Whether current allowance covers the required amount
+  approve,         // Request unlimited approval
+  isApproving,     // Approval transaction pending
+  allowance,       // Current allowance in wei
+} = useTokenApproval(useAPE ? 'APE' : 'USDC', cost);
+
+// Flow:
+if (!isApproved) {
+  approve();  // Request approval first
+  return;
+}
+// Only after approval:
+purchaseBalls(ballType, quantity, useAPE);
+```
+
+**Why this matters:**
+- Without approval, `purchaseBalls()` will fail with `InsufficientAllowance` error
+- Wallet gas estimation fails when the underlying call would revert, causing insane gas estimates
+- The PokeBallShop component handles this automatically by checking approval before purchase
+
+**Token Addresses:**
+- APE: `0x4d224452801aced8b2f0aebe155379bb5d594381` (ERC-20, 18 decimals)
+- USDC.e: `0xF1815bd50389c46847f0Bda824eC8da914045D14` (ERC-20, 6 decimals)
+
 ### BallShop Component (Legacy)
 Test UI for ball purchasing:
 
@@ -1226,18 +1282,31 @@ import { PokeBallShop } from './components/PokeBallShop';
 - APE / USDC.e payment toggle
 - Shows current APE and USDC.e balances with USD value
 - Player inventory display (color-coded circular ball icons)
-- Quantity input per ball type
+- Quantity input per ball type (safe handling of NaN/empty values)
 - Insufficient balance warning per row
+- **Token approval flow**: Shows orange "Approve" button when approval needed
+- **Approval status**: Shows loading state during approval transaction
 - Transaction loading state with wallet prompt
 - Success message with transaction hash
 - Error display with dismiss button
 - No wallet connected warning
+
+**Token Approval Flow:**
+1. User selects quantity and payment token (APE or USDC.e)
+2. Shop checks if contract has sufficient allowance via `useTokenApproval`
+3. If not approved: Orange "APPROVE [TOKEN]" button shown
+4. User clicks approve → wallet prompts for unlimited approval
+5. After approval: Green "BUY" button becomes active
+6. User clicks buy → purchase transaction executes
 
 **Hooks Used:**
 - `usePurchaseBalls()` - Contract write
 - `usePlayerBallInventory(address)` - Read inventory
 - `useApeBalanceWithUsd(address)` - APE balance with USD value
 - `useUsdcBalance(address)` - USDC.e balance
+- `useTokenApproval(token, amount)` - Check/request ERC-20 approval
+- `useApePriceFromContract()` - Read APE price for cost calculation
+- `calculateTotalCost()` - Safe calculation (guards against NaN)
 
 ### GameCanvas Component
 React ⇄ Phaser bridge component that mounts the game and syncs Web3 data:

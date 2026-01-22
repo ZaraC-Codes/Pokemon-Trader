@@ -71,6 +71,32 @@ export const POKEBALL_GAME_CHAIN_ID = apeChainMainnet.id;
 export const MAX_ACTIVE_POKEMON = 20;
 
 // ============================================================
+// RELATED CONTRACT ADDRESSES
+// ============================================================
+
+/**
+ * Token addresses used by PokeballGame contract.
+ * APE is treated as an ERC-20 token on ApeChain (not native gas).
+ * USDC.e is the bridged USDC from Stargate.
+ */
+export const RELATED_CONTRACTS = {
+  /** USDC.e token address (6 decimals) */
+  USDC: '0xF1815bd50389c46847f0Bda824eC8da914045D14' as `0x${string}`,
+  /** APE token address (18 decimals) - NOTE: This is ERC-20 APE, not native gas */
+  APE: '0x4d224452801aced8b2f0aebe155379bb5d594381' as `0x${string}`,
+  /** Slab NFT contract address */
+  SLAB_NFT: '0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7' as `0x${string}`,
+};
+
+/**
+ * Token decimals for price calculations.
+ */
+export const TOKEN_DECIMALS = {
+  USDC: 6,
+  APE: 18,
+};
+
+// ============================================================
 // TYPE DEFINITIONS
 // ============================================================
 

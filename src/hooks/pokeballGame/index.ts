@@ -33,6 +33,8 @@ export {
   POKEBALL_GAME_ABI,
   POKEBALL_GAME_CHAIN_ID,
   MAX_ACTIVE_POKEMON,
+  RELATED_CONTRACTS,
+  TOKEN_DECIMALS,
   usePokeballGameAddress,
   // Type definitions
   type BallType,
@@ -110,3 +112,15 @@ export {
   useSetNFTRevenueWallet,
   type UseSetTreasuryWalletReturn,
 } from './useSetTreasuryWallet';
+
+// Token approval hooks
+export {
+  useTokenApproval,
+  useApeApproval,
+  useUsdcApproval,
+  useApePriceFromContract,
+  getBallPriceInWei,
+  calculateTotalCost,
+  type TokenType,
+  type UseTokenApprovalReturn,
+} from './useTokenApproval';

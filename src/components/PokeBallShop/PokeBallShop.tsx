@@ -31,10 +31,15 @@ import React, { useState, useCallback, Component, Suspense, lazy, type ReactNode
 import {
   usePurchaseBalls,
   usePlayerBallInventory,
+  useTokenApproval,
+  useApePriceFromContract,
+  calculateTotalCost,
   getBallTypeName,
   getBallPriceUSD,
   getCatchRatePercent,
+  POKEBALL_GAME_ADDRESS,
   type BallType,
+  type TokenType,
 } from '../../hooks/pokeballGame';
 import { useApeBalanceWithUsd, useUsdcBalance } from '../../hooks/useTokenBalances';
 import {
@@ -500,6 +505,7 @@ interface BallRowProps {
   isPending: boolean;
   hasInsufficientBalance: boolean;
   paymentToken: PaymentToken;
+  needsApproval?: boolean;
 }
 
 function BallRow({
@@ -511,18 +517,38 @@ function BallRow({
   isPending,
   hasInsufficientBalance,
   paymentToken,
+  needsApproval = false,
 }: BallRowProps) {
   const name = getBallTypeName(ballType);
   const price = getBallPriceUSD(ballType);
   const catchRate = getCatchRatePercent(ballType);
-  const totalCost = price * quantity;
+  // Safe calculation: ensure quantity is a valid number
+  const safeQty = Number.isFinite(quantity) && quantity >= 0 ? quantity : 0;
+  const totalCost = price * safeQty;
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    onQuantityChange(isNaN(value) || value < 0 ? 0 : value);
+    const rawValue = e.target.value.trim();
+    // Handle empty input gracefully
+    if (rawValue === '') {
+      onQuantityChange(0);
+      return;
+    }
+    const value = parseInt(rawValue, 10);
+    // Clamp to 0-99 range, default to 0 for invalid input
+    const safeValue = Number.isFinite(value) && value >= 0
+      ? Math.min(value, 99)
+      : 0;
+    onQuantityChange(safeValue);
   };
 
-  const canBuy = quantity > 0 && !isDisabled && !isPending && !hasInsufficientBalance;
+  const canBuy = safeQty > 0 && !isDisabled && !isPending && !hasInsufficientBalance;
+
+  // Determine button text
+  const buttonText = isPending
+    ? '...'
+    : needsApproval
+    ? 'Approve'
+    : 'Buy';
 
   return (
     <div style={styles.ballRow}>
@@ -561,10 +587,10 @@ function BallRow({
 
       {/* Cost display */}
       <div style={styles.costDisplay}>
-        <div style={{ color: quantity > 0 ? '#fff' : '#666' }}>
+        <div style={{ color: safeQty > 0 ? '#fff' : '#666' }}>
           ${totalCost.toFixed(2)}
         </div>
-        {hasInsufficientBalance && quantity > 0 && (
+        {hasInsufficientBalance && safeQty > 0 && (
           <div style={styles.insufficientBalance}>
             Low {paymentToken}
           </div>
@@ -578,9 +604,10 @@ function BallRow({
         style={{
           ...styles.buyButton,
           ...(canBuy ? {} : styles.buyButtonDisabled),
+          ...(needsApproval && canBuy ? { border: '2px solid #ff8800', color: '#ff8800', backgroundColor: '#2a2510' } : {}),
         }}
       >
-        {isPending ? '...' : 'Buy'}
+        {buttonText}
       </button>
     </div>
   );
@@ -758,10 +785,51 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   const apeBalance = useApeBalanceWithUsd(playerAddress);
   const usdcBalance = useUsdcBalance(playerAddress);
 
+  // Get APE price from contract for accurate cost calculation
+  const { price: apePriceUSD } = useApePriceFromContract();
+
+  // Calculate required amount for current selection
+  // We sum all quantities to get max possible cost for approval
+  // Safe: filter out NaN/undefined values before summing
+  const totalQuantity = Object.values(quantities).reduce((sum, q) => {
+    const safeQ = Number.isFinite(q) ? q : 0;
+    return sum + safeQ;
+  }, 0);
+
+  const requiredAmount = React.useMemo(() => {
+    if (totalQuantity === 0) return BigInt(0);
+    // Calculate for the most expensive possible selection to ensure enough approval
+    // In practice, we could calculate exact amounts per ball type
+    let total = BigInt(0);
+    for (let i = 0; i <= 3; i++) {
+      const qty = quantities[i as BallType];
+      // Skip invalid quantities - calculateTotalCost also guards, but we skip the call entirely
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      total += calculateTotalCost(i as BallType, qty, paymentToken === 'APE', apePriceUSD);
+    }
+    return total;
+  }, [quantities, paymentToken, apePriceUSD, totalQuantity]);
+
+  // Token approval hooks - check if we need approval before purchase
+  const tokenType: TokenType = paymentToken === 'APE' ? 'APE' : 'USDC';
+  const {
+    allowance,
+    isApproved,
+    approve,
+    isApproving,
+    isConfirming: isApprovalConfirming,
+    error: approvalError,
+  } = useTokenApproval(tokenType, requiredAmount);
+
   // Check if a purchase has sufficient balance
   const hasInsufficientBalance = useCallback(
     (ballType: BallType): boolean => {
-      const costUsd = getBallPriceUSD(ballType) * quantities[ballType];
+      const qty = quantities[ballType];
+      // Guard against NaN/invalid quantities
+      const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 0;
+      if (safeQty === 0) return false;
+
+      const costUsd = getBallPriceUSD(ballType) * safeQty;
       if (costUsd <= 0) return false;
 
       // For APE, convert USD cost to APE using current price
@@ -785,20 +853,50 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     setQuantities((prev) => ({ ...prev, [ballType]: qty }));
   }, []);
 
-  // Handle buy
+  // Handle buy - checks approval first
   const handleBuy = useCallback(
     (ballType: BallType) => {
-      const qty = quantities[ballType];
+      const rawQty = quantities[ballType];
+      // Guard against NaN/invalid quantities
+      const qty = Number.isFinite(rawQty) && rawQty > 0 ? Math.floor(rawQty) : 0;
       if (qty <= 0 || !write) return;
 
       if (hasInsufficientBalance(ballType)) {
         return;
       }
 
+      // Calculate cost for this specific purchase
+      const costForThisPurchase = calculateTotalCost(
+        ballType,
+        qty,
+        paymentToken === 'APE',
+        apePriceUSD
+      );
+
+      console.log('[PokeBallShop] handleBuy:', {
+        ballType,
+        qty,
+        paymentToken,
+        costWei: costForThisPurchase.toString(),
+        costFormatted: paymentToken === 'APE'
+          ? `${Number(costForThisPurchase) / 1e18} APE`
+          : `$${Number(costForThisPurchase) / 1e6}`,
+        currentAllowance: allowance.toString(),
+        isApproved,
+        spender: POKEBALL_GAME_ADDRESS,
+      });
+
+      // Check if approval is needed
+      if (!isApproved || allowance < costForThisPurchase) {
+        console.log('[PokeBallShop] Approval needed! Requesting approval first...');
+        approve();
+        return;
+      }
+
       setShowSuccess(false);
       write(ballType, qty, paymentToken === 'APE');
     },
-    [quantities, write, paymentToken, hasInsufficientBalance]
+    [quantities, write, paymentToken, hasInsufficientBalance, apePriceUSD, allowance, isApproved, approve]
   );
 
   // Handle dismiss error
@@ -850,6 +948,8 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   if (!isOpen) return null;
 
   const isTransactionPending = isLoading || isPending;
+  const isApprovalPending = isApproving || isApprovalConfirming;
+  const isAnyPending = isTransactionPending || isApprovalPending;
 
   return (
     <div style={styles.overlay} onClick={onClose}>
@@ -860,7 +960,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           <button
             style={styles.closeButton}
             onClick={onClose}
-            disabled={isTransactionPending}
+            disabled={isAnyPending}
           >
             CLOSE
           </button>
@@ -982,7 +1082,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
               ...(paymentToken === 'USDC' ? styles.toggleButtonActive : {}),
             }}
             onClick={() => setPaymentToken('USDC')}
-            disabled={isTransactionPending}
+            disabled={isAnyPending}
           >
             Pay with USDC.e
           </button>
@@ -992,18 +1092,43 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
               ...(paymentToken === 'APE' ? styles.toggleButtonActive : {}),
             }}
             onClick={() => setPaymentToken('APE')}
-            disabled={isTransactionPending}
+            disabled={isAnyPending}
           >
             Pay with APE
           </button>
         </div>
 
-        {/* Loading State */}
-        {isTransactionPending && (
+        {/* Approval Loading State */}
+        {isApprovalPending && (
+          <div style={{ ...styles.loadingOverlay, border: '2px solid #4488ff' }}>
+            <div style={{ ...styles.loadingText, color: '#4488ff' }}>
+              {isApproving ? 'Requesting token approval...' : 'Confirming approval...'}
+            </div>
+            <div style={{ color: '#888', fontSize: '12px', marginTop: '8px' }}>
+              Approve {paymentToken === 'APE' ? 'APE' : 'USDC.e'} spending in your wallet
+            </div>
+          </div>
+        )}
+
+        {/* Purchase Loading State */}
+        {isTransactionPending && !isApprovalPending && (
           <div style={styles.loadingOverlay}>
             <div style={styles.loadingText}>Transaction in progress...</div>
             <div style={{ color: '#888', fontSize: '12px', marginTop: '8px' }}>
               Please confirm in your wallet
+            </div>
+          </div>
+        )}
+
+        {/* Approval Status Info */}
+        {!isApproved && totalQuantity > 0 && !isApprovalPending && (
+          <div style={{ ...styles.loadingOverlay, border: '2px solid #ff8800' }}>
+            <div style={{ color: '#ff8800', fontSize: '14px' }}>
+              Token approval required
+            </div>
+            <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
+              You need to approve {paymentToken === 'APE' ? 'APE' : 'USDC.e'} before purchasing.
+              Click "Buy" to start the approval process.
             </div>
           </div>
         )}
@@ -1018,9 +1143,10 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
               onQuantityChange={(qty) => handleQuantityChange(ballType, qty)}
               onBuy={() => handleBuy(ballType)}
               isDisabled={!playerAddress || !write}
-              isPending={isTransactionPending}
+              isPending={isAnyPending}
               hasInsufficientBalance={hasInsufficientBalance(ballType)}
               paymentToken={paymentToken}
+              needsApproval={!isApproved && quantities[ballType] > 0}
             />
           ))}
         </div>
@@ -1046,6 +1172,17 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             <button style={styles.dismissButton} onClick={handleDismissError}>
               Dismiss
             </button>
+          </div>
+        )}
+
+        {/* Approval Error Display */}
+        {approvalError && (
+          <div style={styles.errorBox}>
+            <span style={styles.errorText}>
+              Approval failed: {approvalError.message.length > 80
+                ? `${approvalError.message.slice(0, 80)}...`
+                : approvalError.message}
+            </span>
           </div>
         )}
 
