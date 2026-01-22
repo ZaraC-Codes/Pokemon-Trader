@@ -452,6 +452,15 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Fix: Frontend should validate before calling (CatchAttemptModal already does this)
 - Debug: Use `simulateContract` to see the actual revert reason before sending
 
+**TransactionHistory shows empty, events not found:**
+- Cause 1: Wrong env var name - `VITE_POKEBALLGAME_ADDRESS` vs `VITE_POKEBALL_GAME_ADDRESS` (with underscore)
+- Cause 2: Different config files using different ABI versions
+- There are TWO config files that must stay in sync:
+  - `src/services/pokeballGameConfig.ts` - Used by useTransactionHistory, general services
+  - `src/hooks/pokeballGame/pokeballGameConfig.ts` - Used by pokeball hooks
+- Both must use the same env var name (`VITE_POKEBALL_GAME_ADDRESS`) and ABI version
+- Fix: Ensure both configs import the same ABI (currently V5) and read the same env var
+
 ## External Services
 
 - **Alchemy**: Primary RPC endpoint (wagmi client) and NFT API v3
