@@ -65,9 +65,15 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── CatchAttemptModal/       # Pokemon catching modal
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── CatchAttemptModal.tsx    # Ball selection + throw UI
-│   │   └── CatchResultModal/        # Catch result feedback modal
+│   │   ├── CatchResultModal/        # Catch result feedback modal
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   └── CatchResultModal.tsx     # Success/failure UI + animations
+│   │   ├── TransactionHistory/      # Player transaction history
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   └── TransactionHistory.tsx   # History modal with pagination
+│   │   └── FundingWidget/           # Cross-chain funding widget
 │   │       ├── index.ts                 # Barrel export
-│   │       └── CatchResultModal.tsx     # Success/failure UI + animations
+│   │       └── FundingWidget.tsx        # Bridge/swap/buy modal
 │   │
 │   ├── game/                    # Phaser game code
 │   │   ├── scenes/
@@ -107,6 +113,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── usePokeballGame.ts       # PokeballGame contract integration (legacy)
 │   │   ├── useTokenBalance.ts       # Token balance queries (generic)
 │   │   ├── useTokenBalances.ts      # APE/USDC.e balance hooks
+│   │   ├── useTransactionHistory.ts # Player transaction history from events
 │   │   ├── useNFTExists.tsx         # NFT existence check
 │   │   ├── useAllNftPositions.tsx   # All NFT positions
 │   │   ├── useNFTBalances/          # NFT balance queries (IPFS, LM, NFT)
@@ -436,6 +443,71 @@ import { FundingWidget } from './components/FundingWidget';
 - 95+ EVM chains supported as source
 - 17,000+ tokens supported for swapping
 - Fiat providers: Stripe, Kado, Transak, Coinbase
+
+### TransactionHistory Component
+Displays player's transaction history from the PokeballGame contract:
+
+**Location:** `src/components/TransactionHistory/TransactionHistory.tsx`
+
+**Features:**
+- Ball purchases (quantity, tier, token used APE/USDC.e, total cost)
+- Ball throws (Pokemon ID targeted)
+- Catch results with win/loss status
+- NFT tokenId links for successful catches
+- Real-time updates via Wagmi event subscriptions
+- "Load More" pagination for older transactions
+- Color-coded transaction types (purchase=green, throw=yellow, caught=cyan, failed=red)
+- Stats bar showing total purchases, throws, catches, escapes, and catch rate
+
+**Props:**
+```typescript
+interface TransactionHistoryProps {
+  isOpen: boolean;
+  onClose: () => void;
+  playerAddress?: `0x${string}`;
+}
+```
+
+**Usage:**
+```tsx
+import { TransactionHistory } from './components/TransactionHistory';
+
+<TransactionHistory
+  isOpen={showHistory}
+  onClose={() => setShowHistory(false)}
+  playerAddress={account}
+/>
+```
+
+**Hook (useTransactionHistory):**
+```typescript
+import { useTransactionHistory } from '../hooks/useTransactionHistory';
+
+const {
+  transactions,    // All fetched transactions (newest first)
+  isLoading,       // Initial load state
+  error,           // Error message if any
+  hasMore,         // Whether more transactions available
+  loadMore,        // Load older transactions
+  isLoadingMore,   // Load more in progress
+  refresh,         // Refresh all transactions
+  totalCount,      // Total loaded count
+} = useTransactionHistory(playerAddress, { pageSize: 50 });
+```
+
+**Transaction Types:**
+| Type | Event | Data |
+|------|-------|------|
+| `purchase` | BallPurchased | ballType, quantity, usedAPE, estimatedCost |
+| `throw` | ThrowAttempted | pokemonId, ballType, requestId |
+| `caught` | CaughtPokemon | pokemonId, nftTokenId |
+| `failed` | FailedCatch | pokemonId, attemptsRemaining |
+
+**Event Querying:**
+- Queries ~1 week of blocks by default (302,400 blocks at 2s/block)
+- Uses Wagmi `useWatchContractEvent` for real-time updates
+- Filters events by player address (indexed parameter)
+- Sorts transactions by timestamp (newest first)
 
 ### ThirdWeb Checkout Integration (Legacy)
 Buy crypto directly in the PokeBall Shop using ThirdWeb Pay:
