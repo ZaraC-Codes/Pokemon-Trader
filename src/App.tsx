@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -10,6 +10,9 @@ import VolumeToggle from './components/VolumeToggle';
 import InventoryTerminal from './components/InventoryTerminal';
 import { GameHUD } from './components/PokeBallShop';
 import { CatchAttemptModal } from './components/CatchAttemptModal';
+import { CatchWinModal } from './components/CatchWinModal';
+import { CatchResultModal, type CatchResultState } from './components/CatchResultModal';
+import { useCaughtPokemonEvents, useFailedCatchEvents } from './hooks/pokeballGame';
 import { useActiveWeb3React } from './hooks/useActiveWeb3React';
 import { contractService } from './services/contractService';
 import type { TradeListing } from './services/contractService';
@@ -20,6 +23,13 @@ interface SelectedPokemon {
   pokemonId: bigint;
   slotIndex: number;
   attemptsRemaining: number;
+}
+
+/** State for the catch win modal */
+interface CatchWinState {
+  tokenId: bigint;
+  pokemonId: bigint;
+  txHash?: `0x${string}`;
 }
 
 /** Toast notification state */
@@ -51,10 +61,16 @@ function AppContent() {
   const [musicVolume, setMusicVolume] = useState(0.5);
   const [selectedPokemon, setSelectedPokemon] = useState<SelectedPokemon | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [catchWin, setCatchWin] = useState<CatchWinState | null>(null);
+  const [catchFailure, setCatchFailure] = useState<CatchResultState | null>(null);
   // Music disabled
   // const [isMusicPlaying, setIsMusicPlaying] = useState(true);
 
-  // Toast management
+  // Track which events we've already processed to avoid duplicates
+  const processedCatchEventsRef = useRef<Set<string>>(new Set());
+  const processedFailEventsRef = useRef<Set<string>>(new Set());
+
+  // Toast management (defined before effects that use it)
   const addToast = useCallback((message: string, type: ToastMessage['type'] = 'warning') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -63,6 +79,70 @@ function AppContent() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
   }, []);
+
+  // Listen for CaughtPokemon events
+  const { events: caughtEvents } = useCaughtPokemonEvents();
+
+  // Listen for FailedCatch events
+  const { events: failedEvents } = useFailedCatchEvents();
+
+  // Handle caught Pokemon events
+  useEffect(() => {
+    if (caughtEvents.length === 0) return;
+
+    const latestEvent = caughtEvents[caughtEvents.length - 1];
+    const eventKey = `${latestEvent.transactionHash}-${latestEvent.logIndex}`;
+
+    // Skip if we've already processed this event
+    if (processedCatchEventsRef.current.has(eventKey)) return;
+    processedCatchEventsRef.current.add(eventKey);
+
+    // Only show for current user's catches
+    if (account && latestEvent.args.catcher.toLowerCase() === account.toLowerCase()) {
+      console.log('[App] CaughtPokemon event for current user:', latestEvent.args);
+
+      // Close the catch attempt modal if open
+      setSelectedPokemon(null);
+
+      // Show the win modal
+      setCatchWin({
+        tokenId: latestEvent.args.nftTokenId,
+        pokemonId: latestEvent.args.pokemonId,
+        txHash: latestEvent.transactionHash ?? undefined,
+      });
+
+      // Show a success toast
+      addToast('You caught a Pokemon!', 'success');
+    }
+  }, [caughtEvents, account, addToast]);
+
+  // Handle failed catch events
+  useEffect(() => {
+    if (failedEvents.length === 0) return;
+
+    const latestEvent = failedEvents[failedEvents.length - 1];
+    const eventKey = `${latestEvent.transactionHash}-${latestEvent.logIndex}`;
+
+    // Skip if we've already processed this event
+    if (processedFailEventsRef.current.has(eventKey)) return;
+    processedFailEventsRef.current.add(eventKey);
+
+    // Only show for current user's throws
+    if (account && latestEvent.args.thrower.toLowerCase() === account.toLowerCase()) {
+      console.log('[App] FailedCatch event for current user:', latestEvent.args);
+
+      // Close the catch attempt modal
+      setSelectedPokemon(null);
+
+      // Show the failure modal
+      setCatchFailure({
+        type: 'failure',
+        pokemonId: latestEvent.args.pokemonId,
+        attemptsRemaining: Number(latestEvent.args.attemptsRemaining),
+        txHash: latestEvent.transactionHash ?? undefined,
+      });
+    }
+  }, [failedEvents, account]);
 
   useEffect(() => {
     // Expose test functions to window for browser console testing
@@ -304,6 +384,26 @@ function AppContent() {
     setSelectedPokemon(null);
   }, []);
 
+  // Close the catch win modal
+  const handleCloseWinModal = useCallback(() => {
+    setCatchWin(null);
+  }, []);
+
+  // Close the catch failure modal
+  const handleCloseFailureModal = useCallback(() => {
+    setCatchFailure(null);
+  }, []);
+
+  // Handle "Try Again" from failure modal - reopen catch attempt modal
+  const handleTryAgain = useCallback(() => {
+    if (catchFailure?.type === 'failure' && catchFailure.attemptsRemaining > 0) {
+      // We need to get the slot index from the game scene
+      // For now, we'll just close the failure modal - user can click Pokemon again
+      setCatchFailure(null);
+      addToast('Click the Pokemon to try again!', 'warning');
+    }
+  }, [catchFailure, addToast]);
+
   return (
     <div
       style={{
@@ -376,6 +476,25 @@ function AppContent() {
         pokemonId={selectedPokemon?.pokemonId ?? BigInt(0)}
         slotIndex={selectedPokemon?.slotIndex ?? 0}
         attemptsRemaining={selectedPokemon?.attemptsRemaining ?? 0}
+      />
+
+      {/* Catch Win Modal - Shows NFT details on successful catch */}
+      {catchWin && (
+        <CatchWinModal
+          isOpen={true}
+          onClose={handleCloseWinModal}
+          tokenId={catchWin.tokenId}
+          pokemonId={catchWin.pokemonId}
+          txHash={catchWin.txHash}
+        />
+      )}
+
+      {/* Catch Failure Modal - Shows escape result */}
+      <CatchResultModal
+        isOpen={catchFailure !== null}
+        onClose={handleCloseFailureModal}
+        onTryAgain={handleTryAgain}
+        result={catchFailure}
       />
 
       {/* Inventory Button */}

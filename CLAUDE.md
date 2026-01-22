@@ -68,6 +68,9 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── CatchResultModal/        # Catch result feedback modal
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── CatchResultModal.tsx     # Success/failure UI + animations
+│   │   ├── CatchWinModal/           # NFT win celebration modal
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   └── CatchWinModal.tsx        # NFT display + confetti
 │   │   ├── TransactionHistory/      # Player transaction history
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── TransactionHistory.tsx   # History modal with pagination
@@ -114,6 +117,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── useTokenBalance.ts       # Token balance queries (generic)
 │   │   ├── useTokenBalances.ts      # APE/USDC.e balance hooks
 │   │   ├── useTransactionHistory.ts # Player transaction history from events
+│   │   ├── useNFTMetadata.ts        # NFT metadata fetching (tokenURI + IPFS)
 │   │   ├── useNFTExists.tsx         # NFT existence check
 │   │   ├── useAllNftPositions.tsx   # All NFT positions
 │   │   ├── useNFTBalances/          # NFT balance queries (IPFS, LM, NFT)
@@ -1539,6 +1543,129 @@ const handleCatchOutOfRange = (_data: CatchOutOfRangeData) => {
   addToast('Move closer to the Pokémon!', 'warning');
 };
 ```
+
+### CatchWinModal Component
+Celebratory modal displayed when a player successfully catches a Pokemon and receives an NFT:
+
+**Location:** `src/components/CatchWinModal/CatchWinModal.tsx`
+
+**Props:**
+```typescript
+interface CatchWinModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  tokenId: bigint;              // NFT token ID awarded
+  txHash?: `0x${string}`;       // Transaction hash
+  pokemonId?: bigint;           // Pokemon ID that was caught
+}
+```
+
+**Usage:**
+```tsx
+import { CatchWinModal } from './components/CatchWinModal';
+
+// Triggered by CaughtPokemon event
+const { events: caughtEvents } = useCaughtPokemonEvents();
+
+useEffect(() => {
+  if (caughtEvents.length > 0) {
+    const latest = caughtEvents[caughtEvents.length - 1];
+    if (latest.args.catcher === account) {
+      setCatchWin({
+        tokenId: latest.args.nftTokenId,
+        pokemonId: latest.args.pokemonId,
+        txHash: latest.transactionHash,
+      });
+    }
+  }
+}, [caughtEvents]);
+
+<CatchWinModal
+  isOpen={catchWin !== null}
+  onClose={() => setCatchWin(null)}
+  tokenId={catchWin?.tokenId ?? BigInt(0)}
+  pokemonId={catchWin?.pokemonId}
+  txHash={catchWin?.txHash}
+/>
+```
+
+**Features:**
+- Automatic NFT metadata fetching via `useSlabNFTMetadata` hook
+- Loading skeleton while fetching metadata
+- Fallback display if metadata fails (shows tokenId)
+- 80-piece confetti celebration animation
+- Pulsing green glow border effect
+- NFT image display (with error fallback)
+- NFT name and token ID
+- Pokemon ID (if provided)
+- Links to Apescan and Magic Eden
+- Transaction hash link
+
+**Animations (CSS keyframes):**
+- `catchWinFadeIn` - Modal entrance with scale
+- `catchWinPulse` - Green glow pulsing
+- `catchWinBounce` - Icon bounce
+- `catchWinGlow` - Title text glow
+- `catchWinConfetti` - Confetti falling
+- `catchWinShimmer` - Loading skeleton shimmer
+
+**Integration in App.tsx:**
+Already wired - listens for `CaughtPokemon` events and shows modal automatically for current user's catches.
+
+### useNFTMetadata Hook
+Hook for fetching NFT metadata from tokenURI:
+
+**Location:** `src/hooks/useNFTMetadata.ts`
+
+**Returns:**
+```typescript
+interface UseNFTMetadataResult {
+  metadata: NFTMetadata | null;  // { name, image, description, attributes }
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => void;
+  tokenURI: string | null;
+}
+```
+
+**Usage:**
+```typescript
+import { useNFTMetadata, useSlabNFTMetadata } from '../hooks/useNFTMetadata';
+
+// Generic NFT metadata
+const { metadata, isLoading, error } = useNFTMetadata(
+  '0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7',
+  BigInt(123)
+);
+
+// Slab NFT shorthand (pre-configured address)
+const { metadata, isLoading } = useSlabNFTMetadata(BigInt(123));
+
+// Access metadata
+if (metadata) {
+  console.log(metadata.name);   // "Pokemon Card #123"
+  console.log(metadata.image);  // Resolved IPFS URL
+}
+```
+
+**Features:**
+- Reads `tokenURI` from ERC-721 contract
+- Fetches and parses JSON metadata
+- IPFS URL resolution with 4 gateway fallbacks
+- 5-minute cache with TanStack Query
+- Graceful error handling
+
+**IPFS Gateway Fallbacks:**
+1. `ipfs.io`
+2. `cloudflare-ipfs.com`
+3. `gateway.pinata.cloud`
+4. `dweb.link`
+
+**Exported:**
+- `useNFTMetadata(address, tokenId, enabled?)` - Generic hook
+- `useSlabNFTMetadata(tokenId, enabled?)` - Slab NFT shorthand
+- `resolveIPFSUrl(url, gatewayIndex?)` - IPFS URL resolver
+- `SLAB_NFT_ADDRESS` - Slab NFT contract address
 
 ### CatchResultModal Component
 Modal for displaying catch attempt results (success or failure):
