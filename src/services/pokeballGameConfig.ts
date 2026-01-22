@@ -26,9 +26,9 @@
  */
 
 import { apeChainMainnet, ALCHEMY_RPC_URL } from './apechainConfig';
-// Use V4 ABI which matches the current deployed contract (v1.4.2)
-// The event signatures changed (BallPurchased now includes totalAmount)
-import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV4.json';
+// Use V5 ABI which matches the current deployed contract
+// Must be a raw array, not a Hardhat artifact object
+import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV5.json';
 
 // ============================================================
 // CHAIN CONFIGURATION
@@ -74,21 +74,21 @@ export const APECHAIN_EXPLORER_URL = 'https://apescan.io' as const;
 /**
  * PokeballGame contract address on ApeChain.
  *
- * Loaded from VITE_POKEBALLGAME_ADDRESS environment variable.
+ * Loaded from VITE_POKEBALL_GAME_ADDRESS environment variable.
  * This is the UUPS proxy address - implementation can be upgraded.
  *
  * Set in .env file:
  * ```
- * VITE_POKEBALLGAME_ADDRESS=0xYourPokeballGameProxy
+ * VITE_POKEBALL_GAME_ADDRESS=0xYourPokeballGameProxy
  * ```
  */
-export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALLGAME_ADDRESS as
+export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS as
   | `0x${string}`
   | undefined;
 
 /**
  * PokeballGame contract ABI.
- * Imported from contracts/abi/abi_PokeballGame.json (v1.1.0).
+ * Imported from contracts/abi/abi_PokeballGameV5.json.
  * Note: The JSON file is an array directly (not { abi: [...] }).
  *
  * Key functions:
