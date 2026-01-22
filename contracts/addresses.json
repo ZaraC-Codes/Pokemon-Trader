@@ -6,7 +6,7 @@
   "contracts": {
     "pokeballGame": {
       "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
-      "implementation": "0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc"
+      "implementation": "0x2cbF8E954D29E2e08E4E521ac031930543962F13"
     },
     "slabNFTManager": {
       "proxy": "0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71",
@@ -69,6 +69,18 @@
       "purchaseBalls() is now payable",
       "Added accumulatedAPEFees tracking",
       "Added withdrawAPEFees() and withdrawAllAPE() functions"
+    ]
+  },
+  "upgrade_v1_4_2": {
+    "timestamp": "2026-01-21T20:30:00.000Z",
+    "oldImplementation": "0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc",
+    "newImplementation": "0x2cbF8E954D29E2e08E4E521ac031930543962F13",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "apePriceSetTxHash": "0x0ca08ecb3bf47fbc56795cd6723f69737fd1eab0cbda7c6b0dc6071bf7652fa0",
+    "changes": [
+      "Fixed division by zero in calculateAPEAmount() when apePriceUSD is 0",
+      "Default to $0.64 APE price (64000000 in 8 decimals) if not set",
+      "APE price set to 64000000 ($0.64)"
     ]
   }
 }

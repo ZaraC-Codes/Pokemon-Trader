@@ -68,7 +68,7 @@ async function main() {
   console.log("");
 
   // Deploy new implementation
-  console.log("Deploying new PokeballGame v1.4.1 implementation...");
+  console.log("Deploying new PokeballGame v1.4.2 implementation...");
 
   // Note: PokeballGameV4.sol contains contract named "PokeballGame"
   // Use fully qualified name to avoid ambiguity with multiple versions
@@ -103,6 +103,26 @@ async function main() {
       console.error("WARNING: initializeV130() failed:", e.message);
       console.log("This may be OK if already initialized.");
     }
+  }
+  console.log("");
+
+  // Set APE price if not already set (prevents division by zero)
+  const currentAPEPrice = await upgraded.apePriceUSD();
+  console.log("Checking APE price...");
+  console.log("  Current APE price:", currentAPEPrice.toString());
+  if (currentAPEPrice === 0n) {
+    console.log("  APE price is 0, setting to default $0.64...");
+    const DEFAULT_APE_PRICE = 64000000n; // $0.64 in 8 decimals
+    try {
+      const setPriceTx = await upgraded.setAPEPrice(DEFAULT_APE_PRICE);
+      await setPriceTx.wait();
+      console.log("✓ APE price set to $0.64 (64000000)");
+      console.log("  Tx hash:", setPriceTx.hash);
+    } catch (e) {
+      console.error("WARNING: setAPEPrice() failed:", e.message);
+    }
+  } else {
+    console.log("✓ APE price already set");
   }
   console.log("");
 
@@ -144,7 +164,7 @@ async function main() {
   console.log("=".repeat(60));
   console.log("");
   console.log("Summary:");
-  console.log("  - Implementation upgraded to v1.4.0");
+  console.log("  - Implementation upgraded to v1.4.2");
   console.log("  - APE payments now use native APE (msg.value)");
   console.log("  - No more ERC-20 approve() needed for APE");
   console.log("");

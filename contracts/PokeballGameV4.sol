@@ -8,7 +8,11 @@ pragma solidity 0.8.26;
  * @author Z33Fi ("Z33Fi Made It")
  * @custom:artist-signature Z33Fi Made It
  * @custom:network ApeChain Mainnet (Chain ID: 33139)
- * @custom:version 1.4.1
+ * @custom:version 1.4.2
+ *
+ * CHANGELOG v1.4.2:
+ * - FIX: Division by zero in calculateAPEAmount() when apePriceUSD is 0
+ * - Default to $0.64 APE price (64000000 in 8 decimals) if not set
  *
  * CHANGELOG v1.4.1:
  * - FIX: Fee calculation now based on requiredAPE, not msg.value
@@ -771,7 +775,9 @@ contract PokeballGame is
     }
 
     function calculateAPEAmount(uint256 usdcAmount) public view returns (uint256 apeAmount) {
-        return (usdcAmount * 1e20) / apePriceUSD;
+        // Guard against division by zero - use default $0.64 (64000000 in 8 decimals) if not set
+        uint256 price = apePriceUSD > 0 ? apePriceUSD : 64000000;
+        return (usdcAmount * 1e20) / price;
     }
 
     function getAllBallPrices() external view returns (
