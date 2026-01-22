@@ -431,6 +431,27 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Wagmi's Alchemy client is still used for real-time event subscriptions
 - Default lookback: 25,000 blocks (~14 hours) covers most recent activity
 
+**useThrowBall rejects Pokemon slots > 2 ("Invalid pokemon slot must be 0-2"):**
+- Cause: Hardcoded validation `pokemonSlot > 2` from v1.1.0 (only 3 slots)
+- Fix: Updated to use `MAX_ACTIVE_POKEMON` (20) from config
+- Now accepts slots 0-19 for v1.2.0+ contracts
+
+**useGetPokemonSpawns fails with "abi.filter is not a function":**
+- Cause: ABI file is a Hardhat artifact object `{ _format, contractName, abi: [...] }` instead of raw array
+- viem/wagmi expects ABI to be a raw array `[...]`, not an object
+- Fix: Extract the `abi` property from the artifact, or regenerate ABI as array-only
+- Diagnostic: Check `Array.isArray(POKEBALL_GAME_ABI)` returns true
+- The hooks config file has a startup diagnostic that logs ABI entry count
+
+**MetaMask shows insane gas estimate (millions of APE) for throwBall:**
+- Cause: Transaction will revert, causing gas estimation to fail
+- Common revert reasons:
+  - `InsufficientBalls(ballType, required, available)` - Player has 0 balls of that type
+  - `PokemonNotActive(slot)` - No Pokemon in that slot
+  - `NoAttemptsRemaining(slot)` - Pokemon already at max attempts
+- Fix: Frontend should validate before calling (CatchAttemptModal already does this)
+- Debug: Use `simulateContract` to see the actual revert reason before sending
+
 ## External Services
 
 - **Alchemy**: Primary RPC endpoint (wagmi client) and NFT API v3
@@ -1332,8 +1353,9 @@ const { events: catches } = useCaughtPokemonEvents();
 
 **Configuration:**
 - Contract address: `VITE_POKEBALL_GAME_ADDRESS` env var
-- ABI: `contracts/abi/abi_PokeballGameV4.json` (v1.4.x, native APE)
+- ABI: `contracts/abi/abi_PokeballGameV5.json` (v1.5.x, unified payments)
 - Chain: ApeChain Mainnet (33139)
+- **Important:** ABI file must be a raw array `[...]`, not a Hardhat artifact object
 
 **Return Shape (write hooks):**
 ```typescript
