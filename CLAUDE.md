@@ -249,8 +249,9 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
 | **WAPE (Wrapped APE)** | `0x48b62137EdfA95a428D35C09E44256a739F6B557` |
+| **PokeballGame Implementation (v1.4.1)** | `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` |
 
-**Note:** On ApeChain, APE is the native gas token. For ERC-20 APE payments in smart contracts, use **WAPE** (Wrapped APE). The PokeballGame contract v1.3.1+ uses WAPE for APE payments.
+**Note:** On ApeChain, APE is the native gas token. PokeballGame v1.4.1 uses **native APE via msg.value** for APE payments - no ERC-20 approval needed. USDC.e payments still require ERC-20 approval.
 
 ### Multicall3 Configuration
 
@@ -664,8 +665,8 @@ Pokemon catching mini-game with provably fair mechanics:
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
-- Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5`
-- Implementation (v1.4.1): *Deploy via `upgrade_PokeballGameV4_NativeAPE.cjs`*
+- Implementation (v1.4.1): `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` (deployed 2026-01-21)
+- Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5` (legacy)
 
 **Payment Methods (v1.4.0+):**
 | Token | Method | Approval Required |
@@ -756,16 +757,17 @@ Users pay the **exact ball price** with no markup. Fees are split internally:
 
 **Upgrade Commands:**
 ```bash
-# Upgrade to v1.4.0 (Native APE Payments)
+# Upgrade to v1.4.1 (Native APE Payments - fee fix)
 npx hardhat run contracts/deployment/upgrade_PokeballGameV4_NativeAPE.cjs --network apechain
 ```
 
-**Native APE vs ERC-20 (v1.4.0):**
+**Native APE vs ERC-20 (v1.4.1):**
 - On ApeChain, APE is the **native gas token** (like ETH on Ethereum)
-- **v1.4.0 uses native APE** via `msg.value` - NO approval needed for APE purchases!
+- **v1.4.1 uses native APE** via `msg.value` - NO approval needed for APE purchases!
 - USDC.e still uses ERC-20 `transferFrom` and requires approval
 - Frontend sends APE purchases with `{ value: costWei }` parameter
 - Contract refunds excess APE if user overpays
+- **v1.4.1 Fix:** Fees calculated from `requiredAPE`, not `msg.value` (no user markup)
 
 **Post-Upgrade Configuration (v1.3.0):**
 ```solidity
