@@ -1123,13 +1123,25 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             style={{
               ...styles.toggleButton,
               ...(paymentToken === 'APE' ? styles.toggleButtonActive : {}),
+              // Dim APE option since it's currently broken
+              opacity: 0.5,
             }}
             onClick={() => setPaymentToken('APE')}
-            disabled={isAnyPending}
+            disabled={true} // Disable APE payments until contract is fixed
+            title="APE payments temporarily unavailable"
           >
-            Pay with APE
+            Pay with APE (Unavailable)
           </button>
         </div>
+
+        {/* APE Payment Warning */}
+        {paymentToken === 'APE' && (
+          <div style={{ ...styles.errorBox, border: '2px solid #ff8800', backgroundColor: '#2a2510' }}>
+            <span style={{ color: '#ff8800', fontSize: '12px' }}>
+              APE payments are temporarily unavailable. The contract needs an upgrade to support WAPE on ApeChain. Please use USDC.e for now.
+            </span>
+          </div>
+        )}
 
         {/* Approval Loading State */}
         {isApprovalPending && (

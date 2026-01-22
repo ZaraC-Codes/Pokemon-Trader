@@ -139,8 +139,28 @@ export function useTokenApproval(
 ): UseTokenApprovalReturn {
   const { account } = useActiveWeb3React();
 
+  // CRITICAL: On ApeChain, the PokeballGame contract was initialized with the
+  // Ethereum mainnet APE address (0x4d224452801aced8b2f0aebe155379bb5d594381)
+  // which doesn't exist on ApeChain. APE payments will NOT work until the
+  // contract is upgraded to use WAPE (0x48b62137EdfA95a428D35C09E44256a739F6B557).
+  //
+  // For now, we still use the original APE address to match what the contract expects,
+  // but users should be warned that APE payments are broken.
   const tokenAddress = tokenType === 'APE' ? RELATED_CONTRACTS.APE : RELATED_CONTRACTS.USDC;
   const spender = POKEBALL_GAME_ADDRESS;
+
+  // Log the configuration being used
+  console.log('[useTokenApproval] Config:', {
+    tokenType,
+    tokenAddress,
+    spender,
+    owner: account,
+    chainId: POKEBALL_GAME_CHAIN_ID,
+    RELATED_CONTRACTS,
+    WARNING: tokenType === 'APE'
+      ? 'APE token address is incorrect on ApeChain! Contract needs upgrade to use WAPE.'
+      : undefined,
+  });
 
   // Read current allowance
   const {
@@ -195,12 +215,22 @@ export function useTokenApproval(
       console.log('[useTokenApproval] Approval tx confirmed! Refetching allowance...', {
         hash: writeHash,
         token: tokenType,
+        tokenAddress,
+        spender,
+        owner: account,
+        chainId: POKEBALL_GAME_CHAIN_ID,
       });
       lastConfirmedHashRef.current = writeHash;
       // Refetch the allowance after successful approval
-      refetch();
+      refetch().then((result) => {
+        console.log('[useTokenApproval] Refetch result:', {
+          data: result.data?.toString(),
+          status: result.status,
+          error: result.error,
+        });
+      });
     }
-  }, [isConfirmed, writeHash, refetch, tokenType]);
+  }, [isConfirmed, writeHash, refetch, tokenType, tokenAddress, spender, account]);
 
   // Debug logging for approval state
   useEffect(() => {
