@@ -34,6 +34,7 @@ import {
   type BallType,
 } from '../../hooks/pokeballGame';
 import { PokeBallShop } from './PokeBallShop';
+import { TransactionHistory } from '../TransactionHistory';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -247,9 +248,12 @@ const styles = {
 /** Ball inventory section */
 function BallInventorySection({
   inventory,
+  onClick,
 }: {
   inventory: ReturnType<typeof usePlayerBallInventory>;
+  onClick?: () => void;
 }) {
+  const [isHovered, setIsHovered] = useState(false);
   const balls: { type: BallType; count: number }[] = [
     { type: 0, count: inventory.pokeBalls },
     { type: 1, count: inventory.greatBalls },
@@ -258,8 +262,24 @@ function BallInventorySection({
   ];
 
   return (
-    <div style={styles.section}>
-      <div style={styles.sectionTitle}>Balls</div>
+    <div
+      style={{
+        ...styles.section,
+        cursor: onClick ? 'pointer' : 'default',
+        borderColor: isHovered && onClick ? '#00ffff' : '#fff',
+        transition: 'border-color 0.1s',
+      }}
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      title="Click to view transaction history"
+    >
+      <div style={{
+        ...styles.sectionTitle,
+        color: isHovered && onClick ? '#00ffff' : '#888',
+      }}>
+        Balls
+      </div>
       <div style={styles.ballGrid} className="game-hud-ball-grid">
         {balls.map(({ type, count }) => (
           <div key={type} style={styles.ballItem} title={getBallTypeName(type)}>
@@ -291,6 +311,7 @@ function BallInventorySection({
 
 export function GameHUD({ playerAddress }: GameHUDProps) {
   const [shopOpen, setShopOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [buttonHover, setButtonHover] = useState(false);
 
   // Inject responsive styles on mount
@@ -314,8 +335,11 @@ export function GameHUD({ playerAddress }: GameHUDProps) {
   return (
     <>
       <div className="game-hud-container">
-        {/* Ball Inventory */}
-        <BallInventorySection inventory={inventory} />
+        {/* Ball Inventory - Click to open Transaction History */}
+        <BallInventorySection
+          inventory={inventory}
+          onClick={() => setHistoryOpen(true)}
+        />
 
         {/* Shop Button */}
         <button
@@ -335,6 +359,13 @@ export function GameHUD({ playerAddress }: GameHUDProps) {
       <PokeBallShop
         isOpen={shopOpen}
         onClose={() => setShopOpen(false)}
+        playerAddress={playerAddress}
+      />
+
+      {/* Transaction History Modal */}
+      <TransactionHistory
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
         playerAddress={playerAddress}
       />
     </>
