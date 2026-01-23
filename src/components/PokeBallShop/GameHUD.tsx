@@ -42,6 +42,8 @@ import { TransactionHistory } from '../TransactionHistory';
 
 export interface GameHUDProps {
   playerAddress?: `0x${string}`;
+  /** Callback to open the Help modal */
+  onShowHelp?: () => void;
 }
 
 // ============================================================
@@ -231,6 +233,25 @@ const styles = {
     backgroundColor: '#2a4a2a',
     borderColor: '#00ff66',
   },
+  // Help button styles
+  helpButton: {
+    padding: '10px 12px',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    border: '2px solid #ffcc00',
+    color: '#ffcc00',
+    fontFamily: "'Courier New', monospace",
+    fontSize: '14px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    textAlign: 'center' as const,
+    transition: 'all 0.1s',
+    whiteSpace: 'nowrap' as const,
+    lineHeight: 1,
+  },
+  helpButtonHover: {
+    backgroundColor: 'rgba(255, 204, 0, 0.15)',
+    borderColor: '#ffdd44',
+  },
   // Loading indicator
   loadingDot: {
     display: 'inline-block',
@@ -309,10 +330,11 @@ function BallInventorySection({
 // MAIN COMPONENT
 // ============================================================
 
-export function GameHUD({ playerAddress }: GameHUDProps) {
+export function GameHUD({ playerAddress, onShowHelp }: GameHUDProps) {
   const [shopOpen, setShopOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [buttonHover, setButtonHover] = useState(false);
+  const [shopButtonHover, setShopButtonHover] = useState(false);
+  const [helpButtonHover, setHelpButtonHover] = useState(false);
 
   // Inject responsive styles on mount
   useEffect(() => {
@@ -345,14 +367,30 @@ export function GameHUD({ playerAddress }: GameHUDProps) {
         <button
           style={{
             ...styles.shopButton,
-            ...(buttonHover ? styles.shopButtonHover : {}),
+            ...(shopButtonHover ? styles.shopButtonHover : {}),
           }}
           onClick={() => setShopOpen(true)}
-          onMouseEnter={() => setButtonHover(true)}
-          onMouseLeave={() => setButtonHover(false)}
+          onMouseEnter={() => setShopButtonHover(true)}
+          onMouseLeave={() => setShopButtonHover(false)}
         >
           SHOP
         </button>
+
+        {/* Help Button */}
+        {onShowHelp && (
+          <button
+            style={{
+              ...styles.helpButton,
+              ...(helpButtonHover ? styles.helpButtonHover : {}),
+            }}
+            onClick={onShowHelp}
+            onMouseEnter={() => setHelpButtonHover(true)}
+            onMouseLeave={() => setHelpButtonHover(false)}
+            title="How to Play"
+          >
+            ?
+          </button>
+        )}
       </div>
 
       {/* Shop Modal */}

@@ -81,6 +81,9 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── AdminDevTools/           # Dev tools panel (dev mode only)
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── AdminDevTools.tsx        # SlabNFTManager admin operations
+│   │   ├── HelpModal/               # How to Play help modal
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   └── HelpModal.tsx            # Game instructions + ball info
 │   │   └── FundingWidget/           # Cross-chain funding widget
 │   │       ├── index.ts                 # Barrel export
 │   │       └── FundingWidget.tsx        # Bridge/swap/buy modal
@@ -891,6 +894,50 @@ import { AdminDevTools } from './components/AdminDevTools';
 - `[AdminDevTools] Finding untracked NFTs in range X-Y`
 - `[AdminDevTools] Recovering NFT X`
 - `[AdminDevTools] Clearing pending request X`
+
+### HelpModal Component
+In-game "How to Play" help modal explaining Pokemon catching mechanics:
+
+**Location:** `src/components/HelpModal/HelpModal.tsx`
+
+**Props:**
+```typescript
+interface HelpModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+```
+
+**Features:**
+- Step-by-step gameplay instructions (Buy Balls → Find Pokemon → Throw & Catch → Collect NFT)
+- Ball type info with catch rates (2%, 20%, 50%, 99%)
+- Color-coded ball indicators matching game UI
+- ESC key to close
+- Click outside to close
+- Pixel-art styling consistent with game theme
+
+**First-Visit Auto-Open:**
+- On first visit, modal auto-opens after 1 second delay
+- Sets `localStorage.setItem('pokemonTrader_helpSeen', 'true')` to prevent re-opening
+- Users can always reopen via the "?" button in the HUD
+
+**HUD Integration:**
+- Yellow "?" button appears in GameHUD next to SHOP button
+- Button only renders when `onShowHelp` prop is provided to GameHUD
+
+**Usage:**
+```tsx
+import { HelpModal } from './components/HelpModal';
+
+// State management
+const [showHelp, setShowHelp] = useState(false);
+
+// Render
+<HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+// Pass callback to HUD
+<GameHUD playerAddress={account} onShowHelp={() => setShowHelp(true)} />
+```
 
 ### ThirdWeb Checkout Integration (Legacy)
 Buy crypto directly in the PokeBall Shop using ThirdWeb Pay:

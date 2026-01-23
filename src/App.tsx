@@ -14,6 +14,7 @@ import { CatchAttemptModal } from './components/CatchAttemptModal';
 import { CatchWinModal } from './components/CatchWinModal';
 import { CatchResultModal, type CatchResultState } from './components/CatchResultModal';
 import { AdminDevTools } from './components/AdminDevTools';
+import { HelpModal } from './components/HelpModal';
 import { useCaughtPokemonEvents, useFailedCatchEvents, type BallType } from './hooks/pokeballGame';
 import { useActiveWeb3React } from './hooks/useActiveWeb3React';
 import { contractService } from './services/contractService';
@@ -66,6 +67,7 @@ function AppContent() {
   const [catchWin, setCatchWin] = useState<CatchWinState | null>(null);
   const [catchFailure, setCatchFailure] = useState<CatchResultState | null>(null);
   const [isAdminToolsOpen, setIsAdminToolsOpen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   // Music disabled
   // const [isMusicPlaying, setIsMusicPlaying] = useState(true);
 
@@ -351,6 +353,19 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isDevMode]);
 
+  // Auto-show Help modal on first visit
+  useEffect(() => {
+    const helpSeen = localStorage.getItem('pokemonTrader_helpSeen');
+    if (!helpSeen) {
+      // Small delay to let the game load first
+      const timer = setTimeout(() => {
+        setShowHelp(true);
+        localStorage.setItem('pokemonTrader_helpSeen', 'true');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   // Music disabled
   // const handleMusicToggle = () => {
   //   // State will be updated by the game scene event
@@ -456,6 +471,16 @@ function AppContent() {
     }
   }, []);
 
+  // Open the Help modal
+  const handleShowHelp = useCallback(() => {
+    setShowHelp(true);
+  }, []);
+
+  // Close the Help modal
+  const handleCloseHelp = useCallback(() => {
+    setShowHelp(false);
+  }, []);
+
   return (
     <div
       style={{
@@ -476,7 +501,7 @@ function AppContent() {
         onVisualThrowRef={visualThrowRef}
         onCatchResultRef={catchResultRef}
       />
-      <GameHUD playerAddress={account} />
+      <GameHUD playerAddress={account} onShowHelp={handleShowHelp} />
 
       {/* Toast Notifications */}
       <div style={{
@@ -622,6 +647,9 @@ function AppContent() {
 
       {/* Inventory Terminal */}
       <InventoryTerminal isOpen={isInventoryOpen} onClose={handleInventoryClose} />
+
+      {/* Help Modal */}
+      <HelpModal isOpen={showHelp} onClose={handleCloseHelp} />
 
       {/* Music disabled */}
     </div>
