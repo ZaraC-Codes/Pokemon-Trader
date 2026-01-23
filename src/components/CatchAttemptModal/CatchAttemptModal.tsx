@@ -42,7 +42,7 @@
  * ```
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   useThrowBall,
   usePlayerBallInventory,
@@ -51,6 +51,7 @@ import {
   getCatchRatePercent,
   type BallType,
 } from '../../hooks/pokeballGame';
+import { formatUnits } from 'viem';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -402,7 +403,17 @@ export function CatchAttemptModal({
   const [throwingBallType, setThrowingBallType] = React.useState<BallType | null>(null);
 
   // Hooks
-  const { write, isLoading, isPending, error, reset } = useThrowBall();
+  const {
+    write,
+    isLoading,
+    isPending,
+    error,
+    reset,
+    isFeeReady,
+    isFeeLoading,
+    feeError,
+    throwFee,
+  } = useThrowBall();
   const inventory = usePlayerBallInventory(playerAddress);
 
   // Get ball count for each type
@@ -430,6 +441,31 @@ export function CatchAttemptModal({
     inventory.greatBalls > 0 ||
     inventory.ultraBalls > 0 ||
     inventory.masterBalls > 0;
+
+  // Debug log inventory data to diagnose sync issues
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[CatchAttemptModal] === MODAL OPENED ===');
+      console.log('[CatchAttemptModal] playerAddress:', playerAddress ?? 'UNDEFINED');
+      console.log('[CatchAttemptModal] isContractConfigured:', inventory.isContractConfigured);
+      console.log('[CatchAttemptModal] On-chain inventory:', {
+        pokeBalls: inventory.pokeBalls,
+        greatBalls: inventory.greatBalls,
+        ultraBalls: inventory.ultraBalls,
+        masterBalls: inventory.masterBalls,
+        totalBalls: inventory.totalBalls,
+        isLoading: inventory.isLoading,
+        error: inventory.error?.message ?? 'none',
+      });
+      console.log('[CatchAttemptModal] Fee status:', {
+        isFeeReady,
+        isFeeLoading,
+        feeError,
+        throwFee: throwFee ? formatUnits(throwFee, 18) + ' APE' : 'undefined',
+      });
+      console.log('[CatchAttemptModal] hasAnyBalls:', hasAnyBalls);
+    }
+  }, [playerAddress, isOpen, inventory, isFeeReady, isFeeLoading, feeError, throwFee, hasAnyBalls]);
 
   // Handle throw
   const handleThrow = useCallback(
@@ -573,13 +609,29 @@ export function CatchAttemptModal({
           </>
         )}
 
-        {/* Error Display */}
+        {/* Fee Error Warning */}
+        {feeError && !error && (
+          <div style={styles.warningBox}>
+            <span style={styles.warningText}>
+              ⚠️ {feeError}
+            </span>
+          </div>
+        )}
+
+        {/* Fee Loading Status */}
+        {isFeeLoading && !isFeeReady && (
+          <div style={styles.warningBox}>
+            <span style={styles.warningText}>
+              Loading throw fee...
+            </span>
+          </div>
+        )}
+
+        {/* Error Display - show full revert reason from gas estimation */}
         {error && (
           <div style={styles.errorBox}>
             <span style={styles.errorText}>
-              {error.message.length > 100
-                ? `${error.message.slice(0, 100)}...`
-                : error.message}
+              {error.message}
             </span>
             <button style={styles.dismissButton} onClick={handleDismissError}>
               Dismiss
@@ -599,6 +651,11 @@ export function CatchAttemptModal({
         {/* Footer hint */}
         <div style={styles.footer}>
           Slot #{slotIndex} | Higher tier balls have better catch rates
+          {throwFee !== undefined && throwFee > 0n && isFeeReady && (
+            <div style={{ marginTop: '4px', color: '#888' }}>
+              Entropy fee: ~{Number(formatUnits(throwFee, 18)).toFixed(4)} APE
+            </div>
+          )}
         </div>
       </div>
     </div>

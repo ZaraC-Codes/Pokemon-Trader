@@ -127,3 +127,10 @@ export {
   type TokenType,
   type UseTokenApprovalReturn,
 } from './useTokenApproval';
+
+// Contract diagnostics hook (environment sanity checks)
+export {
+  useContractDiagnostics,
+  type ContractDiagnostics,
+  type UseContractDiagnosticsReturn,
+} from './useContractDiagnostics';

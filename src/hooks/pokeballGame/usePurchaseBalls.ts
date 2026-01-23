@@ -4,9 +4,15 @@
  * Hook for purchasing PokeBalls from the PokeballGame contract (v1.4.0+).
  * Supports both native APE and USDC.e payment methods.
  *
- * PAYMENT METHODS (v1.4.0):
- * - APE: Uses native APE via msg.value (like ETH on Ethereum). NO approval needed.
- * - USDC.e: Uses ERC-20 transferFrom. Requires approval via useTokenApproval.
+ * PAYMENT METHODS (v1.4.0+):
+ * - APE: Uses dedicated `purchaseBallsWithAPE(ballType, quantity)` function
+ *        Native APE sent via msg.value. NO approval needed.
+ * - USDC.e: Uses dedicated `purchaseBallsWithUSDC(ballType, quantity)` function
+ *           Requires approval via useTokenApproval hook.
+ *
+ * IMPORTANT: Uses dedicated contract functions to avoid gas estimation issues.
+ * The generic `purchaseBalls()` function can cause "ERC20: transfer amount exceeds
+ * allowance" errors during gas estimation when switching between APE and USDC.e.
  *
  * Usage:
  * ```tsx
@@ -112,6 +118,9 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
   // Track the current transaction hash for receipt fetching
   const [currentHash, setCurrentHash] = useState<`0x${string}` | undefined>(undefined);
 
+  // Track local errors (e.g., gas estimation failures)
+  const [localError, setLocalError] = useState<Error | undefined>(undefined);
+
   // Wagmi write contract hook
   const {
     writeContract,
@@ -139,19 +148,24 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
   // Combined loading state
   const isLoading = isWritePending || isReceiptLoading;
 
-  // Combined error
-  const error = writeError || receiptError || undefined;
+  // Combined error (prioritize local errors like gas estimation failures)
+  const error = localError || writeError || receiptError || undefined;
 
   // Write function
   const write = useCallback(
     async (ballType: BallType, quantity: number, useAPE: boolean, apePriceUSD8Dec?: bigint) => {
+      // Clear any previous local error
+      setLocalError(undefined);
+
       if (!POKEBALL_GAME_ADDRESS) {
         console.error('[usePurchaseBalls] Contract address not configured');
+        setLocalError(new Error('Contract not configured'));
         return;
       }
 
       if (quantity <= 0) {
         console.error('[usePurchaseBalls] Quantity must be greater than 0');
+        setLocalError(new Error('Quantity must be greater than 0'));
         return;
       }
 
@@ -194,34 +208,31 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
         }),
       });
 
-      // Build the transaction config
-      const txConfig = {
-        address: POKEBALL_GAME_ADDRESS,
-        abi: POKEBALL_GAME_ABI,
-        functionName: 'purchaseBalls',
-        args: [ballType, BigInt(quantity), useAPE],
-        ...(useAPE && { value: totalCostAPE }),
-        chainId: POKEBALL_GAME_CHAIN_ID,
-      };
-
       // ====== DEBUG: Log transaction parameters ======
+      // v1.4.0+: Uses dedicated functions (purchaseBallsWithAPE / purchaseBallsWithUSDC)
       console.log('='.repeat(60));
       console.log('[usePurchaseBalls] DEBUG: Transaction Configuration');
       console.log('='.repeat(60));
       console.log('[usePurchaseBalls] Transaction params:', {
         to: POKEBALL_GAME_ADDRESS,
         account: userAddress,
-        functionName: 'purchaseBalls',
-        args: [ballType, BigInt(quantity), useAPE],
+        functionName: useAPE ? 'purchaseBallsWithAPE' : 'purchaseBallsWithUSDC',
+        args: [ballType, BigInt(quantity)],
         value: useAPE ? totalCostAPE.toString() : 'undefined (USDC.e)',
         valueInAPE: useAPE ? formatEther(totalCostAPE) : 'N/A',
         chainId: POKEBALL_GAME_CHAIN_ID,
       });
 
       // ====== DEBUG: Estimate gas and get gas price ======
+      // IMPORTANT (v1.4.0+): Use dedicated functions to avoid ERC-20 allowance checks
+      // - purchaseBallsWithAPE(ballType, quantity) - payable, 2 args
+      // - purchaseBallsWithUSDC(ballType, quantity) - nonpayable, 2 args
       if (publicClient) {
         try {
-          console.log('[usePurchaseBalls] Estimating gas...');
+          console.log('[usePurchaseBalls] Estimating gas using dedicated function:', {
+            function: useAPE ? 'purchaseBallsWithAPE' : 'purchaseBallsWithUSDC',
+            args: [ballType, BigInt(quantity)],
+          });
 
           // Get current gas price
           const gasPrice = await publicClient.getGasPrice();
@@ -230,12 +241,13 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
             gasPriceGwei: formatGwei(gasPrice),
           });
 
-          // Estimate gas for the transaction
+          // Estimate gas using the dedicated function to avoid ERC-20 allowance check errors
+          // The generic purchaseBalls() may internally check USDC.e allowance even when useAPE=true
           const estimatedGas = await publicClient.estimateContractGas({
             address: POKEBALL_GAME_ADDRESS,
             abi: POKEBALL_GAME_ABI,
-            functionName: 'purchaseBalls',
-            args: [ballType, BigInt(quantity), useAPE],
+            functionName: useAPE ? 'purchaseBallsWithAPE' : 'purchaseBallsWithUSDC',
+            args: [ballType, BigInt(quantity)],
             account: userAddress,
             ...(useAPE && { value: totalCostAPE }),
           });
@@ -262,7 +274,39 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
 
         } catch (gasError) {
           console.error('[usePurchaseBalls] Gas estimation failed:', gasError);
-          console.log('[usePurchaseBalls] Will proceed anyway - MetaMask will estimate');
+          // Log more details about the error for debugging
+          const errorMessage = gasError instanceof Error ? gasError.message : String(gasError);
+          const isAllowanceError = errorMessage.includes('allowance') || errorMessage.includes('exceeds');
+          const isInsufficientFunds = errorMessage.includes('insufficient') || errorMessage.includes('funds');
+
+          console.error('[usePurchaseBalls] Error details:', {
+            message: errorMessage,
+            isAllowanceError,
+            isInsufficientFunds,
+          });
+
+          // STOP on gas estimation failure - don't proceed to avoid insane gas limits
+          // Common causes:
+          // - Insufficient APE balance (for APE payments)
+          // - Missing USDC.e approval (for USDC.e payments - should use useTokenApproval first)
+          // - Contract revert (invalid ball type, quantity 0, etc.)
+          if (isAllowanceError) {
+            console.error('[usePurchaseBalls] ALLOWANCE ERROR - For USDC.e payments, approve first via useTokenApproval.');
+            console.error('[usePurchaseBalls] For APE payments, this error should NOT occur. Check if correct function is called.');
+            setLocalError(new Error('ERC-20 allowance error. For USDC.e payments, please approve first.'));
+            return; // Don't proceed
+          }
+
+          if (isInsufficientFunds) {
+            console.error('[usePurchaseBalls] INSUFFICIENT FUNDS - User does not have enough APE to complete purchase.');
+            setLocalError(new Error(`Insufficient APE balance. Need at least ${useAPE ? formatEther(totalCostAPE) : '0'} APE plus gas.`));
+            return; // Don't proceed
+          }
+
+          // For other errors, also stop and show error
+          console.error('[usePurchaseBalls] STOPPING - Gas estimation failed. Transaction would likely fail.');
+          setLocalError(new Error(`Transaction would fail: ${errorMessage.slice(0, 100)}`));
+          return; // Don't proceed
         }
       } else {
         console.warn('[usePurchaseBalls] No public client available for gas estimation');
@@ -273,8 +317,9 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
       console.log('='.repeat(60));
 
       if (useAPE) {
-        // v1.4.0: APE payments use native APE via msg.value - NO approval needed!
-        console.log('[usePurchaseBalls] Using native APE payment (no approval required)');
+        // v1.4.0+: Use dedicated purchaseBallsWithAPE function for cleaner APE payments
+        // This avoids any internal ERC-20 allowance checks that can cause gas estimation issues
+        console.log('[usePurchaseBalls] Using purchaseBallsWithAPE (no approval required)');
         console.log(`[usePurchaseBalls] Sending ${formatEther(totalCostAPE)} APE via msg.value`);
         console.log('[usePurchaseBalls] value (wei):', totalCostAPE.toString());
         console.log('[usePurchaseBalls] value (APE):', formatEther(totalCostAPE));
@@ -282,21 +327,22 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
         writeContract({
           address: POKEBALL_GAME_ADDRESS,
           abi: POKEBALL_GAME_ABI,
-          functionName: 'purchaseBalls',
-          args: [ballType, BigInt(quantity), true],
+          functionName: 'purchaseBallsWithAPE',
+          args: [ballType, BigInt(quantity)],
           value: totalCostAPE, // Native APE sent via msg.value
           chainId: POKEBALL_GAME_CHAIN_ID,
         });
       } else {
-        // USDC.e payments use ERC-20 transferFrom - requires prior approval
-        console.log('[usePurchaseBalls] Using USDC.e payment (requires ERC-20 approval)');
+        // v1.4.0+: Use dedicated purchaseBallsWithUSDC function for cleaner USDC.e payments
+        // Requires prior ERC-20 approval via useTokenApproval hook
+        console.log('[usePurchaseBalls] Using purchaseBallsWithUSDC (requires ERC-20 approval)');
         console.log(`[usePurchaseBalls] Ensure USDC.e approval for ${POKEBALL_GAME_ADDRESS}`);
 
         writeContract({
           address: POKEBALL_GAME_ADDRESS,
           abi: POKEBALL_GAME_ABI,
-          functionName: 'purchaseBalls',
-          args: [ballType, BigInt(quantity), false],
+          functionName: 'purchaseBallsWithUSDC',
+          args: [ballType, BigInt(quantity)],
           chainId: POKEBALL_GAME_CHAIN_ID,
         });
       }
@@ -307,6 +353,7 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
   // Reset function
   const reset = useCallback(() => {
     setCurrentHash(undefined);
+    setLocalError(undefined);
     resetWrite();
   }, [resetWrite]);
 

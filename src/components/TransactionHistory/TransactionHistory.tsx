@@ -516,18 +516,40 @@ export function TransactionHistory({
     totalCount,
   } = useTransactionHistory(playerAddress);
 
-  // Calculate stats
+  // Calculate stats including spending totals for NFT trigger visibility
   const stats = useMemo(() => {
     let purchases = 0;
     let throws = 0;
     let caught = 0;
     let failed = 0;
+    let totalSpentUSD = 0; // Approximate USD spent (for NFT pool threshold)
+    let totalSpentAPE = 0;
+    let totalSpentUSDC = 0;
 
     for (const tx of transactions) {
       switch (tx.type) {
-        case 'purchase':
+        case 'purchase': {
           purchases++;
+          // Parse spending from estimatedCost (e.g., "52.63 APE" or "10.00 USDC")
+          const purchaseTx = tx as PurchaseTransaction;
+          const costStr = purchaseTx.estimatedCost;
+          const match = costStr.match(/^~?([\d.]+)\s*(APE|USDC)/i);
+          if (match) {
+            const amount = parseFloat(match[1]);
+            const token = match[2].toUpperCase();
+            if (token === 'APE') {
+              totalSpentAPE += amount;
+              // Approximate USD from ball prices (since we know ball type)
+              const ballPrices = [1, 10, 25, 49.9];
+              const qty = Number(purchaseTx.quantity);
+              totalSpentUSD += (ballPrices[purchaseTx.ballType] || 0) * qty;
+            } else {
+              totalSpentUSDC += amount;
+              totalSpentUSD += amount;
+            }
+          }
           break;
+        }
         case 'throw':
           throws++;
           break;
@@ -542,7 +564,16 @@ export function TransactionHistory({
 
     const catchRate = throws > 0 ? Math.round((caught / throws) * 100) : 0;
 
-    return { purchases, throws, caught, failed, catchRate };
+    return {
+      purchases,
+      throws,
+      caught,
+      failed,
+      catchRate,
+      totalSpentUSD,
+      totalSpentAPE,
+      totalSpentUSDC,
+    };
   }, [transactions]);
 
   if (!isOpen) return null;
@@ -572,43 +603,73 @@ export function TransactionHistory({
 
         {/* Stats Bar */}
         {playerAddress && transactions.length > 0 && (
-          <div style={styles.statsBar}>
-            <span style={styles.statItem}>
-              Purchases:
-              <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.purchase }}>
-                {stats.purchases}
+          <>
+            <div style={styles.statsBar}>
+              <span style={styles.statItem}>
+                Purchases:
+                <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.purchase }}>
+                  {stats.purchases}
+                </span>
               </span>
-            </span>
-            <span style={styles.statItem}>
-              Throws:
-              <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.throw }}>
-                {stats.throws}
+              <span style={styles.statItem}>
+                Throws:
+                <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.throw }}>
+                  {stats.throws}
+                </span>
               </span>
-            </span>
-            <span style={styles.statItem}>
-              Caught:
-              <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.caught }}>
-                {stats.caught}
+              <span style={styles.statItem}>
+                Caught:
+                <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.caught }}>
+                  {stats.caught}
+                </span>
               </span>
-            </span>
-            <span style={styles.statItem}>
-              Escaped:
-              <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.failed }}>
-                {stats.failed}
+              <span style={styles.statItem}>
+                Escaped:
+                <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.failed }}>
+                  {stats.failed}
+                </span>
               </span>
-            </span>
-            <span style={styles.statItem}>
-              Catch Rate:
-              <span
-                style={{
-                  ...styles.statValue,
-                  color: stats.catchRate >= 50 ? '#00ff88' : '#ffcc00',
-                }}
-              >
-                {stats.catchRate}%
+              <span style={styles.statItem}>
+                Catch Rate:
+                <span
+                  style={{
+                    ...styles.statValue,
+                    color: stats.catchRate >= 50 ? '#00ff88' : '#ffcc00',
+                  }}
+                >
+                  {stats.catchRate}%
+                </span>
               </span>
-            </span>
-          </div>
+            </div>
+            {/* Spending Summary - helpful for testing NFT pool threshold */}
+            <div style={{ ...styles.statsBar, borderColor: '#4488ff', marginTop: '0' }}>
+              <span style={styles.statItem}>
+                Total Spent (USD):
+                <span style={{ ...styles.statValue, color: '#00ff88' }}>
+                  ${stats.totalSpentUSD.toFixed(2)}
+                </span>
+              </span>
+              {stats.totalSpentAPE > 0 && (
+                <span style={styles.statItem}>
+                  APE Used:
+                  <span style={{ ...styles.statValue, color: '#ffcc00' }}>
+                    {stats.totalSpentAPE.toFixed(2)}
+                  </span>
+                </span>
+              )}
+              {stats.totalSpentUSDC > 0 && (
+                <span style={styles.statItem}>
+                  USDC.e Used:
+                  <span style={{ ...styles.statValue, color: '#00ff00' }}>
+                    ${stats.totalSpentUSDC.toFixed(2)}
+                  </span>
+                </span>
+              )}
+              <span style={{ ...styles.statItem, color: '#666' }}>
+                (NFT pool: 97% of purchases)
+              </span>
+            </div>
+          </>
         )}
 
         {/* Error State */}
