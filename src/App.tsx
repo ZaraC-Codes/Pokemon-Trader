@@ -12,7 +12,7 @@ import { GameHUD } from './components/PokeBallShop';
 import { CatchAttemptModal } from './components/CatchAttemptModal';
 import { CatchWinModal } from './components/CatchWinModal';
 import { CatchResultModal, type CatchResultState } from './components/CatchResultModal';
-import { useCaughtPokemonEvents, useFailedCatchEvents } from './hooks/pokeballGame';
+import { useCaughtPokemonEvents, useFailedCatchEvents, type BallType } from './hooks/pokeballGame';
 import { useActiveWeb3React } from './hooks/useActiveWeb3React';
 import { contractService } from './services/contractService';
 import type { TradeListing } from './services/contractService';
@@ -69,6 +69,9 @@ function AppContent() {
   // Track which events we've already processed to avoid duplicates
   const processedCatchEventsRef = useRef<Set<string>>(new Set());
   const processedFailEventsRef = useRef<Set<string>>(new Set());
+
+  // Ref for triggering visual throw animation in Phaser
+  const visualThrowRef = useRef<((pokemonId: bigint, ballType: BallType) => void) | null>(null);
 
   // Toast management (defined before effects that use it)
   const addToast = useCallback((message: string, type: ToastMessage['type'] = 'warning') => {
@@ -404,6 +407,14 @@ function AppContent() {
     }
   }, [catchFailure, addToast]);
 
+  // Handle visual throw animation before contract call
+  const handleVisualThrow = useCallback((pokemonId: bigint, ballType: BallType) => {
+    // Trigger the Phaser animation via the ref
+    if (visualThrowRef.current) {
+      visualThrowRef.current(pokemonId, ballType);
+    }
+  }, []);
+
   return (
     <div
       style={{
@@ -421,6 +432,7 @@ function AppContent() {
         onTradeClick={handleTradeClick}
         onPokemonClick={handlePokemonClick}
         onCatchOutOfRange={handleCatchOutOfRange}
+        onVisualThrowRef={visualThrowRef}
       />
       <GameHUD playerAddress={account} />
 
@@ -476,6 +488,7 @@ function AppContent() {
         pokemonId={selectedPokemon?.pokemonId ?? BigInt(0)}
         slotIndex={selectedPokemon?.slotIndex ?? 0}
         attemptsRemaining={selectedPokemon?.attemptsRemaining ?? 0}
+        onVisualThrow={handleVisualThrow}
       />
 
       {/* Catch Win Modal - Shows NFT details on successful catch */}

@@ -66,6 +66,13 @@ export interface CatchAttemptModalProps {
   slotIndex: number;
   /** Number of attempts remaining before Pokemon relocates */
   attemptsRemaining: number;
+  /**
+   * Optional callback to trigger visual ball throw animation in Phaser.
+   * Called BEFORE the contract write so the animation plays while tx is pending.
+   * @param pokemonId - Target Pokemon ID
+   * @param ballType - Ball type being thrown (0-3)
+   */
+  onVisualThrow?: (pokemonId: bigint, ballType: BallType) => void;
 }
 
 // ============================================================
@@ -389,6 +396,7 @@ export function CatchAttemptModal({
   pokemonId,
   slotIndex,
   attemptsRemaining,
+  onVisualThrow,
 }: CatchAttemptModalProps) {
   // Track which ball type is being thrown (for button label)
   const [throwingBallType, setThrowingBallType] = React.useState<BallType | null>(null);
@@ -430,9 +438,20 @@ export function CatchAttemptModal({
       if (getBallCount(ballType) <= 0) return;
 
       setThrowingBallType(ballType);
+
+      // Trigger visual throw animation BEFORE contract write
+      // so the ball arc plays while the transaction is pending
+      if (onVisualThrow) {
+        onVisualThrow(pokemonId, ballType);
+      }
+
+      // Close the modal immediately so the throw animation is visible
+      // The result will be shown via CatchWinModal or CatchResultModal
+      onClose();
+
       write(slotIndex, ballType);
     },
-    [write, slotIndex, getBallCount]
+    [write, slotIndex, getBallCount, onVisualThrow, pokemonId, onClose]
   );
 
   // Reset throwing state when transaction completes or errors

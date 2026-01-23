@@ -198,7 +198,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | File | Purpose |
 |------|---------|
 | `src/App.tsx` | Root component with Web3 providers |
-| `src/game/scenes/GameScene.ts` | Main game logic, rendering, exposes `getPokemonSpawnManager()` |
+| `src/game/scenes/GameScene.ts` | Main game logic, rendering, exposes `getPokemonSpawnManager()` and `getCatchMechanicsManager()` |
 | `src/services/apechainConfig.ts` | ApeChain network configuration |
 | `src/services/pokeballGameConfig.ts` | Centralized PokeballGame on-chain config |
 | `src/services/thirdwebConfig.ts` | ThirdWeb SDK v5 client & chain config |
@@ -1201,7 +1201,7 @@ POKEMON_CONFIG = {
 ```
 
 ### GrassRustle Entity (Frontend)
-Animated grass rustle effect beneath wild Pokemon - the primary visual indicator for spawn locations:
+Grass shard confetti effect beneath wild Pokemon - visual indicator for spawn locations:
 
 **Location:** `src/game/entities/GrassRustle.ts`
 
@@ -1210,44 +1210,65 @@ Animated grass rustle effect beneath wild Pokemon - the primary visual indicator
 - `followTarget: Pokemon | null` - Pokemon being followed
 
 **Methods:**
-- `playRustle()` - Start looping rustle animation with fade in
+- `playRustle()` - Start burst animation then transition to idle flutter
 - `stopRustle(immediate?)` - Stop animation with optional fade out
-- `pause()` / `resume()` - Pause/resume animation
+- `pause()` / `resume()` - Pause/resume idle flutter timer
 - `setFollowTarget(pokemon)` - Change follow target
 - `hasValidTarget()` - Check if following valid Pokemon
 - `_resetForPool()` - Reset visual state for pool reuse (internal)
 
 **Features:**
+- **Particle-based confetti** - Small grass shards that burst upward and fall
 - Auto-follows Pokemon position via scene update listener
-- Fallback pulsing animation if sprite animation not defined
 - Renders just below Pokemon (depth 9 vs 10)
 - Supports object pooling for efficient reuse
-- **Enhanced visual effect** with kicked-up grass blades and particles
+- Two-phase animation: burst on spawn, gentle idle flutter
 
-**Visual Elements:**
-- 5 swaying grass blades (varying heights, alternating sway directions)
-- 3 floating grass particles that rise and fall
-- Small dust/debris particles for added motion
-- Dark grass base at ground level
-- All elements animate in sync at 10fps
+**Visual Effect:**
+- **Burst Phase (500ms)**: 12 shards (grass + dirt) shoot upward with horizontal spread
+- **Idle Phase**: 3 shards every 800ms at 30% intensity for gentle flutter
+- **Grass shards** (70%): Tall and thin (2-3px × 5-9px), various greens
+- **Dirt shards** (30%): Short and wide (3-5px × 2-4px), brown tones for contrast
+- Gravity simulation with fade-out in final 30% of lifespan
+- Rotating shards for natural tumbling effect
+- Higher contrast against green map for better visibility
 
 **Configuration:**
 ```typescript
 GRASS_RUSTLE_CONFIG = {
   DEPTH: 9,              // Just below Pokemon
-  Y_OFFSET: 4,           // Position at Pokemon's feet
-  FRAME_RATE: 10,        // Animation speed
+  Y_OFFSET: 6,           // Position at Pokemon's feet
   FADE_IN_DURATION: 150,
   FADE_OUT_DURATION: 100,
-  SCALE: 1.5,            // Larger for visibility
   VISIBLE_ALPHA: 1.0,    // Fully opaque
+}
+
+SHARD_CONFIG = {
+  BURST_COUNT: 12,       // Shards in initial burst
+  IDLE_COUNT: 3,         // Shards per idle flutter
+  GRASS_COLORS: [0x228B22, 0x32CD32, 0x3CB371, 0x2E8B57, 0x90EE90, 0x006400],
+  DIRT_COLORS: [0x5D4037, 0x8B7355, 0xD2B48C], // dark soil, earth, tan
+  DIRT_PROBABILITY: 0.30, // 30% dirt shards
+  GRASS_WIDTH: 2-3,      // Tall thin grass blades
+  GRASS_HEIGHT: 5-9,
+  DIRT_WIDTH: 3-5,       // Short wide dirt clumps
+  DIRT_HEIGHT: 2-4,
+  VELOCITY_Y_MIN: -120,  // Upward velocity range
+  VELOCITY_Y_MAX: -200,
+  VELOCITY_X_RANGE: 60,  // Horizontal spread
+  GRAVITY: 300,          // Downward acceleration
+  LIFESPAN_BURST: 500,   // Burst shard lifespan (ms)
+  LIFESPAN_IDLE: 400,    // Idle shard lifespan (ms)
+  SPAWN_RADIUS: 12,      // Spawn area radius
+  BURST_DURATION: 500,   // Time before transitioning to idle
+  IDLE_INTERVAL: 800,    // Time between idle spawns
+  IDLE_INTENSITY: 0.3,   // Velocity multiplier for idle
 }
 ```
 
-**Texture Requirements:**
-- `grass-rustle`: 4-frame sprite sheet (24x24 each, 96x24 total)
-- `grass-particle`: Small grass blade texture (4x6) for future particle effects
-- Animation `grass-rustle-anim` created in GameScene.create()
+**No Texture Required:**
+- Uses Phaser Graphics objects for shards (no sprite sheets needed)
+- Each shard is a small filled rectangle with physics simulation
 
 ### BallInventoryManager (Frontend)
 Client-side manager for tracking player's PokeBall inventory:
@@ -1546,6 +1567,8 @@ interface GameCanvasProps {
   onPokemonClick?: (data: PokemonClickData) => void;
   /** Called when player clicks Pokemon but is OUT of range */
   onCatchOutOfRange?: (data: CatchOutOfRangeData) => void;
+  /** Ref to receive visual throw callback (for CatchAttemptModal integration) */
+  onVisualThrowRef?: React.MutableRefObject<((pokemonId: bigint, ballType: BallType) => void) | null>;
 }
 
 interface PokemonClickData {
@@ -1572,6 +1595,7 @@ interface CatchOutOfRangeData {
 - Exposes game instance as `window.__PHASER_GAME__` for debugging
 - **Proximity-aware events**: Forwards `pokemon-catch-ready` (in range) and `catch-out-of-range` (too far) to React
 - **Coordinate Scaling**: Transforms contract coordinates (0-999) to game world pixels (0-2400)
+- **Visual Throw Bridge**: When `onVisualThrowRef` is provided, wires up callback to trigger `CatchMechanicsManager.playBallThrowById()` for throw animations
 
 **Coordinate System:**
 
@@ -1750,8 +1774,10 @@ interface CatchAttemptModalProps {
   onClose: () => void;
   playerAddress?: `0x${string}`;
   pokemonId: bigint;        // On-chain Pokemon ID for display
-  slotIndex: number;        // 0-2, used as pokemonSlot in throwBall()
+  slotIndex: number;        // 0-19, used as pokemonSlot in throwBall()
   attemptsRemaining: number; // Attempts before Pokemon relocates
+  /** Optional callback to trigger visual ball throw animation in Phaser */
+  onVisualThrow?: (pokemonId: bigint, ballType: BallType) => void;
 }
 ```
 
@@ -1790,10 +1816,10 @@ const handlePokemonClick = (spawn: PokemonSpawn) => {
 - Lists only balls the player owns (filters empty types)
 - Displays ball name, price (~$X.XX), catch rate (Y%)
 - "Throw" button for each available ball type
+- **Visual throw animation**: Calls `onVisualThrow` BEFORE contract write for immediate feedback
+- **Auto-close on throw**: Modal closes immediately after triggering animation so the ball arc is visible on the map
 - Calls `useThrowBall().write(slotIndex, ballType)` on click
-- Disables all buttons during transaction pending
-- Shows "Throwing..." label on active button
-- Error display with dismiss button
+- Result shown via CatchWinModal (success) or CatchResultModal (failure) - attempt modal doesn't reopen
 - "Connect wallet" warning if no address
 - "No attempts remaining" warning when attemptsRemaining <= 0
 - "No PokeBalls" message with shop hint if inventory empty
@@ -2158,6 +2184,15 @@ type ErrorHandler = (error: string, pokemonId?: bigint) => void;
 - `playFailAnimation(x, y)` - Ball fragments and "ESCAPED!" shake
 - `playRelocateAnimation(fromX, fromY, toX, toY)` - Teleport fade effect
 
+**Standalone Animation Methods (for React integration):**
+- `playBallThrow(toX, toY, ballType)` - Play standalone ball arc animation (~500ms)
+- `playBallThrowById(pokemonId, ballType)` - Convenience wrapper that looks up Pokemon position
+
+These methods are used by the CatchAttemptModal to play a visual throw animation BEFORE the contract write, so users see immediate feedback while the transaction is pending.
+
+**Arc Distance Clipping:**
+If player is < 64px from target, the animation start point is moved back to ensure a natural-looking arc. This prevents flat or backwards arcs when the player is very close to the Pokemon.
+
 **Query Methods:**
 - `getCatchRange()` - Get configured catch range in pixels (96)
 
@@ -2181,6 +2216,7 @@ CATCH_CONFIG = {
   FAILURE_ANIMATION_DURATION: 400,  // Escape shake
   RELOCATE_ANIMATION_DURATION: 600, // Teleport effect
   RESULT_RESET_DELAY: 1500,         // Time before idle
+  MIN_ARC_DISTANCE: 64,              // Minimum distance for natural arc
   BALL_COLORS: { 0: 0xff4444, 1: 0x4488ff, 2: 0xffcc00, 3: 0xaa44ff }
 }
 ```

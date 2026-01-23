@@ -88,6 +88,8 @@ const CATCH_CONFIG = {
   RELOCATE_ANIMATION_DURATION: 600,
   /** Delay before resetting to idle after result */
   RESULT_RESET_DELAY: 1500,
+  /** Minimum distance for arc animation to look natural */
+  MIN_ARC_DISTANCE: 64,
   /** Ball colors for animations */
   BALL_COLORS: {
     0: 0xff4444, // Poke Ball - Red
@@ -847,6 +849,133 @@ export class CatchMechanicsManager {
         });
       });
     });
+  }
+
+  /**
+   * Play ball throw animation from player to a specific Pokemon.
+   * Called from React/GameCanvas when user clicks Throw in the modal.
+   * This is a standalone animation that doesn't affect catch state machine.
+   *
+   * Arc Distance Clipping:
+   * If the distance from player to target is < MIN_ARC_DISTANCE (64px),
+   * the start point is moved back along the reverse vector to ensure
+   * the arc doesn't look flat or go backwards.
+   *
+   * @param toX - Target Pokemon X position
+   * @param toY - Target Pokemon Y position
+   * @param ballType - Ball type for color (0-3)
+   * @returns Promise that resolves when animation completes
+   */
+  async playBallThrow(toX: number, toY: number, ballType: BallType): Promise<void> {
+    return new Promise((resolve) => {
+      // Clean up any existing throw sprite
+      this.cleanupThrowSprite();
+
+      // Calculate distance from player to target
+      const dx = toX - this.playerX;
+      const dy = toY - this.playerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Determine actual start position
+      // If too close, move start back along the reverse vector
+      let startX = this.playerX;
+      let startY = this.playerY - 8; // Slightly above player
+
+      if (distance < CATCH_CONFIG.MIN_ARC_DISTANCE && distance > 0) {
+        // Calculate unit vector from target to player (reverse direction)
+        const ux = -dx / distance;
+        const uy = -dy / distance;
+
+        // Move start point back to ensure minimum arc distance
+        const offsetDistance = CATCH_CONFIG.MIN_ARC_DISTANCE - distance;
+        startX = this.playerX + ux * offsetDistance;
+        startY = (this.playerY - 8) + uy * offsetDistance;
+
+        console.log(`[CatchMechanicsManager] Distance clipping: ${distance.toFixed(0)}px -> arc starts ${offsetDistance.toFixed(0)}px back`);
+      }
+
+      // Create ball sprite at start position
+      const ballColor = CATCH_CONFIG.BALL_COLORS[ballType];
+      this.throwBallSprite = this.scene.add.circle(
+        startX,
+        startY,
+        6,
+        ballColor
+      );
+      this.throwBallSprite.setDepth(100);
+      this.throwBallSprite.setStrokeStyle(2, 0xffffff);
+
+      // Calculate arc control point (above midpoint for nice parabola)
+      const midX = (startX + toX) / 2;
+      // Arc height increases with distance, min 30px, max 60px
+      const arcHeight = Math.min(60, Math.max(30, distance * 0.3));
+      const midY = Math.min(startY, toY) - arcHeight;
+
+      // Animate along arc using timer
+      const duration = CATCH_CONFIG.THROW_ANIMATION_DURATION;
+      let elapsed = 0;
+
+      const updateArc = () => {
+        if (!this.throwBallSprite) return;
+
+        elapsed += 16; // Approximate frame time
+        const t = Math.min(elapsed / duration, 1);
+
+        // Quadratic bezier curve for smooth arc
+        const x = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * midX + t * t * toX;
+        const y = (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * midY + t * t * toY;
+
+        this.throwBallSprite.setPosition(x, y);
+
+        // Rotate ball for visual effect
+        this.throwBallSprite.rotation += 0.2;
+
+        // Scale down slightly as it approaches target
+        const scale = 1 - t * 0.2;
+        this.throwBallSprite.setScale(scale);
+
+        if (t >= 1) {
+          // Animation complete - fade out at target
+          this.scene.tweens.add({
+            targets: this.throwBallSprite,
+            alpha: 0,
+            scale: 0.5,
+            duration: 100,
+            onComplete: () => {
+              this.cleanupThrowSprite();
+              resolve();
+            },
+          });
+        }
+      };
+
+      // Use timer for smooth animation
+      this.scene.time.addEvent({
+        delay: 16,
+        callback: updateArc,
+        repeat: Math.ceil(duration / 16) + 1, // +1 to ensure we complete
+      });
+
+      console.log(`[CatchMechanicsManager] playBallThrow: ball ${ballType} from (${startX.toFixed(0)}, ${startY.toFixed(0)}) to (${toX.toFixed(0)}, ${toY.toFixed(0)})`);
+    });
+  }
+
+  /**
+   * Play ball throw animation to a Pokemon by ID.
+   * Convenience method that looks up the Pokemon position.
+   *
+   * @param pokemonId - Target Pokemon ID
+   * @param ballType - Ball type for color (0-3)
+   * @returns Promise that resolves when animation completes, or immediately if Pokemon not found
+   */
+  async playBallThrowById(pokemonId: bigint, ballType: BallType): Promise<void> {
+    const spawn = this.spawnManager.getSpawnById(pokemonId);
+    if (!spawn) {
+      console.warn(`[CatchMechanicsManager] playBallThrowById: Pokemon ${pokemonId.toString()} not found`);
+      return;
+    }
+
+    return this.playBallThrow(spawn.x, spawn.y, ballType);
   }
 
   // ============================================================

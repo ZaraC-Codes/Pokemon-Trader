@@ -54,6 +54,14 @@ export class GameScene extends Scene {
     return this.pokemonSpawnManager;
   }
 
+  /**
+   * Safe accessor for CatchMechanicsManager.
+   * Returns undefined if scene hasn't finished create() yet.
+   */
+  getCatchMechanicsManager(): CatchMechanicsManager | undefined {
+    return this.catchMechanicsManager;
+  }
+
   preload(): void {
     // Create placeholder pixel art sprites programmatically
     this.createPlaceholderSprites();

@@ -5,6 +5,7 @@ import { gameConfig, MAP_WIDTH, MAP_HEIGHT, TILE_SIZE } from '../game/config/gam
 import type { TradeListing } from '../services/contractService';
 import { useGetPokemonSpawns, type PokemonSpawn as ContractPokemonSpawn } from '../hooks/pokeballGame/useGetPokemonSpawns';
 import type { PokemonSpawn as ManagerPokemonSpawn } from '../game/managers/PokemonSpawnManager';
+import type { BallType } from '../game/managers/BallInventoryManager';
 
 /** Data emitted when a Pokemon is ready to catch (player in range) */
 export interface PokemonClickData {
@@ -30,6 +31,12 @@ interface GameCanvasProps {
   onPokemonClick?: (data: PokemonClickData) => void;
   /** Called when player clicks Pokemon but is OUT of range */
   onCatchOutOfRange?: (data: CatchOutOfRangeData) => void;
+  /**
+   * Callback to trigger visual ball throw animation.
+   * Set by parent to allow CatchAttemptModal to trigger Phaser animation.
+   * Returns a function that can be called to play the animation.
+   */
+  onVisualThrowRef?: React.MutableRefObject<((pokemonId: bigint, ballType: BallType) => void) | null>;
   // Music disabled
   // onMusicToggle?: () => void;
 }
@@ -109,7 +116,7 @@ function toManagerSpawn(contract: ContractPokemonSpawn, index: number): ManagerP
   return result;
 }
 
-export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfRange }: GameCanvasProps) {
+export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfRange, onVisualThrowRef }: GameCanvasProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onTradeClickRef = useRef(onTradeClick);
@@ -267,6 +274,20 @@ export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfR
         syncSpawnsToManager(pendingSpawnsRef.current);
         pendingSpawnsRef.current = null;
       }
+
+      // Wire up the visual throw function to allow React to trigger Phaser animations
+      if (onVisualThrowRef) {
+        const catchMechanicsManager = gameScene.getCatchMechanicsManager();
+        if (catchMechanicsManager) {
+          onVisualThrowRef.current = (pokemonId: bigint, ballType: BallType) => {
+            console.log('[GameCanvas] Visual throw triggered for Pokemon:', pokemonId.toString(), 'ball:', ballType);
+            catchMechanicsManager.playBallThrowById(pokemonId, ballType);
+          };
+          console.log('[GameCanvas] Visual throw callback registered');
+        } else {
+          console.warn('[GameCanvas] CatchMechanicsManager not available, visual throw disabled');
+        }
+      }
     };
 
     // Try to get the scene - it may or may not be ready
@@ -291,6 +312,10 @@ export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfR
     // Cleanup only on unmount
     return () => {
       sceneReadyRef.current = false;
+      // Clear the visual throw ref
+      if (onVisualThrowRef) {
+        onVisualThrowRef.current = null;
+      }
       if (gameRef.current) {
         gameRef.current.destroy(true);
         gameRef.current = null;

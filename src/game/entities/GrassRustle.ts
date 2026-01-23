@@ -1,28 +1,20 @@
 /**
  * GrassRustle Entity
  *
- * Visual effect showing grass movement beneath a wild Pokemon.
- * Creates the classic "rustling grass" effect from Pokemon games.
+ * Visual effect showing grass shards bursting from the ground beneath a wild Pokemon.
+ * Creates a "grass confetti" effect with small shards that shoot up and fall back.
  *
  * Responsibilities:
- * - Render animated grass rustle sprite
+ * - Render particle-based grass shard confetti
  * - Follow a target Pokemon entity
- * - Play looping rustle animation
+ * - Play burst animation on spawn, gentle flutter in idle
  * - Clean up when Pokemon is caught/removed
  *
- * Texture/Animation Requirements:
- * - 'grass-rustle': Sprite sheet with 4 frames (16x16 each)
- * - Animation 'grass-rustle-anim': Created in GameScene.create()
- *
- * Example animation setup in GameScene.create():
- * ```typescript
- * this.anims.create({
- *   key: 'grass-rustle-anim',
- *   frames: this.anims.generateFrameNumbers('grass-rustle', { start: 0, end: 3 }),
- *   frameRate: 8,
- *   repeat: -1,
- * });
- * ```
+ * Visual Effect:
+ * - Small rectangular/triangular shards in various greens
+ * - Upward velocity with slight horizontal spread
+ * - Quick gravity/fall and fade-out
+ * - Burst on spawn (~400-600ms), gentle idle flutter
  *
  * Usage:
  * ```typescript
@@ -61,13 +53,72 @@ const GRASS_RUSTLE_CONFIG = {
   VISIBLE_ALPHA: 1.0,
 } as const;
 
+/** Grass shard particle configuration */
+const SHARD_CONFIG = {
+  /** Number of shards in initial burst */
+  BURST_COUNT: 12,
+  /** Number of shards in idle flutter */
+  IDLE_COUNT: 3,
+  /** Grass colors (various greens) - tall thin blades */
+  GRASS_COLORS: [0x228B22, 0x32CD32, 0x3CB371, 0x2E8B57, 0x90EE90, 0x006400],
+  /** Dirt colors (browns) - short wide clumps */
+  DIRT_COLORS: [0x5D4037, 0x8B7355, 0xD2B48C], // dark soil, medium earth, light tan
+  /** Probability of a shard being dirt (0-1) */
+  DIRT_PROBABILITY: 0.30,
+  /** Grass shard dimensions (tall and thin) */
+  GRASS_WIDTH_MIN: 2,
+  GRASS_WIDTH_MAX: 3,
+  GRASS_HEIGHT_MIN: 5,
+  GRASS_HEIGHT_MAX: 9,
+  /** Dirt shard dimensions (short and wide) */
+  DIRT_WIDTH_MIN: 3,
+  DIRT_WIDTH_MAX: 5,
+  DIRT_HEIGHT_MIN: 2,
+  DIRT_HEIGHT_MAX: 4,
+  /** Initial upward velocity range */
+  VELOCITY_Y_MIN: -120,
+  VELOCITY_Y_MAX: -200,
+  /** Horizontal spread velocity */
+  VELOCITY_X_RANGE: 60,
+  /** Gravity pulling shards down */
+  GRAVITY: 300,
+  /** How long shards live (ms) */
+  LIFESPAN_BURST: 500,
+  LIFESPAN_IDLE: 400,
+  /** Spawn area radius */
+  SPAWN_RADIUS: 12,
+  /** Burst duration to match Pokemon spawn */
+  BURST_DURATION: 500,
+  /** Idle flutter interval */
+  IDLE_INTERVAL: 800,
+  /** Idle flutter intensity (multiplier for velocities) */
+  IDLE_INTENSITY: 0.3,
+} as const;
+
+/** Single grass shard particle */
+interface GrassShard {
+  graphics: Phaser.GameObjects.Graphics;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  width: number;
+  height: number;
+  color: number;
+  rotation: number;
+  rotationSpeed: number;
+  alpha: number;
+  lifetime: number;
+  maxLifetime: number;
+}
+
 // ============================================================
 // GRASS RUSTLE CLASS
 // ============================================================
 
-export class GrassRustle extends Phaser.GameObjects.Sprite {
+export class GrassRustle extends Phaser.GameObjects.Container {
   /** Pokemon ID this rustle is associated with */
-  public readonly pokemonId: bigint;
+  public pokemonId: bigint;
 
   /** Reference to the Pokemon entity being followed */
   public followTarget: Pokemon | null;
@@ -84,13 +135,20 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
   /** Scene update event listener reference */
   private updateListener?: () => void;
 
+  /** Active grass shard particles */
+  private shards: GrassShard[] = [];
+
+  /** Timer for idle flutter */
+  private idleTimer?: Phaser.Time.TimerEvent;
+
+  /** Whether we're in burst or idle mode */
+  private isBurstPhase: boolean = false;
+
   constructor(scene: GameScene, pokemon: Pokemon) {
-    // Use grass-rustle texture, fallback to placeholder if not available
     super(
       scene,
       pokemon.x,
-      pokemon.y + GRASS_RUSTLE_CONFIG.Y_OFFSET,
-      'grass-rustle'
+      pokemon.y + GRASS_RUSTLE_CONFIG.Y_OFFSET
     );
 
     this.pokemonId = pokemon.id;
@@ -103,14 +161,11 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
     // Set depth below Pokemon
     this.setDepth(GRASS_RUSTLE_CONFIG.DEPTH);
 
-    // Set scale
-    this.setScale(GRASS_RUSTLE_CONFIG.SCALE);
-
     // Start invisible
     this.setAlpha(0);
     this.setVisible(false);
 
-    // Set up update listener to follow Pokemon
+    // Set up update listener to follow Pokemon and animate shards
     this.setupUpdateListener();
 
     console.log('[GrassRustle] Created for Pokemon:', pokemon.id.toString());
@@ -121,12 +176,16 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
   // ============================================================
 
   /**
-   * Set up scene update listener to follow the Pokemon.
+   * Set up scene update listener to follow the Pokemon and animate shards.
    */
   private setupUpdateListener(): void {
     this.updateListener = () => {
       if (!this.isDestroying && this.followTarget && this.followTarget.active) {
         this.updatePosition();
+      }
+      // Always update shards if playing
+      if (this.isPlaying && !this.isDestroying) {
+        this.updateShards();
       }
     };
 
@@ -157,28 +216,164 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
   }
 
   // ============================================================
+  // SHARD MANAGEMENT
+  // ============================================================
+
+  /**
+   * Create a single grass or dirt shard particle.
+   * Grass shards are tall and thin (green), dirt shards are short and wide (brown).
+   */
+  private createShard(intensity: number = 1.0): GrassShard {
+    const graphics = this.gameScene.add.graphics();
+
+    // Determine if this shard is dirt or grass
+    const isDirt = Math.random() < SHARD_CONFIG.DIRT_PROBABILITY;
+
+    // Pick color based on type
+    const colorPalette = isDirt ? SHARD_CONFIG.DIRT_COLORS : SHARD_CONFIG.GRASS_COLORS;
+    const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+
+    // Pick dimensions based on type (dirt = short/wide, grass = tall/thin)
+    let width: number;
+    let height: number;
+    if (isDirt) {
+      width = SHARD_CONFIG.DIRT_WIDTH_MIN + Math.random() * (SHARD_CONFIG.DIRT_WIDTH_MAX - SHARD_CONFIG.DIRT_WIDTH_MIN);
+      height = SHARD_CONFIG.DIRT_HEIGHT_MIN + Math.random() * (SHARD_CONFIG.DIRT_HEIGHT_MAX - SHARD_CONFIG.DIRT_HEIGHT_MIN);
+    } else {
+      width = SHARD_CONFIG.GRASS_WIDTH_MIN + Math.random() * (SHARD_CONFIG.GRASS_WIDTH_MAX - SHARD_CONFIG.GRASS_WIDTH_MIN);
+      height = SHARD_CONFIG.GRASS_HEIGHT_MIN + Math.random() * (SHARD_CONFIG.GRASS_HEIGHT_MAX - SHARD_CONFIG.GRASS_HEIGHT_MIN);
+    }
+
+    // Random spawn position within radius
+    const angle = Math.random() * Math.PI * 2;
+    const radius = Math.random() * SHARD_CONFIG.SPAWN_RADIUS;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius * 0.5; // Flatten vertically
+
+    // Random velocity (upward with horizontal spread)
+    const vy = (SHARD_CONFIG.VELOCITY_Y_MIN + Math.random() * (SHARD_CONFIG.VELOCITY_Y_MAX - SHARD_CONFIG.VELOCITY_Y_MIN)) * intensity;
+    const vx = (Math.random() - 0.5) * SHARD_CONFIG.VELOCITY_X_RANGE * intensity;
+
+    // Random rotation
+    const rotation = Math.random() * Math.PI * 2;
+    const rotationSpeed = (Math.random() - 0.5) * 8;
+
+    // Lifespan based on intensity
+    const maxLifetime = intensity >= 1.0 ? SHARD_CONFIG.LIFESPAN_BURST : SHARD_CONFIG.LIFESPAN_IDLE;
+
+    // Draw the shard (small rectangle/parallelogram)
+    graphics.fillStyle(color, 1);
+    graphics.fillRect(-width / 2, -height / 2, width, height);
+    graphics.setDepth(GRASS_RUSTLE_CONFIG.DEPTH);
+
+    // Add to container so it follows position
+    this.add(graphics);
+
+    return {
+      graphics,
+      x,
+      y,
+      vx,
+      vy,
+      width,
+      height,
+      color,
+      rotation,
+      rotationSpeed,
+      alpha: 1,
+      lifetime: 0,
+      maxLifetime,
+    };
+  }
+
+  /**
+   * Spawn a burst of shards.
+   */
+  private spawnBurst(): void {
+    for (let i = 0; i < SHARD_CONFIG.BURST_COUNT; i++) {
+      this.shards.push(this.createShard(1.0));
+    }
+  }
+
+  /**
+   * Spawn gentle idle shards.
+   */
+  private spawnIdleShards(): void {
+    if (!this.isPlaying || this.isDestroying) return;
+
+    for (let i = 0; i < SHARD_CONFIG.IDLE_COUNT; i++) {
+      this.shards.push(this.createShard(SHARD_CONFIG.IDLE_INTENSITY));
+    }
+  }
+
+  /**
+   * Update all active shards (physics and rendering).
+   */
+  private updateShards(): void {
+    const delta = this.gameScene.game.loop.delta / 1000; // Convert to seconds
+
+    for (let i = this.shards.length - 1; i >= 0; i--) {
+      const shard = this.shards[i];
+
+      // Update lifetime
+      shard.lifetime += this.gameScene.game.loop.delta;
+
+      // Check if shard should be removed
+      if (shard.lifetime >= shard.maxLifetime) {
+        shard.graphics.destroy();
+        this.shards.splice(i, 1);
+        continue;
+      }
+
+      // Apply gravity
+      shard.vy += SHARD_CONFIG.GRAVITY * delta;
+
+      // Update position
+      shard.x += shard.vx * delta;
+      shard.y += shard.vy * delta;
+
+      // Update rotation
+      shard.rotation += shard.rotationSpeed * delta;
+
+      // Calculate alpha (fade out in last 30% of lifetime)
+      const lifeProgress = shard.lifetime / shard.maxLifetime;
+      if (lifeProgress > 0.7) {
+        shard.alpha = 1 - ((lifeProgress - 0.7) / 0.3);
+      }
+
+      // Update graphics
+      shard.graphics.setPosition(shard.x, shard.y);
+      shard.graphics.setRotation(shard.rotation);
+      shard.graphics.setAlpha(shard.alpha);
+    }
+  }
+
+  /**
+   * Clear all active shards.
+   */
+  private clearShards(): void {
+    for (const shard of this.shards) {
+      shard.graphics.destroy();
+    }
+    this.shards = [];
+  }
+
+  // ============================================================
   // ANIMATION CONTROL
   // ============================================================
 
   /**
    * Start the grass rustle animation.
-   * Fades in and starts looping animation.
+   * Plays initial burst then transitions to gentle idle flutter.
    */
   playRustle(): void {
     if (this.isPlaying || this.isDestroying) return;
 
     this.isPlaying = true;
+    this.isBurstPhase = true;
     this.setVisible(true);
 
-    // Check if animation exists, create simple fallback if not
-    if (this.gameScene.anims.exists('grass-rustle-anim')) {
-      this.anims.play('grass-rustle-anim');
-    } else {
-      // Fallback: create a simple scale pulsing effect
-      this.createFallbackAnimation();
-    }
-
-    // Fade in
+    // Fade in the container
     this.gameScene.tweens.add({
       targets: this,
       alpha: GRASS_RUSTLE_CONFIG.VISIBLE_ALPHA,
@@ -186,28 +381,43 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
       ease: 'Quad.easeOut',
     });
 
+    // Spawn initial burst
+    this.spawnBurst();
+
+    // Transition to idle after burst duration
+    this.gameScene.time.delayedCall(SHARD_CONFIG.BURST_DURATION, () => {
+      if (this.isPlaying && !this.isDestroying) {
+        this.isBurstPhase = false;
+        this.startIdleFlutter();
+      }
+    });
+
     console.log('[GrassRustle] Started animation for Pokemon:', this.pokemonId.toString());
   }
 
   /**
-   * Create a fallback pulsing animation if sprite animation isn't available.
+   * Start the gentle idle flutter effect.
    */
-  private createFallbackAnimation(): void {
-    // Simple scale pulse as fallback
-    this.gameScene.tweens.add({
-      targets: this,
-      scaleX: { from: GRASS_RUSTLE_CONFIG.SCALE * 0.9, to: GRASS_RUSTLE_CONFIG.SCALE * 1.1 },
-      scaleY: { from: GRASS_RUSTLE_CONFIG.SCALE * 1.1, to: GRASS_RUSTLE_CONFIG.SCALE * 0.9 },
-      duration: 150,
-      ease: 'Sine.easeInOut',
-      yoyo: true,
-      repeat: -1,
+  private startIdleFlutter(): void {
+    // Clear any existing timer
+    if (this.idleTimer) {
+      this.idleTimer.destroy();
+    }
+
+    // Create repeating timer for idle shards
+    this.idleTimer = this.gameScene.time.addEvent({
+      delay: SHARD_CONFIG.IDLE_INTERVAL,
+      callback: () => this.spawnIdleShards(),
+      loop: true,
     });
+
+    // Spawn first idle batch immediately
+    this.spawnIdleShards();
   }
 
   /**
    * Stop the grass rustle animation.
-   * Fades out and stops the animation.
+   * Fades out and stops spawning new shards.
    *
    * @param immediate - If true, stops immediately without fade
    */
@@ -215,11 +425,18 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
     if (!this.isPlaying || this.isDestroying) return;
 
     this.isPlaying = false;
+    this.isBurstPhase = false;
+
+    // Stop idle timer
+    if (this.idleTimer) {
+      this.idleTimer.destroy();
+      this.idleTimer = undefined;
+    }
 
     if (immediate) {
       this.setAlpha(0);
       this.setVisible(false);
-      this.anims.stop();
+      this.clearShards();
       this.gameScene.tweens.killTweensOf(this);
     } else {
       // Fade out then hide
@@ -231,7 +448,7 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
         onComplete: () => {
           if (!this.isDestroying) {
             this.setVisible(false);
-            this.anims.stop();
+            this.clearShards();
             this.gameScene.tweens.killTweensOf(this);
           }
         },
@@ -245,8 +462,8 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
    * Pause the animation temporarily.
    */
   pause(): void {
-    if (this.anims.isPlaying) {
-      this.anims.pause();
+    if (this.idleTimer) {
+      this.idleTimer.paused = true;
     }
   }
 
@@ -254,8 +471,8 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
    * Resume a paused animation.
    */
   resume(): void {
-    if (this.anims.isPaused) {
-      this.anims.resume();
+    if (this.idleTimer) {
+      this.idleTimer.paused = false;
     }
   }
 
@@ -272,6 +489,8 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
     this.followTarget = pokemon;
 
     if (pokemon) {
+      // Update pokemonId when target changes (for pooling)
+      this.pokemonId = pokemon.id;
       this.updatePosition();
     }
   }
@@ -291,14 +510,22 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
   public _resetForPool(): void {
     this.isPlaying = false;
     this.isDestroying = false;
+    this.isBurstPhase = false;
 
-    // Stop any running tweens and animations
+    // Stop idle timer
+    if (this.idleTimer) {
+      this.idleTimer.destroy();
+      this.idleTimer = undefined;
+    }
+
+    // Clear all shards
+    this.clearShards();
+
+    // Stop any running tweens
     this.gameScene.tweens.killTweensOf(this);
-    this.anims.stop();
 
     // Reset visual state
     this.setAlpha(0);
-    this.setScale(GRASS_RUSTLE_CONFIG.SCALE);
     this.setVisible(false);
   }
 
@@ -316,11 +543,15 @@ export class GrassRustle extends Phaser.GameObjects.Sprite {
     // Remove update listener
     this.removeUpdateListener();
 
-    // Stop any animations (guard against undefined during scene destruction)
+    // Stop idle timer
+    if (this.idleTimer) {
+      this.idleTimer.destroy();
+      this.idleTimer = undefined;
+    }
+
+    // Clear all shards
     try {
-      if (this.anims) {
-        this.anims.stop();
-      }
+      this.clearShards();
     } catch {
       // Ignore - scene may already be destroyed
     }
