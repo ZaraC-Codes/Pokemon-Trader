@@ -487,7 +487,7 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
   - `usdc` - Withdraw accumulated USDC.e fees from PokeballGame
   - `revenue` - Withdraw ALL USDC.e from SlabNFTManager (keeps NFTs)
   - `revenue:X` - Withdraw specific amount X from SlabNFTManager (e.g., `revenue:10.50`)
-- Requires PRIVATE_KEY set in .env.local and must be owner wallet
+- Requires DEPLOYER_PRIVATE_KEY set in .env.local and must be owner wallet
 - Withdrawn funds go to treasury wallet, can be reused for more testing
 
 ## External Services
@@ -1027,6 +1027,49 @@ PokeballGame → SlabNFTManager.awardNFTToWinner(player)
     ↓
 SlabNFTManager → Player (NFT transfer)
 ```
+
+### Test Fund Recycling (v2.1.0)
+During testing and development, funds accumulate in the contracts. Use the `withdraw_test_funds.cjs` script to recycle these back to the treasury.
+
+**Script Location:** `scripts/withdraw_test_funds.cjs`
+
+**Available Commands:**
+| Command | Description | Contract Function |
+|---------|-------------|-------------------|
+| `status` | Show all balances (APE fees, USDC fees, SlabNFTManager revenue) | Read-only |
+| `revenue` | Withdraw ALL USDC.e from SlabNFTManager | `emergencyWithdrawAllRevenue()` |
+| `revenue:X` | Withdraw X USDC.e from SlabNFTManager (e.g., `revenue:10` for $10) | `emergencyWithdrawRevenue(amount)` |
+| `usdc` | Withdraw USDC.e platform fees from PokeballGame | `withdrawUSDCFees()` |
+| `ape` | Withdraw APE platform fees from PokeballGame | `withdrawAPEFees()` |
+| `allape` | Withdraw ALL APE from PokeballGame (emergency) | `withdrawAllAPE()` |
+
+**Usage Examples:**
+```bash
+# Check current balances
+node scripts/withdraw_test_funds.cjs status
+
+# Withdraw all SlabNFTManager revenue to treasury
+node scripts/withdraw_test_funds.cjs revenue
+
+# Withdraw exactly $25 USDC.e from SlabNFTManager
+node scripts/withdraw_test_funds.cjs revenue:25
+
+# Withdraw platform fees
+node scripts/withdraw_test_funds.cjs usdc
+node scripts/withdraw_test_funds.cjs ape
+```
+
+**When to Use Each Command:**
+- `status` - Always run first to see what's available
+- `revenue` - Recycle SlabNFTManager funds back to treasury for more testing
+- `revenue:X` - Partial withdrawal when you want to keep some balance in SlabNFTManager
+- `usdc` / `ape` - Collect accumulated platform fees (3% of all purchases)
+- `allape` - Emergency only, withdraws all APE including any stuck from failed swaps
+
+**Requirements:**
+- Must run with owner wallet (`0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06`)
+- Requires `DEPLOYER_PRIVATE_KEY` in `.env`
+- All withdrawals go to treasury wallet (`0x1D1d0E6eF415f2BAe0c21939c50Bc4ffBeb65c74`)
 
 ### PokemonSpawnManager (Frontend)
 Phaser manager for tracking active Pokemon spawns in the game world:
