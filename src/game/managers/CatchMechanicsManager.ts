@@ -38,6 +38,7 @@ import {
   type BallInventoryManager,
   type BallType,
 } from './BallInventoryManager';
+import { getChiptuneSFX, type ChiptuneSFX } from '../utils/chiptuneSFX';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -114,6 +115,7 @@ export class CatchMechanicsManager {
   private scene: GameScene;
   private spawnManager: PokemonSpawnManager;
   private inventoryManager: BallInventoryManager;
+  private sfx: ChiptuneSFX;
 
   // State
   private currentState: CatchState = 'idle';
@@ -139,6 +141,7 @@ export class CatchMechanicsManager {
     this.scene = scene;
     this.spawnManager = spawnManager;
     this.inventoryManager = getBallInventoryManager();
+    this.sfx = getChiptuneSFX();
 
     console.log('[CatchMechanicsManager] Initialized');
   }
@@ -671,6 +674,9 @@ export class CatchMechanicsManager {
    * @param pokemonY - Pokemon Y position
    */
   async playSuccessAnimation(pokemonX: number, pokemonY: number): Promise<void> {
+    // Play catch success SFX (victory fanfare)
+    this.sfx.playCatchSuccess();
+
     return new Promise((resolve) => {
       // Create effects container
       this.effectsContainer = this.scene.add.container(pokemonX, pokemonY);
@@ -736,6 +742,9 @@ export class CatchMechanicsManager {
    * @param pokemonY - Pokemon Y position
    */
   async playFailAnimation(pokemonX: number, pokemonY: number): Promise<void> {
+    // Play catch fail SFX (descending womp)
+    this.sfx.playCatchFail();
+
     return new Promise((resolve) => {
       // Create effects container
       this.effectsContainer = this.scene.add.container(pokemonX, pokemonY);
@@ -867,6 +876,9 @@ export class CatchMechanicsManager {
    * @returns Promise that resolves when animation completes
    */
   async playBallThrow(toX: number, toY: number, ballType: BallType): Promise<void> {
+    // Play throw start SFX
+    this.sfx.playThrowStart();
+
     return new Promise((resolve) => {
       // Clean up any existing throw sprite
       this.cleanupThrowSprite();
@@ -935,6 +947,9 @@ export class CatchMechanicsManager {
         this.throwBallSprite.setScale(scale);
 
         if (t >= 1) {
+          // Play ball impact SFX when ball reaches target
+          this.sfx.playBallImpact();
+
           // Animation complete - fade out at target
           this.scene.tweens.add({
             targets: this.throwBallSprite,

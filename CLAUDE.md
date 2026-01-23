@@ -95,7 +95,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   │   ├── BikeShopOwner.ts     # Bike shop NPC
 │   │   │   └── TradingOutpost.ts    # Trading building
 │   │   ├── managers/                # MapManager, NPCManager, TradeIconManager, PokemonSpawnManager, BallInventoryManager, CatchMechanicsManager
-│   │   ├── utils/                   # Music utilities (chiptune, mp3)
+│   │   ├── utils/                   # Audio utilities (chiptune music, SFX)
 │   │   └── config/                  # Game configuration
 │   │
 │   ├── services/                # Web3 services
@@ -1269,6 +1269,78 @@ SHARD_CONFIG = {
 **No Texture Required:**
 - Uses Phaser Graphics objects for shards (no sprite sheets needed)
 - Each shard is a small filled rectangle with physics simulation
+
+### ChiptuneSFX (Audio)
+8-bit chiptune sound effects for Pokemon catching mechanics:
+
+**Location:** `src/game/utils/chiptuneSFX.ts`
+
+**Design Philosophy:**
+- Retro 8-bit / chiptune-adjacent, short and snappy
+- Very dry (no reverb) to sit cleanly under music
+- Target length: 150-500ms, max 700ms for win fanfare
+- 70-80% volume relative to background music
+
+**Sound Effects:**
+| SFX | Trigger | Duration | Description |
+|-----|---------|----------|-------------|
+| `playThrowStart()` | Ball leaves hand | ~200ms | Click + upward pitch blips + whoosh |
+| `playBallImpact()` | Ball hits Pokemon | ~250ms | Low thump + higher bounce blip |
+| `playCatchSuccess()` | Catch succeeds | ~600ms | C4-E4-G4-C5 ascending arpeggio + sparkle |
+| `playCatchFail()` | Pokemon escapes | ~350ms | G3-E3-C3 descending womp |
+
+**Sound Synthesis (Web Audio API):**
+- **Square wave**: Bright 8-bit tones (throw blips, success arpeggio)
+- **Triangle wave**: Softer bass (impact thump, fail womp)
+- **White noise + highpass**: Clicks, sparkles, whoosh effects
+- **ADSR envelope**: Fast attack (5-10ms), quick decay, no sustain
+
+**Usage:**
+```typescript
+import { getChiptuneSFX, ChiptuneSFX } from '../utils/chiptuneSFX';
+
+// Get singleton instance
+const sfx = getChiptuneSFX();
+
+// Play sounds (async, fire-and-forget)
+sfx.playThrowStart();    // When throw animation begins
+sfx.playBallImpact();    // When ball reaches Pokemon
+sfx.playCatchSuccess();  // On catch success
+sfx.playCatchFail();     // On catch failure
+
+// Volume controls
+sfx.setVolume(0.5);      // 0-1
+sfx.mute();              // Silence all SFX
+sfx.unmute();            // Restore volume
+sfx.toggleMute();        // Toggle mute state
+sfx.isSfxMuted();        // Check mute status
+```
+
+**Integration Points (CatchMechanicsManager):**
+- `playBallThrow()` → calls `playThrowStart()` at start
+- `playBallThrow()` → calls `playBallImpact()` when ball reaches target
+- `playSuccessAnimation()` → calls `playCatchSuccess()`
+- `playFailAnimation()` → calls `playCatchFail()`
+
+**Configuration:**
+```typescript
+SFX_CONFIG = {
+  MASTER_VOLUME: 0.75,      // 75% (relative to music ~100%)
+  THROW_DURATION: 200,      // ms
+  IMPACT_DURATION: 250,     // ms
+  WIN_DURATION: 600,        // ms
+  FAIL_DURATION: 350,       // ms
+  NOTES: {
+    C4: 261.63, E4: 329.63, G4: 392.00, C5: 523.25,  // Success arpeggio
+    C3: 130.81, E3: 164.81, G3: 196.00,              // Fail motif
+  }
+}
+```
+
+**Browser Compatibility:**
+- Uses `AudioContext` or `webkitAudioContext` fallback
+- Auto-resumes suspended context on user interaction
+- Graceful degradation if Web Audio API unavailable
 
 ### BallInventoryManager (Frontend)
 Client-side manager for tracking player's PokeBall inventory:
