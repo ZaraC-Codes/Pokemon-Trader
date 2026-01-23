@@ -56,6 +56,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── TradeModal.tsx           # Trade listing details
 │   │   ├── InventoryTerminal.tsx    # NFT inventory UI
 │   │   ├── VolumeToggle.tsx         # Music volume control
+│   │   ├── SfxVolumeToggle.tsx      # SFX volume control (independent from music)
 │   │   ├── BikeRentalModal.tsx      # Bike rental UI (2x speed boost)
 │   │   ├── BallShop.tsx             # Ball purchase UI (legacy)
 │   │   ├── PokeBallShop/            # PokeBall shop components
@@ -1728,6 +1729,42 @@ window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()
 // Enable debug mode
 window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()?.setDebugMode(true)
 ```
+
+### SfxVolumeToggle Component
+Independent SFX volume control, separate from music:
+
+**Location:** `src/components/SfxVolumeToggle.tsx`
+
+**Features:**
+- Mute/unmute SFX (throw, impact, win, fail sounds)
+- Volume slider when unmuted
+- Persists settings to localStorage
+- Blue pixel-art button style (distinguishes from green music toggle)
+- Sparkle icon (✨) to distinguish from speaker icon
+
+**LocalStorage Keys:**
+| Key | Value | Description |
+|-----|-------|-------------|
+| `pokeballTrader_sfxVolume` | `0.0 - 1.0` | SFX volume level |
+| `pokeballTrader_sfxMuted` | `true/false` | SFX mute state |
+
+**Visual Style:**
+- Position: Bottom-right, to the left of VolumeToggle (`right: 80px`)
+- Colors: Blue `#44a` (unmuted), Red `#a44` (muted)
+- Icon: ✨ (unmuted), 🔇 (muted)
+- Label: "SFX" below icon
+
+**Integration:**
+```tsx
+// In App.tsx - renders next to music VolumeToggle
+<SfxVolumeToggle />
+<VolumeToggle onVolumeChange={handleVolumeChange} initialVolume={musicVolume} />
+```
+
+**ChiptuneSFX Connection:**
+- On mount, reads localStorage and initializes `getChiptuneSFX()` singleton
+- On toggle/slider change, calls `sfx.setVolume()`, `sfx.mute()`, `sfx.unmute()`
+- Settings persist across page reloads
 
 ### WalletConnector Component
 Custom-styled RainbowKit wallet connect button matching the game's pixel-art HUD:

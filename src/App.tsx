@@ -7,6 +7,7 @@ import GameCanvas, { type PokemonClickData, type CatchOutOfRangeData } from './c
 import WalletConnector from './components/WalletConnector';
 import TradeModal from './components/TradeModal';
 import VolumeToggle from './components/VolumeToggle';
+import SfxVolumeToggle from './components/SfxVolumeToggle';
 import InventoryTerminal from './components/InventoryTerminal';
 import { GameHUD } from './components/PokeBallShop';
 import { CatchAttemptModal } from './components/CatchAttemptModal';
@@ -540,7 +541,8 @@ function AppContent() {
         INVENTORY
       </button>
 
-      {/* Volume Toggle */}
+      {/* Volume Toggles - Music and SFX side by side */}
+      <SfxVolumeToggle />
       <VolumeToggle onVolumeChange={handleVolumeChange} initialVolume={musicVolume} />
 
       {/* Inventory Terminal */}
