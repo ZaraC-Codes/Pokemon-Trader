@@ -488,16 +488,31 @@ export class CatchMechanicsManager {
    * @param pokemonId - ID of the Pokemon
    */
   async handleCatchResult(caught: boolean, pokemonId: bigint): Promise<void> {
-    console.log('[CatchMechanicsManager] handleCatchResult:', caught, pokemonId.toString());
+    console.log('[CatchMechanicsManager] handleCatchResult:', caught, pokemonId.toString(), 'currentState:', this.currentState);
+
+    // Force reset to idle if we were waiting (even if Pokemon IDs don't match)
+    // This prevents the state from getting stuck
+    const shouldForceReset = this.currentState === 'awaiting_result' || this.currentState === 'throwing';
 
     // Validate we're expecting this result
     if (this.currentState !== 'awaiting_result') {
       console.warn('[CatchMechanicsManager] Unexpected result: state is', this.currentState);
+      // Force reset anyway to unstick the state
+      if (shouldForceReset) {
+        console.log('[CatchMechanicsManager] Force resetting to idle');
+        this.resetToIdle();
+      }
       return;
     }
 
-    if (this.currentPokemonId !== pokemonId) {
-      console.warn('[CatchMechanicsManager] Result for different Pokemon');
+    // Compare as strings to avoid bigint comparison issues
+    const currentIdStr = this.currentPokemonId?.toString() ?? '';
+    const eventIdStr = pokemonId.toString();
+    if (currentIdStr !== eventIdStr) {
+      console.warn('[CatchMechanicsManager] Result for different Pokemon:', currentIdStr, 'vs', eventIdStr);
+      // Still reset to idle to prevent stuck state
+      console.log('[CatchMechanicsManager] Resetting to idle anyway');
+      this.resetToIdle();
       return;
     }
 

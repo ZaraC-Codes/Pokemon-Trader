@@ -82,6 +82,9 @@ function AppContent() {
   // Ref for triggering visual throw animation in Phaser
   const visualThrowRef = useRef<((pokemonId: bigint, ballType: BallType) => void) | null>(null);
 
+  // Ref for notifying Phaser of catch results to reset manager state
+  const catchResultRef = useRef<((caught: boolean, pokemonId: bigint) => void) | null>(null);
+
   // Toast management (defined before effects that use it)
   const addToast = useCallback((message: string, type: ToastMessage['type'] = 'warning') => {
     const id = Date.now();
@@ -113,6 +116,11 @@ function AppContent() {
     if (account && latestEvent.args.catcher.toLowerCase() === account.toLowerCase()) {
       console.log('[App] CaughtPokemon event for current user:', latestEvent.args);
 
+      // Notify Phaser to reset CatchMechanicsManager state
+      if (catchResultRef.current) {
+        catchResultRef.current(true, latestEvent.args.pokemonId);
+      }
+
       // Close the catch attempt modal if open
       setSelectedPokemon(null);
 
@@ -142,6 +150,11 @@ function AppContent() {
     // Only show for current user's throws
     if (account && latestEvent.args.thrower.toLowerCase() === account.toLowerCase()) {
       console.log('[App] FailedCatch event for current user:', latestEvent.args);
+
+      // Notify Phaser to reset CatchMechanicsManager state
+      if (catchResultRef.current) {
+        catchResultRef.current(false, latestEvent.args.pokemonId);
+      }
 
       // Close the catch attempt modal
       setSelectedPokemon(null);
@@ -461,6 +474,7 @@ function AppContent() {
         onPokemonClick={handlePokemonClick}
         onCatchOutOfRange={handleCatchOutOfRange}
         onVisualThrowRef={visualThrowRef}
+        onCatchResultRef={catchResultRef}
       />
       <GameHUD playerAddress={account} />
 

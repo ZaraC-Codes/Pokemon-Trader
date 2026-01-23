@@ -32,7 +32,7 @@
  * ```
  */
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useReadContract } from 'wagmi';
 import {
   POKEBALL_GAME_ADDRESS,
@@ -41,6 +41,7 @@ import {
   usePokeballGameAddress,
   type PlayerBallInventory,
 } from './pokeballGameConfig';
+import { getBallInventoryManager } from '../../game/managers/BallInventoryManager';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -106,6 +107,39 @@ export function usePlayerBallInventory(
       refetchInterval: 10000,
     },
   });
+
+  // Debug logging for inventory fetch
+  useEffect(() => {
+    console.log('[usePlayerBallInventory] Query state:', {
+      playerAddress: playerAddress ?? 'undefined',
+      contractAddress: POKEBALL_GAME_ADDRESS ?? 'undefined',
+      isConfigured,
+      enabled: isConfigured && !!playerAddress,
+      isLoading,
+      rawData: rawData ? `[${(rawData as bigint[]).map(n => n.toString()).join(', ')}]` : 'null',
+      error: error?.message ?? 'none',
+    });
+  }, [playerAddress, isConfigured, isLoading, rawData, error]);
+
+  // Sync to BallInventoryManager singleton (used by Phaser CatchMechanicsManager)
+  useEffect(() => {
+    if (rawData && !isLoading) {
+      const [pokeBalls, greatBalls, ultraBalls, masterBalls] = rawData as readonly [
+        bigint,
+        bigint,
+        bigint,
+        bigint
+      ];
+      const manager = getBallInventoryManager();
+      manager.onInventorySynced({
+        pokeBalls: Number(pokeBalls),
+        greatBalls: Number(greatBalls),
+        ultraBalls: Number(ultraBalls),
+        masterBalls: Number(masterBalls),
+      });
+      console.log('[usePlayerBallInventory] Synced to BallInventoryManager singleton');
+    }
+  }, [rawData, isLoading]);
 
   // Parse the raw contract data
   const inventory = useMemo((): PlayerBallInventory & { totalBalls: number } => {

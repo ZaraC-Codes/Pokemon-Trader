@@ -567,6 +567,37 @@ npm run dev
 - Requires DEPLOYER_PRIVATE_KEY set in .env.local and must be owner wallet
 - Withdrawn funds go to treasury wallet, can be reused for more testing
 
+**Ball inventory shows in UI but throws fail with "InsufficientBalls":**
+- Cause: `BallInventoryManager` singleton not synced from on-chain data
+- Symptom: `usePlayerBallInventory` shows correct counts but Phaser's `CatchMechanicsManager` sees 0 balls
+- Fix: `usePlayerBallInventory` now syncs to `BallInventoryManager` singleton automatically
+- Console logs to watch for:
+  - `[usePlayerBallInventory] Synced to BallInventoryManager singleton` - Sync successful
+  - `[BallInventoryManager] onInventorySynced:` - Shows received inventory
+- If sync fails, check that `getBallInventoryManager()` returns the same singleton instance
+
+**useThrowBall gas estimation fails with "missing account":**
+- Cause: Gas estimation requires the user's account address to check inventory
+- Symptom: `[useThrowBall] BLOCKED: Gas estimation failed` on every throw attempt
+- Error message: May contain "execution reverted" without specific reason
+- Fix: `useThrowBall` now imports `useAccount` and passes `userAddress` to `estimateContractGas`
+- The `account` parameter is required for contract reads that check `msg.sender`-dependent storage
+
+**CatchMechanicsManager stuck in "awaiting_result" state:**
+- Cause: State machine not reset when catch result arrives from contract events
+- Symptom: First throw works, clicking same Pokemon again logs "Ignoring click: not idle (state: awaiting_result)"
+- Fix: `GameCanvas` now accepts `onCatchResultRef` prop that App.tsx uses to notify Phaser of catch results
+- **Integration Flow:**
+  1. App.tsx creates `catchResultRef = useRef<((caught: boolean, pokemonId: bigint) => void) | null>(null)`
+  2. GameCanvas wires ref to `catchMechanicsManager.handleCatchResult()`
+  3. When `CaughtPokemon` or `FailedCatch` event fires, App.tsx calls `catchResultRef.current(caught, pokemonId)`
+  4. CatchMechanicsManager receives result and resets to idle state
+- Console logs to watch for:
+  - `[GameCanvas] Catch result callback registered` - Ref wired successfully
+  - `[GameCanvas] Catch result received: CAUGHT/FAILED` - Result forwarded to manager
+  - `[CatchMechanicsManager] handleCatchResult:` - Manager processing result
+  - `[CatchMechanicsManager] Force resetting to idle` - State machine reset
+
 ## External Services
 
 - **Alchemy**: Primary RPC endpoint (wagmi client) and NFT API v3
@@ -1786,6 +1817,25 @@ manager.addListener((inventory) => updateUI(inventory));
 manager.removeListener(listener);
 ```
 
+**React-Phaser Sync:**
+The `usePlayerBallInventory` hook automatically syncs on-chain inventory to the singleton:
+```typescript
+// In usePlayerBallInventory.ts - syncs when contract data loads
+useEffect(() => {
+  if (rawData && !isLoading) {
+    const manager = getBallInventoryManager();
+    manager.onInventorySynced({
+      pokeBalls: Number(rawData[0]),
+      greatBalls: Number(rawData[1]),
+      ultraBalls: Number(rawData[2]),
+      masterBalls: Number(rawData[3]),
+    });
+  }
+}, [rawData, isLoading]);
+```
+
+This ensures Phaser's `CatchMechanicsManager` sees the same inventory as React components.
+
 ### usePokeballGame Hook
 React hook for PokeballGame contract integration:
 
@@ -2243,6 +2293,8 @@ interface GameCanvasProps {
   onCatchOutOfRange?: (data: CatchOutOfRangeData) => void;
   /** Ref to receive visual throw callback (for CatchAttemptModal integration) */
   onVisualThrowRef?: React.MutableRefObject<((pokemonId: bigint, ballType: BallType) => void) | null>;
+  /** Ref to receive catch result callback (for notifying Phaser of contract events) */
+  onCatchResultRef?: React.MutableRefObject<((caught: boolean, pokemonId: bigint) => void) | null>;
 }
 
 interface PokemonClickData {
@@ -2270,6 +2322,7 @@ interface CatchOutOfRangeData {
 - **Proximity-aware events**: Forwards `pokemon-catch-ready` (in range) and `catch-out-of-range` (too far) to React
 - **Coordinate Scaling**: Transforms contract coordinates (0-999) to game world pixels (0-2400)
 - **Visual Throw Bridge**: When `onVisualThrowRef` is provided, wires up callback to trigger `CatchMechanicsManager.playBallThrowById()` for throw animations
+- **Catch Result Bridge**: When `onCatchResultRef` is provided, wires up callback to notify `CatchMechanicsManager.handleCatchResult()` when contract events fire (resets state machine)
 
 **Coordinate System:**
 
@@ -2956,20 +3009,48 @@ this.catchMechanicsManager.setPlayerPosition(this.player.x, this.player.y);
 this.catchMechanicsManager.destroy();
 ```
 
-**React Integration (to be wired):**
+**React Integration (wired in App.tsx):**
+The catch result flow from contract events to Phaser state machine:
 ```typescript
-// Set handlers from React component:
-catchMechanicsManager.setBallSelectionHandler(async (pokemonId) => {
-  return showBallPickerModal(pokemonId); // Returns BallType or null
-});
+// In App.tsx:
+// 1. Create ref for catch result callback
+const catchResultRef = useRef<((caught: boolean, pokemonId: bigint) => void) | null>(null);
 
-catchMechanicsManager.setContractThrowHandler(async (pokemonId, ballType) => {
-  await writeContract({ functionName: 'throwBall', args: [pokemonId, ballType] });
-});
+// 2. Pass ref to GameCanvas
+<GameCanvas onCatchResultRef={catchResultRef} />
 
-// When VRNG callback arrives (via contract event listener):
-catchMechanicsManager.handleCatchResult(caught, pokemonId);
+// 3. GameCanvas wires ref to CatchMechanicsManager
+if (onCatchResultRef) {
+  onCatchResultRef.current = (caught: boolean, pokemonId: bigint) => {
+    catchMechanicsManager.handleCatchResult(caught, pokemonId);
+  };
+}
+
+// 4. When contract events fire, notify Phaser
+useEffect(() => {
+  if (caughtEvents.length > 0) {
+    const latest = caughtEvents[caughtEvents.length - 1];
+    if (latest.args.catcher === account) {
+      catchResultRef.current?.(true, latest.args.pokemonId);
+    }
+  }
+}, [caughtEvents]);
+
+useEffect(() => {
+  if (failedEvents.length > 0) {
+    const latest = failedEvents[failedEvents.length - 1];
+    if (latest.args.thrower === account) {
+      catchResultRef.current?.(false, latest.args.pokemonId);
+    }
+  }
+}, [failedEvents]);
 ```
+
+**handleCatchResult Robustness:**
+The manager handles edge cases gracefully:
+- Force resets to idle if state is stuck in `awaiting_result` or `throwing`
+- Compares Pokemon IDs as strings to avoid bigint comparison issues
+- Resets even if IDs don't match (prevents permanent stuck state)
 
 ### UUPS Proxy Pattern
 

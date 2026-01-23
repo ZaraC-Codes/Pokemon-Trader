@@ -37,6 +37,13 @@ interface GameCanvasProps {
    * Returns a function that can be called to play the animation.
    */
   onVisualThrowRef?: React.MutableRefObject<((pokemonId: bigint, ballType: BallType) => void) | null>;
+  /**
+   * Ref callback to notify Phaser of catch results from contract events.
+   * This resets the CatchMechanicsManager state so clicks aren't blocked.
+   * @param caught - Whether the Pokemon was caught
+   * @param pokemonId - The Pokemon ID from the event
+   */
+  onCatchResultRef?: React.MutableRefObject<((caught: boolean, pokemonId: bigint) => void) | null>;
   // Music disabled
   // onMusicToggle?: () => void;
 }
@@ -116,7 +123,7 @@ function toManagerSpawn(contract: ContractPokemonSpawn, index: number): ManagerP
   return result;
 }
 
-export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfRange, onVisualThrowRef }: GameCanvasProps) {
+export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfRange, onVisualThrowRef, onCatchResultRef }: GameCanvasProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onTradeClickRef = useRef(onTradeClick);
@@ -288,6 +295,20 @@ export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfR
           console.warn('[GameCanvas] CatchMechanicsManager not available, visual throw disabled');
         }
       }
+
+      // Wire up catch result callback to reset manager state when contract events arrive
+      if (onCatchResultRef) {
+        const catchMechanicsManager = gameScene.getCatchMechanicsManager();
+        if (catchMechanicsManager) {
+          onCatchResultRef.current = (caught: boolean, pokemonId: bigint) => {
+            console.log('[GameCanvas] Catch result received:', caught ? 'CAUGHT' : 'FAILED', 'Pokemon:', pokemonId.toString());
+            catchMechanicsManager.handleCatchResult(caught, pokemonId);
+          };
+          console.log('[GameCanvas] Catch result callback registered');
+        } else {
+          console.warn('[GameCanvas] CatchMechanicsManager not available, catch result callback disabled');
+        }
+      }
     };
 
     // Try to get the scene - it may or may not be ready
@@ -315,6 +336,10 @@ export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfR
       // Clear the visual throw ref
       if (onVisualThrowRef) {
         onVisualThrowRef.current = null;
+      }
+      // Clear the catch result ref
+      if (onCatchResultRef) {
+        onCatchResultRef.current = null;
       }
       if (gameRef.current) {
         gameRef.current.destroy(true);

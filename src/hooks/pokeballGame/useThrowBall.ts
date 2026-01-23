@@ -39,7 +39,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useReadContract } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useReadContract, useAccount } from 'wagmi';
 import { decodeEventLog, type TransactionReceipt } from 'viem';
 import {
   POKEBALL_GAME_ADDRESS,
@@ -136,6 +136,7 @@ export interface UseThrowBallReturn {
 export function useThrowBall(): UseThrowBallReturn {
   const { isConfigured } = usePokeballGameAddress();
   const publicClient = usePublicClient({ chainId: POKEBALL_GAME_CHAIN_ID });
+  const { address: userAddress } = useAccount();
 
   // Track the current transaction hash and request ID
   const [currentHash, setCurrentHash] = useState<`0x${string}` | undefined>(undefined);
@@ -299,21 +300,23 @@ export function useThrowBall(): UseThrowBallReturn {
             functionName: 'throwBall',
             args: [pokemonSlot, ballType],
             value: feeToSend,
+            account: userAddress,
           });
           console.log('[useThrowBall] Gas estimation successful');
         }
       } catch (gasError) {
+        const gasErrorMsg = gasError instanceof Error ? gasError.message : String(gasError);
         const errorDetails = {
           pokemonSlot,
           ballType,
           throwFee: throwFee.toString(),
           feeWithBuffer: feeToSend.toString(),
-          gasError: gasError instanceof Error ? gasError.message : String(gasError),
+          gasError: gasErrorMsg,
         };
         console.error('[useThrowBall] BLOCKED: Gas estimation failed', errorDetails);
+        console.error('[useThrowBall] Full error:', gasError);
 
         // Parse common revert reasons for user-friendly messages
-        const gasErrorMsg = gasError instanceof Error ? gasError.message : String(gasError);
         let userMessage = 'Transaction would fail: ';
 
         if (gasErrorMsg.includes('InsufficientBalls')) {
@@ -346,7 +349,7 @@ export function useThrowBall(): UseThrowBallReturn {
 
       return true;
     },
-    [writeContract, throwFee, isFeeLoading, feeReadError, publicClient]
+    [writeContract, throwFee, isFeeLoading, feeReadError, publicClient, userAddress]
   );
 
   // Reset function - also clears local error state
