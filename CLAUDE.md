@@ -201,7 +201,13 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   ├── spawnMorePokemon.cjs     # Spawn Pokemon in slots 3-19 (v1.2.0)
 │   ├── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.6.0)
 │   ├── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.6.0)
-│   └── update_ape_price.cjs     # Auto-update APE/USD price from CoinGecko
+│   ├── update_ape_price.cjs     # Auto-update APE/USD price from CoinGecko
+│   └── debug/                   # Debug/inspection utilities (48 scripts)
+│       ├── check_*.cjs          # State inspection scripts
+│       ├── debug_*.cjs          # Debug utilities
+│       ├── trace_*.cjs          # Transaction tracing
+│       ├── verify_*.cjs         # Verification scripts
+│       └── ...                  # Other diagnostic tools
 │
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
