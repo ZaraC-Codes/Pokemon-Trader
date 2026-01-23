@@ -3799,6 +3799,426 @@
           ]
         }
       }
+    },
+    "cae87cf455beab5f1d1ff09214e5afb4b751c63a18e14029a70c60cc9be2df65": {
+      "address": "0xd12644fba183c4bEa6F7d8b92c068640929631B6",
+      "txHash": "0x9a81464052512e5636817ba48cda2ff5a4fc41faaeb8b77b04e29ab66d018d72",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "usdce",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC20)1482",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:104"
+          },
+          {
+            "label": "slabMachine",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(ISlabMachine)2536",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:107"
+          },
+          {
+            "label": "slabNFT",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_contract(IERC721)2063",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:110"
+          },
+          {
+            "label": "pokeballGame",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_address",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:113"
+          },
+          {
+            "label": "treasuryWallet",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:116"
+          },
+          {
+            "label": "nftInventory",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_array(t_uint256)dyn_storage",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:119"
+          },
+          {
+            "label": "isInInventory",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:122"
+          },
+          {
+            "label": "tokenIdToIndex",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:125"
+          },
+          {
+            "label": "totalNFTsPurchased",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:128"
+          },
+          {
+            "label": "totalNFTsAwarded",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:131"
+          },
+          {
+            "label": "totalUSDCSpent",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:134"
+          },
+          {
+            "label": "pendingPullRequests",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:137"
+          },
+          {
+            "label": "pendingRequestCount",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:140"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_1.sol:811"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(IERC20)1482": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC721)2063": {
+            "label": "contract IERC721",
+            "numberOfBytes": "20"
+          },
+          "t_contract(ISlabMachine)2536": {
+            "label": "contract ISlabMachine",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_uint256,t_address)": {
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bool)": {
+            "label": "mapping(uint256 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\PausableUpgradeable.sol:21"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73"
+            }
+          ]
+        }
+      }
+    },
+    "f851d9070c7bb8a27baa7153f7688cda3c1deabaa30f5d75213fdd4ff1184fe0": {
+      "address": "0xA2Dc6CdD315e99042D1Fc709478bb849D367cB9A",
+      "txHash": "0xefb0328207af4359cc2672767c545e6038f9f8c1c625ccb742590cf74fe9ce5e",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "usdce",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC20)1482",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:111"
+          },
+          {
+            "label": "slabMachine",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(ISlabMachine)2536",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:114"
+          },
+          {
+            "label": "slabNFT",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_contract(IERC721)2063",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:117"
+          },
+          {
+            "label": "pokeballGame",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_address",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:120"
+          },
+          {
+            "label": "treasuryWallet",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:123"
+          },
+          {
+            "label": "nftInventory",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_array(t_uint256)dyn_storage",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:126"
+          },
+          {
+            "label": "isInInventory",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:129"
+          },
+          {
+            "label": "tokenIdToIndex",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:132"
+          },
+          {
+            "label": "totalNFTsPurchased",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:135"
+          },
+          {
+            "label": "totalNFTsAwarded",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:138"
+          },
+          {
+            "label": "totalUSDCSpent",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:141"
+          },
+          {
+            "label": "pendingPullRequests",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:144"
+          },
+          {
+            "label": "pendingRequestCount",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:147"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2_2.sol:988"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(IERC20)1482": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC721)2063": {
+            "label": "contract IERC721",
+            "numberOfBytes": "20"
+          },
+          "t_contract(ISlabMachine)2536": {
+            "label": "contract ISlabMachine",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_uint256,t_address)": {
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bool)": {
+            "label": "mapping(uint256 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\PausableUpgradeable.sol:21"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73"
+            }
+          ]
+        }
+      }
     }
   }
 }
