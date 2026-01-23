@@ -237,6 +237,18 @@ contract SlabNFTManager is
         uint256 maxSize
     );
 
+    /**
+     * @notice Emitted when USDC.e revenue is withdrawn (emergencyWithdrawRevenue)
+     * @param recipient Address receiving the funds
+     * @param amount Amount withdrawn
+     * @param remainingBalance Balance remaining after withdrawal
+     */
+    event RevenueWithdrawn(
+        address indexed recipient,
+        uint256 amount,
+        uint256 remainingBalance
+    );
+
     // ============ Errors ============
 
     error ZeroAddress();
@@ -526,6 +538,37 @@ contract SlabNFTManager is
         delete nftInventory;
 
         emit EmergencyWithdrawal(treasuryWallet, usdcBalance, nftCount);
+    }
+
+    /**
+     * @notice Withdraw a specific amount of USDC.e revenue to treasury
+     * @dev Only callable by owner. Does not affect NFT inventory.
+     * @dev Use this for testing to recycle funds without clearing NFTs.
+     * @param amount Amount of USDC.e to withdraw (6 decimals)
+     */
+    function emergencyWithdrawRevenue(uint256 amount) external onlyOwner nonReentrant {
+        if (amount == 0) revert InvalidAmount();
+
+        uint256 balance = usdce.balanceOf(address(this));
+        if (amount > balance) revert InsufficientBalance(amount, balance);
+
+        usdce.safeTransfer(treasuryWallet, amount);
+
+        emit RevenueWithdrawn(treasuryWallet, amount, balance - amount);
+    }
+
+    /**
+     * @notice Withdraw all USDC.e revenue to treasury (keeps NFTs)
+     * @dev Only callable by owner. Does not affect NFT inventory.
+     * @dev Use this for testing to recycle funds without clearing NFTs.
+     */
+    function emergencyWithdrawAllRevenue() external onlyOwner nonReentrant {
+        uint256 balance = usdce.balanceOf(address(this));
+        if (balance == 0) revert InsufficientBalance(1, 0);
+
+        usdce.safeTransfer(treasuryWallet, balance);
+
+        emit RevenueWithdrawn(treasuryWallet, balance, 0);
     }
 
     /**

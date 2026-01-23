@@ -186,7 +186,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 ├── scripts/                 # Hardhat scripts
 │   ├── spawnInitialPokemon.cjs  # Spawn 3 initial Pokemon (slots 0-2)
 │   ├── spawnMorePokemon.cjs     # Spawn Pokemon in slots 3-19 (v1.2.0)
-│   └── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.6.0)
+│   ├── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.6.0)
+│   └── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.6.0)
 │
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
@@ -231,6 +232,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
 | `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
 | `scripts/verify_revenue_flow.cjs` | Verify 3%/97% fee/revenue split on-chain (v1.6.0) |
+| `scripts/withdraw_test_funds.cjs` | Withdraw fees/revenue from contracts for testing |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 | `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
@@ -475,6 +477,18 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Expected: 3% of USDC.e goes to PokeballGame fee pool, 97% to SlabNFTManager
 - Script shows actual vs expected values with variance check
 - If variance > 1%, investigate swap events and revert history
+
+**Withdraw test funds for recycling:**
+- Run: `node scripts/withdraw_test_funds.cjs` to see current balances and options
+- Actions:
+  - `status` - Show current balances (default)
+  - `ape` - Withdraw accumulated APE fees from PokeballGame
+  - `allape` - Emergency withdraw ALL APE from PokeballGame
+  - `usdc` - Withdraw accumulated USDC.e fees from PokeballGame
+  - `revenue` - Withdraw ALL USDC.e from SlabNFTManager (keeps NFTs)
+  - `revenue:X` - Withdraw specific amount X from SlabNFTManager (e.g., `revenue:10.50`)
+- Requires PRIVATE_KEY set in .env.local and must be owner wallet
+- Withdrawn funds go to treasury wallet, can be reused for more testing
 
 ## External Services
 
@@ -973,6 +987,11 @@ NFT inventory management and auto-purchase from SlabMachine:
 - `setOwnerWallet(newOwner)` - Transfer ownership with event (owner only)
 - `getMaxInventorySize()` - Returns `MAX_INVENTORY_SIZE` (20)
 
+**Emergency Withdrawal Functions (v2.1.0):**
+- `emergencyWithdraw()` - Withdraw ALL USDC.e AND NFTs to treasury (owner only)
+- `emergencyWithdrawRevenue(amount)` - Withdraw specific amount of USDC.e, keeps NFTs (owner only)
+- `emergencyWithdrawAllRevenue()` - Withdraw ALL USDC.e, keeps NFTs (owner only)
+
 **Events for Frontend:**
 - `RevenueDeposited(depositor, amount, newBalance)` - When revenue received
 - `NFTPurchaseInitiated(requestId, amount, recipient)` - When SlabMachine purchase initiated
@@ -983,6 +1002,7 @@ NFT inventory management and auto-purchase from SlabMachine:
 - `OwnerWalletUpdated(oldOwner, newOwner)` - **v2.0.0 new**
 - `InventoryCapacityReached(currentSize, maxSize)` - **v2.0.0 new**
 - `AutoPurchaseSkippedInventoryFull(balance, inventorySize, maxSize)` - **v2.0.0 new**
+- `RevenueWithdrawn(recipient, amount, remainingBalance)` - **v2.1.0 new** - USDC.e revenue withdrawn
 
 **Upgrade Commands:**
 ```bash
