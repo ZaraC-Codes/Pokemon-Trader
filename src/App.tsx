@@ -13,6 +13,7 @@ import { GameHUD } from './components/PokeBallShop';
 import { CatchAttemptModal } from './components/CatchAttemptModal';
 import { CatchWinModal } from './components/CatchWinModal';
 import { CatchResultModal, type CatchResultState } from './components/CatchResultModal';
+import { AdminDevTools } from './components/AdminDevTools';
 import { useCaughtPokemonEvents, useFailedCatchEvents, type BallType } from './hooks/pokeballGame';
 import { useActiveWeb3React } from './hooks/useActiveWeb3React';
 import { contractService } from './services/contractService';
@@ -64,8 +65,15 @@ function AppContent() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [catchWin, setCatchWin] = useState<CatchWinState | null>(null);
   const [catchFailure, setCatchFailure] = useState<CatchResultState | null>(null);
+  const [isAdminToolsOpen, setIsAdminToolsOpen] = useState(false);
   // Music disabled
   // const [isMusicPlaying, setIsMusicPlaying] = useState(true);
+
+  // Check for dev mode via URL param or localStorage
+  const isDevMode = typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).get('dev') === '1' ||
+    localStorage.getItem('pokeballTrader_devMode') === 'true'
+  );
 
   // Track which events we've already processed to avoid duplicates
   const processedCatchEventsRef = useRef<Set<string>>(new Set());
@@ -309,7 +317,26 @@ function AppContent() {
     console.log('  - window.testContractConnection() - Test contract connection');
     // Music disabled
     // console.log('  - window.toggleMusic() - Toggle background music');
-  }, []);
+
+    if (isDevMode) {
+      console.log('🛠️ DEV MODE ENABLED - Press F2 to open Admin/Dev Tools');
+    }
+  }, [isDevMode]);
+
+  // F2 keyboard shortcut for Admin Tools (dev mode only)
+  useEffect(() => {
+    if (!isDevMode) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        setIsAdminToolsOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDevMode]);
 
   // Music disabled
   // const handleMusicToggle = () => {
@@ -510,6 +537,40 @@ function AppContent() {
         onTryAgain={handleTryAgain}
         result={catchFailure}
       />
+
+      {/* Admin/Dev Tools Panel (dev mode only) */}
+      {isDevMode && (
+        <AdminDevTools
+          isOpen={isAdminToolsOpen}
+          onClose={() => setIsAdminToolsOpen(false)}
+          connectedAddress={account}
+        />
+      )}
+
+      {/* Dev Mode Indicator Button (bottom-left corner) */}
+      {isDevMode && !isAdminToolsOpen && (
+        <button
+          onClick={() => setIsAdminToolsOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: '70px',
+            left: '20px',
+            zIndex: 1000,
+            padding: '8px 12px',
+            backgroundColor: '#1a1a3a',
+            color: '#ff44ff',
+            border: '2px solid #ff44ff',
+            cursor: 'pointer',
+            fontFamily: "'Courier New', monospace",
+            fontSize: '10px',
+            fontWeight: 'bold',
+            imageRendering: 'pixelated',
+          }}
+          title="Press F2 to toggle"
+        >
+          🛠️ DEV TOOLS
+        </button>
+      )}
 
       {/* Inventory Button */}
       <button

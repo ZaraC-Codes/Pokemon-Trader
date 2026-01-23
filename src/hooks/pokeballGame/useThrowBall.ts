@@ -57,10 +57,11 @@ import {
 export interface UseThrowBallReturn {
   /**
    * Function to throw a ball at a Pokemon.
+   * Returns false if the throw was blocked due to fee/gas issues.
    * @param pokemonSlot - Pokemon slot index (0-19)
    * @param ballType - Ball type to throw (0-3)
    */
-  write: ((pokemonSlot: number, ballType: BallType) => void) | undefined;
+  write: ((pokemonSlot: number, ballType: BallType) => Promise<boolean>) | undefined;
 
   /**
    * Whether the transaction is currently being processed.
@@ -74,6 +75,7 @@ export interface UseThrowBallReturn {
 
   /**
    * Error from the transaction, if any.
+   * Includes fee errors and gas estimation failures.
    */
   error: Error | undefined;
 
@@ -105,6 +107,18 @@ export interface UseThrowBallReturn {
   isFeeLoading: boolean;
 
   /**
+   * Whether the throw fee is available and valid.
+   * If false, the write function will block and return an error.
+   */
+  isFeeReady: boolean;
+
+  /**
+   * Error specifically related to fee reading.
+   * Null if fee was read successfully.
+   */
+  feeError: string | null;
+
+  /**
    * Reset the hook state to initial values.
    */
   reset: () => void;
@@ -127,11 +141,14 @@ export function useThrowBall(): UseThrowBallReturn {
   const [currentHash, setCurrentHash] = useState<`0x${string}` | undefined>(undefined);
   const [requestId, setRequestId] = useState<bigint | undefined>(undefined);
 
+  // Local error state for fee/gas estimation failures (blocks wallet popup)
+  const [localError, setLocalError] = useState<Error | undefined>(undefined);
+
   // Fetch the current throw fee from contract (v1.6.0 - Pyth Entropy)
   const {
-    data: throwFee,
+    data: throwFeeRaw,
     isLoading: isFeeLoading,
-    refetch: refetchFee,
+    error: feeReadError,
   } = useReadContract({
     address: POKEBALL_GAME_ADDRESS,
     abi: POKEBALL_GAME_ABI,
@@ -142,6 +159,19 @@ export function useThrowBall(): UseThrowBallReturn {
       staleTime: 30_000, // Refresh every 30 seconds
     },
   });
+
+  // Cast the raw fee to bigint (contract returns uint256)
+  const throwFee = throwFeeRaw as bigint | undefined;
+
+  // Determine if fee is ready (loaded successfully and non-zero)
+  const isFeeReady = !isFeeLoading && !feeReadError && throwFee !== undefined && throwFee > 0n;
+
+  // Fee-specific error message
+  const feeError: string | null = feeReadError
+    ? `Failed to read throw fee: ${feeReadError.message}`
+    : (throwFee === 0n || throwFee === undefined) && !isFeeLoading
+      ? 'Throw fee is 0 or unavailable. RPC may be unreachable.'
+      : null;
 
   // Wagmi write contract hook
   const {
@@ -182,7 +212,7 @@ export function useThrowBall(): UseThrowBallReturn {
           });
 
           if (decoded.eventName === 'ThrowAttempted') {
-            const args = decoded.args as {
+            const args = decoded.args as unknown as {
               thrower: `0x${string}`;
               pokemonId: bigint;
               ballTier: number;
@@ -202,38 +232,109 @@ export function useThrowBall(): UseThrowBallReturn {
   // Combined loading state
   const isLoading = isWritePending || isReceiptLoading;
 
-  // Combined error
-  const error = writeError || receiptError || undefined;
+  // Combined error - includes local errors for fee/gas failures
+  const error = localError || writeError || receiptError || undefined;
 
   // Write function - includes Entropy fee as msg.value (v1.6.0)
+  // FAIL-SAFE: Blocks transaction if fee unavailable or gas estimation fails
   const write = useCallback(
-    (pokemonSlot: number, ballType: BallType) => {
+    async (pokemonSlot: number, ballType: BallType): Promise<boolean> => {
+      // Clear any previous local error
+      setLocalError(undefined);
+
+      // Validation: Contract address
       if (!POKEBALL_GAME_ADDRESS) {
-        console.error('[useThrowBall] Contract address not configured');
-        return;
+        const err = new Error('[useThrowBall] Contract address not configured');
+        console.error(err.message);
+        setLocalError(err);
+        return false;
       }
 
+      // Validation: Pokemon slot range
       if (pokemonSlot < 0 || pokemonSlot >= MAX_ACTIVE_POKEMON) {
-        console.error(`[useThrowBall] Invalid pokemon slot (must be 0-${MAX_ACTIVE_POKEMON - 1}):`, pokemonSlot);
-        return;
+        const err = new Error(`[useThrowBall] Invalid pokemon slot (must be 0-${MAX_ACTIVE_POKEMON - 1}): ${pokemonSlot}`);
+        console.error(err.message);
+        setLocalError(err);
+        return false;
+      }
+
+      // FAIL-SAFE: Block if throw fee is not available or is zero
+      if (!throwFee || throwFee === 0n) {
+        const errorDetails = {
+          pokemonSlot,
+          ballType,
+          throwFee: throwFee?.toString() ?? 'undefined',
+          isFeeLoading,
+          feeReadError: feeReadError?.message,
+        };
+        console.error('[useThrowBall] BLOCKED: Cannot proceed without valid throw fee', errorDetails);
+
+        const err = new Error(
+          'Cannot throw ball: Entropy fee unavailable. ' +
+          'This may be due to RPC connection issues. ' +
+          'Please check your connection and try again.'
+        );
+        setLocalError(err);
+        return false;
       }
 
       // Add 10% buffer to the fee to account for potential fee changes between read and write
-      const fee = throwFee as bigint | undefined;
-      const feeToSend = fee ? (fee * 110n) / 100n : 0n;
+      const feeToSend = (throwFee * 110n) / 100n;
 
-      console.log('[useThrowBall] Throwing ball:', {
+      console.log('[useThrowBall] Preparing throw:', {
         pokemonSlot,
         ballType,
         address: POKEBALL_GAME_ADDRESS,
-        throwFee: throwFee?.toString(),
+        throwFee: throwFee.toString(),
         feeWithBuffer: feeToSend.toString(),
       });
 
-      if (feeToSend === 0n) {
-        console.warn('[useThrowBall] Warning: throwFee is 0, transaction may fail');
+      // FAIL-SAFE: Estimate gas before sending to catch revert errors
+      try {
+        if (publicClient) {
+          console.log('[useThrowBall] Estimating gas...');
+          await publicClient.estimateContractGas({
+            address: POKEBALL_GAME_ADDRESS,
+            abi: POKEBALL_GAME_ABI,
+            functionName: 'throwBall',
+            args: [pokemonSlot, ballType],
+            value: feeToSend,
+          });
+          console.log('[useThrowBall] Gas estimation successful');
+        }
+      } catch (gasError) {
+        const errorDetails = {
+          pokemonSlot,
+          ballType,
+          throwFee: throwFee.toString(),
+          feeWithBuffer: feeToSend.toString(),
+          gasError: gasError instanceof Error ? gasError.message : String(gasError),
+        };
+        console.error('[useThrowBall] BLOCKED: Gas estimation failed', errorDetails);
+
+        // Parse common revert reasons for user-friendly messages
+        const gasErrorMsg = gasError instanceof Error ? gasError.message : String(gasError);
+        let userMessage = 'Transaction would fail: ';
+
+        if (gasErrorMsg.includes('InsufficientBalls')) {
+          userMessage += 'You don\'t have any of that ball type.';
+        } else if (gasErrorMsg.includes('PokemonNotActive')) {
+          userMessage += 'No Pokemon in that slot.';
+        } else if (gasErrorMsg.includes('NoAttemptsRemaining')) {
+          userMessage += 'Pokemon has no attempts remaining.';
+        } else if (gasErrorMsg.includes('insufficient funds') || gasErrorMsg.includes('exceeds balance')) {
+          userMessage += 'Insufficient APE balance for throw fee + gas.';
+        } else {
+          userMessage += gasErrorMsg.slice(0, 100); // Truncate long messages
+        }
+
+        const err = new Error(userMessage);
+        setLocalError(err);
+        return false;
       }
 
+      // All checks passed - proceed with transaction
+      console.log('[useThrowBall] Sending transaction...');
       writeContract({
         address: POKEBALL_GAME_ADDRESS,
         abi: POKEBALL_GAME_ABI,
@@ -242,14 +343,17 @@ export function useThrowBall(): UseThrowBallReturn {
         chainId: POKEBALL_GAME_CHAIN_ID,
         value: feeToSend, // v1.6.0: Include Entropy fee
       });
+
+      return true;
     },
-    [writeContract, throwFee]
+    [writeContract, throwFee, isFeeLoading, feeReadError, publicClient]
   );
 
-  // Reset function
+  // Reset function - also clears local error state
   const reset = useCallback(() => {
     setCurrentHash(undefined);
     setRequestId(undefined);
+    setLocalError(undefined);
     resetWrite();
   }, [resetWrite]);
 
@@ -265,6 +369,8 @@ export function useThrowBall(): UseThrowBallReturn {
       requestId: undefined,
       throwFee: undefined,
       isFeeLoading: false,
+      isFeeReady: false,
+      feeError: 'Contract not configured',
       reset: () => {},
     };
   }
@@ -277,8 +383,10 @@ export function useThrowBall(): UseThrowBallReturn {
     hash: currentHash,
     receipt,
     requestId,
-    throwFee: throwFee as bigint | undefined,
+    throwFee,
     isFeeLoading,
+    isFeeReady,
+    feeError,
     reset,
   };
 }

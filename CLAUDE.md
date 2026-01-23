@@ -75,6 +75,12 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── TransactionHistory/      # Player transaction history
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── TransactionHistory.tsx   # History modal with pagination
+│   │   ├── PokemonCard/             # NFT card display component
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   └── PokemonCard.tsx          # Pokemon card art from metadata
+│   │   ├── AdminDevTools/           # Dev tools panel (dev mode only)
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   └── AdminDevTools.tsx        # SlabNFTManager admin operations
 │   │   └── FundingWidget/           # Cross-chain funding widget
 │   │       ├── index.ts                 # Barrel export
 │   │       └── FundingWidget.tsx        # Bridge/swap/buy modal
@@ -149,6 +155,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   ├── PokeballGameV5.sol       # Game contract v1.5.0 (unified payments, auto-swap)
 │   ├── SlabNFTManager.sol       # NFT inventory manager v1.0.0 (UUPS)
 │   ├── SlabNFTManagerV2.sol     # NFT manager v2.0.0 (max 20 NFTs)
+│   ├── SlabNFTManagerV2_1.sol   # NFT manager v2.1.0 (pull price fix)
+│   ├── SlabNFTManagerV2_2.sol   # NFT manager v2.2.0 (NFT recovery, transferFrom fix)
 │   ├── interfaces/
 │   │   └── IPOPVRNG.sol         # POP VRNG interface (randomness)
 │   ├── abi/
@@ -168,7 +176,9 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── upgrade_PokeballGameV4_NativeAPE.cjs # Upgrade to v1.4.0 (native APE)
 │   │   ├── upgrade_PokeballGameV5.cjs   # Upgrade to v1.5.0 (unified payments)
 │   │   ├── set_slabNFTManager.cjs       # Configure SlabNFTManager on PokeballGame
-│   │   └── upgrade_SlabNFTManagerV2.cjs # Upgrade to v2.0.0 (max 20 NFTs)
+│   │   ├── upgrade_SlabNFTManagerV2.cjs # Upgrade to v2.0.0 (max 20 NFTs)
+│   │   ├── upgrade_SlabNFTManagerV2_1.cjs # Upgrade to v2.1.0 (pull price fix)
+│   │   └── upgrade_SlabNFTManagerV2_2.cjs # Upgrade to v2.2.0 (NFT recovery)
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -187,7 +197,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   ├── spawnInitialPokemon.cjs  # Spawn 3 initial Pokemon (slots 0-2)
 │   ├── spawnMorePokemon.cjs     # Spawn Pokemon in slots 3-19 (v1.2.0)
 │   ├── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.6.0)
-│   └── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.6.0)
+│   ├── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.6.0)
+│   └── update_ape_price.cjs     # Auto-update APE/USD price from CoinGecko
 │
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
@@ -233,6 +244,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
 | `scripts/verify_revenue_flow.cjs` | Verify 3%/97% fee/revenue split on-chain (v1.6.0) |
 | `scripts/withdraw_test_funds.cjs` | Withdraw fees/revenue from contracts for testing |
+| `scripts/update_ape_price.cjs` | Hourly APE/USD price updater from CoinGecko |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 | `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
@@ -378,6 +390,43 @@ The spawn system includes extensive console logging at each step of data flow. W
 ### CORS Proxy
 Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 
+### Dev Server Port Convention
+
+**CRITICAL:** The Vite dev server MUST run on port 5173.
+
+The frontend uses relative URLs (`/api/rpc`) that are proxied through Vite's dev server to the Alchemy RPC endpoint. However, `apechainConfig.ts` has hardcoded references to `http://localhost:5173/api/rpc` in certain fallback paths.
+
+**Configuration (`vite.config.ts`):**
+```typescript
+server: {
+  port: 5173,        // Canonical dev port
+  strictPort: true,  // Fail if port is busy instead of picking another
+  proxy: {
+    '/api/rpc': {
+      target: 'https://apechain-mainnet.g.alchemy.com',
+      rewrite: (path) => path.replace(/^\/api\/rpc/, '/v2/YOUR_KEY'),
+    },
+  },
+}
+```
+
+**Symptoms of wrong port:**
+- Console spam: `POST http://localhost:5173/api/rpc 400 (Bad Request)`
+- `throwFee` returns 0 or undefined
+- MetaMask shows absurdly high gas estimates (millions of APE)
+- Contract reads fail silently, causing UI to show stale/default data
+
+**Fix:** Kill any process using port 5173, then restart dev server:
+```bash
+# Windows
+npx kill-port 5173
+npm run dev
+
+# Linux/macOS
+lsof -ti:5173 | xargs kill -9
+npm run dev
+```
+
 ### Caching
 - NFT data cached 30 seconds with React Query
 - Listings have 5-minute stale time
@@ -405,11 +454,23 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
 - Check for `[GameCanvas] Flushing X buffered spawns` in console
 
 **Wallet shows insane gas estimate (~7M APE) when purchasing balls:**
-- Cause: Missing ERC-20 token approval before `purchaseBalls` call (USDC.e only)
+- Cause 1: Missing ERC-20 token approval before `purchaseBalls` call (USDC.e only)
+- Cause 2 (v1.4.0+): Using generic `purchaseBalls()` function for gas estimation when buying with APE after USDC.e purchases can trigger "ERC20: transfer amount exceeds allowance" error
 - **v1.4.0:** APE is now native currency - NO approval needed for APE purchases!
 - USDC.e still requires ERC-20 approval before `safeTransferFrom`
-- Fix: PokeBallShop shows "Approve" button for USDC.e, direct "Buy" for APE
+- Fix 1: PokeBallShop shows "Approve" button for USDC.e, direct "Buy" for APE
+- Fix 2 (v1.4.1+): `usePurchaseBalls` hook now uses dedicated contract functions:
+  - `purchaseBallsWithAPE(ballType, quantity)` - payable, avoids ERC-20 checks
+  - `purchaseBallsWithUSDC(ballType, quantity)` - nonpayable, explicit USDC.e path
 - The `useTokenApproval` hook returns `isApproved: true` for APE (native)
+
+**Per-transaction $49.90 cap exceeded:**
+- Cause: Contract enforces `MAX_PURCHASE_USD = $49.90` per transaction
+- Symptom: Transaction reverts with `PurchaseExceedsMaximum` error
+- Fix: PokeBallShop now validates quantity in frontend before allowing purchase
+- UI shows "Over Cap" button (red) and "Max $49.90/tx" warning when exceeded
+- Master Ball is $49.90, so max quantity = 1 per transaction
+- Ultra Ball ($25) max = 1, Great Ball ($10) max = 4, Poke Ball ($1) max = 49
 
 **Shop screen goes blank when entering quantity:**
 - Cause: `BigInt(NaN)` throws an error when quantity input is empty/invalid
@@ -461,6 +522,22 @@ Dev server proxies RPC calls via `/api/rpc` to Alchemy endpoint
   - `NoAttemptsRemaining(slot)` - Pokemon already at max attempts
 - Fix: Frontend should validate before calling (CatchAttemptModal already does this)
 - Debug: Use `simulateContract` to see the actual revert reason before sending
+
+**throwBall transaction fails or throwFee is 0:**
+- Cause 1: Dev server running on wrong port (see "Dev Server Port Convention" above)
+- Cause 2: RPC endpoint unreachable or rate limited
+- Cause 3: Contract state changed between fee read and transaction send
+- **Fail-Safe Behavior (v1.6.0+):**
+  - `useThrowBall` hook now BLOCKS transactions when throwFee is 0 or unavailable
+  - Gas estimation runs BEFORE sending to wallet - reverts are caught early
+  - Hook returns `isFeeReady: boolean` and `feeError: string | null` for UI feedback
+  - `write()` returns `Promise<boolean>` - false means transaction was blocked
+- Console logs to watch for:
+  - `[useThrowBall] BLOCKED: Cannot proceed without valid throw fee` - Fee unavailable
+  - `[useThrowBall] BLOCKED: Gas estimation failed` - Transaction would revert
+  - `[useThrowBall] Gas estimation successful` - All checks passed
+- UI should check `isFeeReady` before enabling throw button
+- If `feeError` is set, display it to user instead of attempting transaction
 
 **TransactionHistory shows empty, events not found:**
 - Cause 1: Wrong env var name - `VITE_POKEBALLGAME_ADDRESS` vs `VITE_POKEBALL_GAME_ADDRESS` (with underscore)
@@ -585,6 +662,16 @@ Displays player's transaction history from the PokeballGame contract:
 - "Load More" pagination for older transactions
 - Color-coded transaction types (purchase=green, throw=yellow, caught=cyan, failed=red)
 - Stats bar showing total purchases, throws, catches, escapes, and catch rate
+- **Spending summary bar** for NFT trigger testing (Total USD spent, APE used, USDC.e used)
+
+**Spending Summary (for NFT Trigger Testing):**
+The component displays a secondary stats bar with spending totals to help verify NFT pool contributions:
+- **Total Spent (USD)**: Approximate USD equivalent of all ball purchases
+- **APE Used**: Total APE spent (if any APE purchases)
+- **USDC.e Used**: Total USDC.e spent (if any USDC.e purchases)
+- Shows note: "(NFT pool: 97% of purchases)" as reminder of revenue split
+
+This helps answer "have I spent enough to trigger an NFT purchase?" (threshold is $51 in SlabNFTManager)
 
 **Props:**
 ```typescript
@@ -656,6 +743,123 @@ useWatchContractEvent({ ... });
 - Too many chunked requests hit rate limits (429 errors)
 - Caldera public RPC has no block range limits, ideal for historical queries
 - Wagmi client still used for real-time event subscriptions
+
+### PokemonCard Component
+Reusable component for displaying Slab NFTs as Pokemon cards with metadata:
+
+**Location:** `src/components/PokemonCard/PokemonCard.tsx`
+
+**Features:**
+- Fetches NFT metadata via `useSlabNFTMetadata` hook
+- Displays card image from IPFS (with fallback handling)
+- Shows NFT name from metadata (not generic "Slab NFT")
+- Loading skeleton animation while fetching
+- Error placeholder if metadata fetch fails
+- Compact mode for smaller displays
+- Optional attributes display
+- Optional Apescan link
+
+**Props:**
+```typescript
+interface PokemonCardProps {
+  tokenId: bigint;           // NFT token ID to display
+  showLoading?: boolean;     // Show skeleton while loading (default: true)
+  showError?: boolean;       // Show error state on failure (default: true)
+  showAttributes?: boolean;  // Show card attributes (default: false)
+  compact?: boolean;         // Compact size mode (default: false)
+  showTokenId?: boolean;     // Show token ID below name (default: true)
+  className?: string;        // Custom CSS class
+  onClick?: () => void;      // Click handler
+  showViewLink?: boolean;    // Show "View on Apescan" link (default: false)
+}
+```
+
+**Usage:**
+```tsx
+import { PokemonCard } from './components/PokemonCard';
+
+// Basic usage
+<PokemonCard tokenId={BigInt(300)} />
+
+// Full featured
+<PokemonCard
+  tokenId={BigInt(300)}
+  showAttributes
+  showViewLink
+  onClick={() => openDetailModal(300)}
+/>
+
+// Compact mode for lists
+<PokemonCard tokenId={BigInt(300)} compact />
+```
+
+**Integration:**
+- Used in `CatchWinModal` to display won NFTs
+- Used in `AdminDevTools` for Token 300 metadata testing
+- Can be used in any inventory or collection display
+
+### AdminDevTools Component
+Development panel for SlabNFTManager v2.2.0 diagnostics and admin operations:
+
+**Location:** `src/components/AdminDevTools/AdminDevTools.tsx`
+
+**Access:**
+- Dev mode only (URL param `?dev=1` or `localStorage.setItem('pokeballTrader_devMode', 'true')`)
+- Press **F2** to toggle panel visibility
+- Purple "DEV TOOLS" button in bottom-left corner
+
+**Features:**
+1. **Contract Status** - Real-time SlabNFTManager state:
+   - USDC.e balance with auto-purchase status
+   - Inventory count vs max (e.g., "3/20")
+   - Pending VRF requests count
+   - canAutoPurchase check result
+
+2. **Token 300 Metadata Test** - Verify IPFS metadata loading:
+   - Displays Token 300 using PokemonCard component
+   - Shows raw metadata JSON for debugging
+
+3. **Find Untracked NFTs** - Discover NFTs received via `transferFrom()`:
+   - Search by ID range (start, end)
+   - Lists NFTs owned by contract but not in inventory tracking
+   - One-click batch recovery
+
+4. **Fix Stuck Pending Requests** - Clear stale VRF request counts:
+   - Clear specific request ID
+   - Reset entire pending count (emergency)
+
+**Owner Detection:**
+- Compares connected wallet to hardcoded owner address
+- Read-only users see status but cannot execute admin functions
+- Admin functions show "Connect owner wallet" when not owner
+
+**Props:**
+```typescript
+interface AdminDevToolsProps {
+  isOpen: boolean;
+  onClose: () => void;
+  connectedAddress?: `0x${string}`;
+}
+```
+
+**Usage:**
+```tsx
+import { AdminDevTools } from './components/AdminDevTools';
+
+// In App.tsx (already integrated)
+{isDevMode && (
+  <AdminDevTools
+    isOpen={isAdminToolsOpen}
+    onClose={() => setIsAdminToolsOpen(false)}
+    connectedAddress={account}
+  />
+)}
+```
+
+**Console Logs:**
+- `[AdminDevTools] Finding untracked NFTs in range X-Y`
+- `[AdminDevTools] Recovering NFT X`
+- `[AdminDevTools] Clearing pending request X`
 
 ### ThirdWeb Checkout Integration (Legacy)
 Buy crypto directly in the PokeBall Shop using ThirdWeb Pay:
@@ -821,6 +1025,21 @@ Fixed by:
 - Setting `amountOutMinimum: 0` to accept market rate (DEX handles slippage via deadline)
 - Processing whatever USDC.e the market gives (3%/97% split on actual received amount)
 
+**APE Price Configuration:**
+The contract stores `apePriceUSD` (8 decimals) to calculate how much APE equals a given USD amount.
+- Formula: `apeAmount = (usdcAmount * 1e20) / apePriceUSD`
+- Example: $25 at $0.19/APE = (25000000 * 1e20) / 19000000 = ~131.58 APE
+
+**IMPORTANT:** The `apePriceUSD` must be kept updated to match market price, otherwise users will be under/overcharged in APE. Use `setAPEPrice(newPrice)` (owner only) to update.
+
+| APE Market Price | apePriceUSD Value (8 decimals) | Script to Update |
+|-----------------|-------------------------------|------------------|
+| $0.19 | 19000000 | `await contract.setAPEPrice(19000000)` |
+| $0.50 | 50000000 | `await contract.setAPEPrice(50000000)` |
+| $1.00 | 100000000 | `await contract.setAPEPrice(100000000)` |
+
+To check current price: `await contract.apePriceUSD()` → returns 8-decimal value.
+
 **Ball System (Default Prices - Configurable in v1.3.0+):**
 | Ball Type | Default Price | Default Catch Rate |
 |-----------|---------------|-------------------|
@@ -873,6 +1092,9 @@ Fixed by:
 **New Functions (v1.4.0):**
 - `purchaseBallsWithAPE(ballType, quantity)` - Payable function for native APE purchases
 - `purchaseBallsWithUSDC(ballType, quantity)` - Explicit USDC.e purchase function
+- `setAPEPrice(priceUSD)` - Update APE/USD price for cost calculations (owner only, 8 decimals)
+- `apePriceUSD()` - View current APE price in USD (8 decimals)
+- `calculateAPEAmount(usdcAmount)` - Calculate APE amount for given USDC.e (6 decimals in, 18 out)
 - `withdrawAPEFees()` - Withdraw accumulated native APE fees to treasury (owner only)
 - `withdrawAllAPE()` - Emergency withdraw all APE to treasury (owner only)
 - `accumulatedAPEFees()` - View accumulated native APE platform fees
@@ -952,7 +1174,7 @@ await pokeballGame.setRevertOnNoNFT(true);
 - v1.4.0 adds native APE payments via msg.value (no more ERC-20 approval for APE!)
 - See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for v1.2.0 upgrade guide
 
-### SlabNFTManager Contract (v2.1.0)
+### SlabNFTManager Contract (v2.2.0)
 NFT inventory management and auto-purchase from SlabMachine:
 
 **Versions:**
@@ -960,11 +1182,13 @@ NFT inventory management and auto-purchase from SlabMachine:
 |---------|-------------------|--------------|--------|
 | v1.0.0 | 10 | Initial release | Superseded |
 | v2.0.0 | 20 | Max 20 NFTs, setOwnerWallet, enhanced events | Superseded |
-| v2.1.0 | 20 | Emergency revenue withdrawal functions | **Latest** |
+| v2.1.0 | 20 | Fixed SlabMachine pull price bug, emergency revenue withdrawal | Superseded |
+| v2.2.0 | 20 | **NFT recovery functions, transferFrom fix, pending request clearing** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71`
-- Implementation (v2.1.0): `0x8F971004939D2Ab2D043C869B096E8C93470Bcd5`
+- Implementation (v2.2.0): `0x05c0e3aD3DB67285b7CDaA396f3993A3130b6E25`
+- Implementation (v2.1.0): `0xd12644fba183c4bea6f7d8b92c068640929631b6` (superseded)
 
 **Features:**
 - UUPS upgradeable proxy pattern
@@ -988,10 +1212,32 @@ NFT inventory management and auto-purchase from SlabMachine:
 - `setOwnerWallet(newOwner)` - Transfer ownership with event (owner only)
 - `getMaxInventorySize()` - Returns `MAX_INVENTORY_SIZE` (20)
 
-**Emergency Withdrawal Functions (v2.1.0):**
-- `emergencyWithdraw()` - Withdraw ALL USDC.e AND NFTs to treasury (owner only)
+**New Functions (v2.1.0):**
+- `PULL_PRICE_USDC` - Fixed $51 approval amount for SlabMachine (fixes allowance bug)
+- `getPullPrice()` - Returns the fixed pull price ($51 USDC.e)
 - `emergencyWithdrawRevenue(amount)` - Withdraw specific amount of USDC.e, keeps NFTs (owner only)
 - `emergencyWithdrawAllRevenue()` - Withdraw ALL USDC.e, keeps NFTs (owner only)
+
+**New Functions (v2.2.0):**
+- `recoverUntrackedNFT(tokenId)` - Manually add NFTs that arrived via transferFrom (owner only)
+- `batchRecoverUntrackedNFTs(tokenIds[])` - Recover multiple untracked NFTs in one tx (owner only)
+- `getUntrackedNFTs(startId, endId)` - Find NFTs owned but not tracked in inventory
+- `clearPendingRequest(requestId)` - Fix stuck pendingRequestCount (owner only)
+- `resetPendingRequestCount()` - Emergency reset pending count to zero (owner only)
+- `canAutoPurchase()` - View function for frontend diagnostics
+
+**v2.1.0 Bug Fix:**
+The `slabMachine.machineConfig().usdcPullPrice` returned `1` (stale/incorrect), but the actual SlabMachine charges $50 per pull. This caused "ERC20: transfer amount exceeds allowance" errors when auto-purchasing NFTs. Fixed by using a hardcoded `PULL_PRICE_USDC = $51` constant for approvals.
+
+**v2.2.0 Bug Fix - SlabMachine transferFrom Issue:**
+SlabMachine uses `transferFrom()` instead of `safeTransferFrom()` when transferring NFTs after VRF callback. This means `onERC721Received()` is **never called**, and NFTs arrive without being tracked in inventory.
+
+**Symptoms:**
+- `balanceOf(SlabNFTManager)` shows 1 NFT
+- `getInventory()` returns empty array
+- `pendingRequestCount` stays at 1 forever
+
+**Solution:** Use `recoverUntrackedNFT(tokenId)` to manually add the NFT to inventory tracking, then `clearPendingRequest(0)` to reset the pending counter.
 
 **Events for Frontend:**
 - `RevenueDeposited(depositor, amount, newBalance)` - When revenue received
@@ -1004,11 +1250,19 @@ NFT inventory management and auto-purchase from SlabMachine:
 - `InventoryCapacityReached(currentSize, maxSize)` - **v2.0.0 new**
 - `AutoPurchaseSkippedInventoryFull(balance, inventorySize, maxSize)` - **v2.0.0 new**
 - `RevenueWithdrawn(recipient, amount, remainingBalance)` - **v2.1.0 new** - USDC.e revenue withdrawn
+- `NFTRecovered(tokenId, inventorySize)` - **v2.2.0 new** - Untracked NFT recovered to inventory
+- `PendingRequestCleared(requestId, remainingPending)` - **v2.2.0 new** - Pending request counter fixed
 
 **Upgrade Commands:**
 ```bash
 # Upgrade to v2.0.0 (max 20 NFTs)
 npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2.cjs --network apechain
+
+# Upgrade to v2.1.0 (fixed pull price bug)
+npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_1.cjs --network apechain
+
+# Upgrade to v2.2.0 (NFT recovery, transferFrom fix)
+npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_2.cjs --network apechain
 ```
 
 **Contract Integration Flow:**
@@ -1019,7 +1273,17 @@ PokeballGame → SlabNFTManager.depositRevenue(97%)
     ↓
 SlabNFTManager → SlabMachine.pull() (when >= $51)
     ↓
-SlabMachine → SlabNFTManager (NFT via callback)
+SlabMachine → requests VRF randomness (Pyth Entropy)
+    ↓
+VRF callback → SlabMachine determines rarity → mints NFT
+    ↓
+SlabMachine → SlabNFTManager (NFT via transferFrom - NOT safeTransferFrom!)
+    ↓
+⚠️ NFT arrives but onERC721Received() NOT called (SlabMachine bug)
+    ↓
+Owner runs: recoverUntrackedNFT(tokenId) + clearPendingRequest(0)
+    ↓
+NFT now in inventory, ready to award
     ↓
 Player catches Pokemon → PokeballGame._handleSuccessfulCatch()
     ↓
@@ -1027,6 +1291,18 @@ PokeballGame → SlabNFTManager.awardNFTToWinner(player)
     ↓
 SlabNFTManager → Player (NFT transfer)
 ```
+
+**SlabMachine VRF Flow (Slab Reveal):**
+The SlabMachine uses VRF (Pyth Entropy) for randomness. When `pull()` is called:
+1. SlabMachine requests random number from VRF provider
+2. VRF callback fires (takes seconds to minutes)
+3. SlabMachine uses random number to determine rarity (COMMON/RARE/EPIC/LEGEND/LEGENDARY)
+4. SlabMachine calls `slabNFT.transferFrom()` to send NFT to recipient
+
+**IMPORTANT:** SlabMachine uses `transferFrom()`, not `safeTransferFrom()`. This means:
+- `onERC721Received()` is **never called** on the recipient
+- NFTs arrive without triggering inventory tracking
+- Must use `recoverUntrackedNFT()` to manually add to inventory
 
 ### Test Fund Recycling (v2.1.0)
 During testing and development, funds accumulate in the contracts. Use the `withdraw_test_funds.cjs` script to recycle these back to the treasury.
@@ -1070,6 +1346,70 @@ node scripts/withdraw_test_funds.cjs ape
 - Must run with owner wallet (`0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06`)
 - Requires `DEPLOYER_PRIVATE_KEY` in `.env`
 - All withdrawals go to treasury wallet (`0x1D1d0E6eF415f2BAe0c21939c50Bc4ffBeb65c74`)
+
+### APE Price Auto-Update Script
+Automatically updates the on-chain `apePriceUSD` value from CoinGecko market data. Run hourly to keep APE payment pricing accurate.
+
+**Script Location:** `scripts/update_ape_price.cjs`
+
+**Features:**
+- Fetches APE/USD price from CoinGecko API
+- Converts to 8-decimal on-chain format
+- Safety check: rejects >30% price changes (configurable)
+- Sanity bounds: $0.01 - $100 USD
+- Dry-run mode for testing
+- Timestamped logging for cron output
+
+**Usage:**
+```bash
+# Check current price and what would be updated (no transaction)
+node scripts/update_ape_price.cjs --dry-run
+
+# Update price on-chain
+node scripts/update_ape_price.cjs
+
+# Force update even if change exceeds 30% safety limit
+node scripts/update_ape_price.cjs --force
+```
+
+**Example Output:**
+```
+[2026-01-23T05:51:05.853Z] SUCCESS: APE price updated $0.1900 -> $0.1901 (19000000 -> 19012300), tx: 0x318c99...
+```
+
+**Scheduling (Hourly):**
+
+Linux/macOS (cron):
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line (runs every hour at minute 0)
+0 * * * * cd /path/to/Pokemon-Trader && node scripts/update_ape_price.cjs >> logs/ape_price.log 2>&1
+```
+
+Windows (Task Scheduler):
+1. Open Task Scheduler → Create Basic Task
+2. Trigger: Daily, repeat every 1 hour
+3. Action: Start a program
+   - Program: `node`
+   - Arguments: `scripts/update_ape_price.cjs`
+   - Start in: `C:\path\to\Pokemon-Trader`
+4. Optionally redirect output to a log file
+
+**Environment Variables:**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEPLOYER_PRIVATE_KEY` | (required) | Owner wallet private key |
+| `APECHAIN_RPC_URL` | Caldera public | RPC endpoint |
+| `APE_PRICE_API_URL` | CoinGecko | Alternative price API |
+| `APE_PRICE_MAX_CHANGE_PCT` | 30 | Max allowed % change per update |
+
+**Safety Checks:**
+- **Price bounds**: Rejects prices outside $0.01 - $100 range
+- **Change limit**: Rejects >30% change in single update (protects against bad API data)
+- **Ownership verification**: Confirms signer is contract owner before sending tx
+- Use `--force` to override change limit for legitimate large moves
 
 ### PokemonSpawnManager (Frontend)
 Phaser manager for tracking active Pokemon spawns in the game world:
@@ -1500,7 +1840,7 @@ import {
 
 | Hook | Purpose |
 |------|---------|
-| `usePurchaseBalls()` | Buy balls (APE via msg.value, USDC.e via transferFrom) |
+| `usePurchaseBalls()` | Buy balls via dedicated functions: `purchaseBallsWithAPE` (payable) or `purchaseBallsWithUSDC` (nonpayable) |
 | `useThrowBall()` | Throw ball at Pokemon slot (0-19), includes Entropy fee automatically |
 | `useThrowFee()` | Get current Pyth Entropy fee for throwBall (~0.073 APE) |
 | `useGetPokemonSpawns()` | Read all 20 Pokemon slots (polls every 5s) |
@@ -1512,6 +1852,7 @@ import {
 | `useApeApproval(amount)` | Returns isApproved: true (native APE, no approval needed) |
 | `useUsdcApproval(amount)` | USDC.e token approval helper (requires ERC-20 approval) |
 | `useApePriceFromContract()` | Read APE price from contract |
+| `useContractDiagnostics()` | Environment sanity checks (APE price, NFT pool status, warnings) |
 | `useSetOwnerWallet()` | Transfer ownership (owner only) |
 | `useSetTreasuryWallet()` | Update treasury address (owner only) |
 
@@ -1670,9 +2011,11 @@ import { PokeBallShop } from './components/PokeBallShop';
 - **Token approval flow**: Shows orange "Approve" button when approval needed
 - **Approval status**: Shows loading state during approval transaction
 - Transaction loading state with wallet prompt
-- Success message with transaction hash
+- **Enhanced success display**: Shows transaction hash link to Apescan, detects NFT auto-purchase
 - Error display with dismiss button
 - No wallet connected warning
+- **Environment sanity panel**: Shows APE price, NFT pull price, pool balance, inventory count
+- **Developer diagnostics**: Hidden panel for debugging (enable via `?dev=1` or localStorage)
 
 **Token Approval Flow:**
 1. User selects quantity and payment token (APE or USDC.e)
@@ -1683,13 +2026,207 @@ import { PokeBallShop } from './components/PokeBallShop';
 6. User clicks buy → purchase transaction executes
 
 **Hooks Used:**
-- `usePurchaseBalls()` - Contract write
+- `usePurchaseBalls()` - Contract write (stops on gas estimation failure)
 - `usePlayerBallInventory(address)` - Read inventory
 - `useApeBalanceWithUsd(address)` - APE balance with USD value
 - `useUsdcBalance(address)` - USDC.e balance
 - `useTokenApproval(token, amount)` - Check/request ERC-20 approval
 - `useApePriceFromContract()` - Read APE price for cost calculation
+- `useContractDiagnostics()` - Environment sanity checks (APE price, NFT pool status)
 - `calculateTotalCost()` - Safe calculation (guards against NaN)
+
+**Dynamic APE Pricing (v1.4.2+):**
+The shop reflects live on-chain APE pricing for accurate cost display:
+
+1. **Price Source**: `useApePriceFromContract()` reads `apePriceUSD` from PokeballGame contract (8 decimals)
+2. **Cost Calculation**: `calculateTotalCost(ballType, qty, useAPE, apePriceUSD)` converts USD to APE
+3. **Display**: When APE selected, each ball row shows `~X.XX APE (≈$Y.YY)`
+4. **Rate Display**: Info box shows current rate: `1 APE ≈ $X.XXXX USD (updates periodically)`
+5. **Auto-Update**: Contract price is updated hourly via `scripts/update_ape_price.cjs`
+
+**Price Flow:**
+```
+CoinGecko API → update_ape_price.cjs (hourly) → setAPEPrice() on-chain
+                                                        ↓
+                                    useApePriceFromContract() → React Query cache
+                                                        ↓
+                                    BallRow displays APE amount per ball
+```
+
+**Reactivity:**
+- React Query refetches `apePriceUSD` when component mounts or on window focus
+- No manual refresh needed - shop reflects updated price automatically
+- If on-chain price changes, next shop open shows new rate
+
+**Responsive Layout:**
+The modal is designed to work on smaller screens and when DevTools is open:
+- `maxWidth: min(600px, calc(100vw - 32px))` - Clamps to viewport width
+- `overflowX: hidden` - Prevents horizontal scrollbar
+- Ball rows use `flexWrap: wrap` - Elements wrap on narrow widths
+- All sections use `boxSizing: border-box` - Padding doesn't cause overflow
+- Compact padding and font sizes for tighter layouts
+- Per-transaction $49.90 cap enforced with "Over Cap" button (red)
+
+**Global Scrollbar Hiding:**
+Scrollbars are hidden globally via `src/index.css`:
+```css
+/* Firefox */
+* { scrollbar-width: none; }
+
+/* Legacy Edge/IE */
+* { -ms-overflow-style: none; }
+
+/* Chrome/Edge/Safari */
+*::-webkit-scrollbar { display: none; }
+```
+Scrolling still works via mouse wheel, touchpad, and touch drag. This applies to:
+- Main game canvas/page
+- All modals (PokeBallShop, TransactionHistory, etc.)
+
+**Environment Sanity Panel:**
+Displays contract health information above the shop content:
+- **APE Price**: Current `apePriceUSD` from contract (e.g., "$0.1901")
+- **NFT Pull Price**: Cost per NFT from SlabNFTManager (~$51)
+- **NFT Pool Balance**: USDC.e available for NFT auto-purchase
+- **NFT Inventory**: Current/max NFT slots (e.g., "3/20")
+- **Warning Banner**: Yellow banner appears if unusual values detected
+
+**Warning Conditions:**
+| Condition | Warning Message |
+|-----------|-----------------|
+| APE price == 0 | "APE price is 0 - purchases may fail" |
+| APE price < $0.05 | "APE price looks unusually low" |
+| APE price > $10 | "APE price looks unusually high" |
+| Pull price < $50 | "Pull price looks too low - expected ~$51" |
+| Pull price > $100 | "Pull price looks unusually high" |
+| Inventory full | "NFT inventory is full - new catches won't get NFTs" |
+
+**Developer Diagnostics Panel:**
+Hidden debugging panel accessible via:
+- URL query parameter: `?dev=1`
+- localStorage: `localStorage.setItem('pokeballTrader_devMode', 'true')`
+
+**Dev Panel Contents:**
+- Toggle button: "DEV MODE: ON/OFF" with styled indicator
+- Last purchase attempt parameters (ball type, quantity, payment token, APE price)
+- Last error message with full details
+- Transaction hash from last attempt
+- Can auto-purchase status (canAutoPurchase from SlabNFTManager)
+- Auto-purchase threshold value
+
+**Enhanced Success Display:**
+After successful purchase, shows:
+- Green success box with "Purchase successful!" message
+- Transaction hash as clickable link to Apescan
+- **NFT Trigger Badge**: Cyan "NFT Auto-Purchase Triggered!" badge if `NFTPurchaseInitiated` event detected in receipt logs
+- Automatically analyzes transaction logs for SlabNFTManager events
+
+**NFT Auto-Purchase Detection:**
+The shop analyzes transaction receipt logs for:
+```typescript
+// NFTPurchaseInitiated event from SlabNFTManager
+// Emitted when purchase triggers auto-purchase threshold
+if (log.address.toLowerCase() === SLAB_NFT_MANAGER_ADDRESS.toLowerCase()) {
+  // Look for NFTPurchaseInitiated event
+}
+```
+
+### useContractDiagnostics Hook
+Environment sanity check hook for PokeballGame and SlabNFTManager contracts:
+
+**Location:** `src/hooks/pokeballGame/useContractDiagnostics.ts`
+
+**Usage:**
+```typescript
+import { useContractDiagnostics } from '../hooks/pokeballGame';
+
+const {
+  apePriceUSD,               // bigint - raw 8-decimal value
+  apePriceFormatted,         // number - e.g., 0.19
+  pullPrice,                 // bigint - NFT pull cost (6 decimals)
+  pullPriceFormatted,        // number - e.g., 51.00
+  slabNFTManagerBalance,     // bigint - USDC.e pool balance
+  slabNFTManagerBalanceFormatted, // number - e.g., 125.50
+  canAutoPurchase,           // boolean - balance >= threshold
+  inventoryCount,            // number - current NFT count
+  maxInventorySize,          // number - max NFTs (20)
+  hasWarnings,               // boolean - any warnings present
+  warnings,                  // string[] - warning messages
+  isLoading,                 // boolean - data loading
+  isError,                   // boolean - fetch error
+  refetch,                   // () => void - manual refresh
+} = useContractDiagnostics();
+
+if (hasWarnings) {
+  console.warn('Contract config issues:', warnings);
+}
+```
+
+**Data Sources:**
+- `apePriceUSD`: Reads from PokeballGame.`apePriceUSD()` (8 decimals)
+- `canAutoPurchase`: Reads from SlabNFTManager.`canAutoPurchase()` (returns tuple)
+- `inventoryCount`: Reads from SlabNFTManager.`getInventoryCount()`
+- `maxInventorySize`: Reads from SlabNFTManager.`MAX_INVENTORY_SIZE()`
+
+**Return Shape:**
+```typescript
+interface ContractDiagnostics {
+  apePriceUSD: bigint;
+  apePriceFormatted: number;
+  pullPrice: bigint;
+  pullPriceFormatted: number;
+  autoPurchaseThreshold: bigint;
+  autoPurchaseThresholdFormatted: number;
+  slabNFTManagerBalance: bigint;
+  slabNFTManagerBalanceFormatted: number;
+  canAutoPurchase: boolean;
+  inventoryCount: number;
+  maxInventorySize: number;
+  hasWarnings: boolean;
+  warnings: string[];
+  isLoading: boolean;
+  isError: boolean;
+}
+```
+
+**Polling:**
+- Stale time: 30 seconds
+- Refetch interval: 60 seconds
+- Manual refetch available via `refetch()`
+
+### usePurchaseBalls Error Handling
+The `usePurchaseBalls` hook now includes robust error handling that prevents failed transactions:
+
+**Gas Estimation Failure Behavior:**
+1. Hook calls `publicClient.estimateContractGas()` before sending transaction
+2. If estimation fails, transaction is **NOT** sent to wallet
+3. Error is captured in `localError` state and surfaced via `error` return value
+4. Console logs detailed error information for debugging
+
+**Error Types Detected:**
+| Error Pattern | Behavior | User Message |
+|---------------|----------|--------------|
+| "allowance" / "exceeds" | Stop transaction | "ERC-20 allowance error. For USDC.e payments, please approve first." |
+| "insufficient" / "funds" | Stop transaction | "Insufficient APE balance. Need at least X APE plus gas." |
+| Other errors | Stop transaction | "Transaction would fail: [error message]" |
+
+**Console Debugging:**
+When gas estimation fails, the hook logs:
+```javascript
+[usePurchaseBalls] Gas estimation failed: <error>
+[usePurchaseBalls] Error details: {
+  message: "...",
+  isAllowanceError: true/false,
+  isInsufficientFunds: true/false
+}
+[usePurchaseBalls] STOPPING - Gas estimation failed. Transaction would likely fail.
+```
+
+**Why This Matters:**
+- Prevents MetaMask from showing insane gas estimates (7M+ APE)
+- Gives users clear error messages before they confirm anything
+- Distinguishes between approval issues and balance issues
+- v1.4.0+ dedicated functions (`purchaseBallsWithAPE`, `purchaseBallsWithUSDC`) avoid cross-payment-type interference
 
 ### GameCanvas Component
 React ⇄ Phaser bridge component that mounts the game and syncs Web3 data:
@@ -2089,10 +2626,17 @@ useEffect(() => {
 - 80-piece confetti celebration animation
 - Pulsing green glow border effect
 - NFT image display (with error fallback)
-- NFT name and token ID
-- Pokemon ID (if provided)
+- NFT name from metadata (shows Pokemon card name, not generic "Slab NFT")
+- **Card attributes display** (rarity, card number, edition, etc. from metadata)
+- Token ID and Pokemon ID
 - Links to Apescan and Magic Eden
 - Transaction hash link
+
+**Displayed Card Attributes:**
+When metadata includes `attributes` array, they're shown in a 2-column grid:
+- Card Number, Edition, Rarity, Series
+- Any other trait_type/value pairs from metadata
+- Styled with yellow text on dark background
 
 **Animations (CSS keyframes):**
 - `catchWinFadeIn` - Modal entrance with scale

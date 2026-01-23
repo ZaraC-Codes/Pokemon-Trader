@@ -185,6 +185,43 @@ const styles = {
     fontWeight: 'bold',
     fontFamily: 'monospace',
   },
+  attributesSection: {
+    marginTop: '16px',
+    borderTop: '2px solid #004400',
+    paddingTop: '16px',
+  },
+  attributesTitle: {
+    fontSize: '12px',
+    color: '#888',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '1px',
+    marginBottom: '12px',
+    textAlign: 'center' as const,
+  },
+  attributesGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '8px',
+  },
+  attributeChip: {
+    backgroundColor: '#0a1a0a',
+    border: '1px solid #004400',
+    padding: '8px',
+    textAlign: 'center' as const,
+  },
+  attributeLabel: {
+    fontSize: '10px',
+    color: '#666',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
+    marginBottom: '4px',
+  },
+  attributeValue: {
+    fontSize: '12px',
+    color: '#ffcc00',
+    fontWeight: 'bold',
+    wordBreak: 'break-word' as const,
+  },
   message: {
     textAlign: 'center' as const,
     fontSize: '14px',
@@ -574,9 +611,24 @@ export function CatchWinModal({
 
               {/* Pokemon ID if provided */}
               {pokemonId !== undefined && (
-                <div style={{ ...styles.infoRow, borderBottom: 'none' }}>
+                <div style={{ ...styles.infoRow, borderBottom: metadata?.attributes?.length ? '1px solid #003300' : 'none' }}>
                   <span style={styles.infoLabel}>Pokemon ID</span>
                   <span style={styles.infoValue}>#{pokemonId.toString()}</span>
+                </div>
+              )}
+
+              {/* Card Attributes from metadata */}
+              {metadata?.attributes && metadata.attributes.length > 0 && (
+                <div style={styles.attributesSection}>
+                  <div style={styles.attributesTitle}>Card Details</div>
+                  <div style={styles.attributesGrid}>
+                    {metadata.attributes.map((attr, index) => (
+                      <div key={index} style={styles.attributeChip}>
+                        <div style={styles.attributeLabel}>{attr.trait_type}</div>
+                        <div style={styles.attributeValue}>{attr.value}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

@@ -5,6 +5,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // IMPORTANT: Port 5173 is the canonical dev port for this project.
+    // The RPC proxy is configured here, and the frontend uses /api/rpc relative URLs.
+    // Changing ports without updating apechainConfig.ts breaks on-chain reads and gas estimation,
+    // which can cause MetaMask to show absurdly high gas fees because the app falls back to
+    // wallet-side estimation without proper simulation.
+    port: 5173,
+    strictPort: true, // Fail if port 5173 is in use instead of picking another port
     cors: true, // Enable CORS for the dev server
     proxy: {
       // Proxy for Alchemy RPC to avoid CORS issues
