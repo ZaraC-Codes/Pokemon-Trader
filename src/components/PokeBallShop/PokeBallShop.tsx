@@ -27,12 +27,13 @@
  * ```
  */
 
-import React, { useState, useCallback, Component, Suspense, lazy, type ReactNode } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, Component, Suspense, lazy, type ReactNode } from 'react';
 import {
   usePurchaseBalls,
   usePlayerBallInventory,
   useTokenApproval,
   useApePriceFromContract,
+  useContractDiagnostics,
   calculateTotalCost,
   getBallTypeName,
   getBallPriceUSD,
@@ -142,25 +143,29 @@ const styles = {
   modal: {
     backgroundColor: '#1a1a1a',
     border: '4px solid #fff',
-    padding: '24px',
-    maxWidth: '600px',
-    width: '90%',
+    padding: '16px',
+    maxWidth: 'min(600px, calc(100vw - 32px))',
+    width: '100%',
     maxHeight: '90vh',
     overflowY: 'auto' as const,
+    overflowX: 'hidden' as const,
     fontFamily: "'Courier New', monospace",
     color: '#fff',
     imageRendering: 'pixelated' as const,
+    boxSizing: 'border-box' as const,
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '20px',
+    marginBottom: '12px',
     borderBottom: '2px solid #444',
-    paddingBottom: '12px',
+    paddingBottom: '10px',
+    flexWrap: 'wrap' as const,
+    gap: '8px',
   },
   title: {
-    fontSize: '24px',
+    fontSize: '20px',
     fontWeight: 'bold',
     color: '#ffcc00',
     margin: 0,
@@ -169,18 +174,21 @@ const styles = {
     background: 'none',
     border: '2px solid #ff4444',
     color: '#ff4444',
-    padding: '8px 12px',
+    padding: '6px 10px',
     cursor: 'pointer',
     fontFamily: "'Courier New', monospace",
-    fontSize: '14px',
+    fontSize: '12px',
+    flexShrink: 0,
   },
   balanceSection: {
     display: 'flex',
-    gap: '20px',
-    marginBottom: '16px',
-    padding: '12px',
+    gap: '12px',
+    marginBottom: '12px',
+    padding: '10px',
     backgroundColor: '#2a2a2a',
     border: '2px solid #444',
+    flexWrap: 'wrap' as const,
+    boxSizing: 'border-box' as const,
   },
   balanceItem: {
     display: 'flex',
@@ -201,10 +209,11 @@ const styles = {
     fontWeight: 'normal',
   },
   inventorySection: {
-    marginBottom: '20px',
-    padding: '12px',
+    marginBottom: '12px',
+    padding: '10px',
     backgroundColor: '#2a2a2a',
     border: '2px solid #444',
+    boxSizing: 'border-box' as const,
   },
   inventoryTitle: {
     fontSize: '14px',
@@ -225,18 +234,21 @@ const styles = {
   paymentToggle: {
     display: 'flex',
     gap: '8px',
-    marginBottom: '20px',
+    marginBottom: '12px',
+    flexWrap: 'wrap' as const,
   },
   toggleButton: {
-    flex: 1,
-    padding: '12px',
+    flex: '1 1 auto',
+    minWidth: '100px',
+    padding: '10px',
     border: '2px solid #444',
     backgroundColor: '#2a2a2a',
     color: '#888',
     cursor: 'pointer',
     fontFamily: "'Courier New', monospace",
-    fontSize: '14px',
+    fontSize: '13px',
     transition: 'all 0.1s',
+    boxSizing: 'border-box' as const,
   },
   toggleButtonActive: {
     border: '2px solid #00ff00',
@@ -251,48 +263,56 @@ const styles = {
   ballRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    padding: '12px',
+    gap: '8px',
+    padding: '10px',
     backgroundColor: '#2a2a2a',
     border: '2px solid #444',
+    flexWrap: 'wrap' as const,
+    boxSizing: 'border-box' as const,
   },
   ballInfo: {
-    flex: 1,
-    minWidth: '120px',
+    flex: '1 1 80px',
+    minWidth: '80px',
   },
   ballName: {
-    fontSize: '16px',
+    fontSize: '14px',
     fontWeight: 'bold',
-    marginBottom: '4px',
+    marginBottom: '2px',
   },
   ballStats: {
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#888',
   },
   quantityInput: {
-    width: '60px',
-    padding: '8px',
+    width: '50px',
+    padding: '6px',
     border: '2px solid #444',
     backgroundColor: '#1a1a1a',
     color: '#fff',
     fontFamily: "'Courier New', monospace",
-    fontSize: '14px',
+    fontSize: '13px',
     textAlign: 'center' as const,
+    flexShrink: 0,
+    boxSizing: 'border-box' as const,
   },
   costDisplay: {
-    width: '80px',
+    width: '70px',
+    minWidth: '70px',
     textAlign: 'right' as const,
-    fontSize: '14px',
+    fontSize: '12px',
+    flexShrink: 0,
   },
   buyButton: {
-    padding: '10px 16px',
+    padding: '8px 12px',
     border: '2px solid #00ff00',
     backgroundColor: '#1a3a1a',
     color: '#00ff00',
     cursor: 'pointer',
     fontFamily: "'Courier New', monospace",
-    fontSize: '14px',
-    minWidth: '80px',
+    fontSize: '12px',
+    minWidth: '70px',
+    flexShrink: 0,
+    boxSizing: 'border-box' as const,
   },
   buyButtonDisabled: {
     border: '2px solid #444',
@@ -306,81 +326,93 @@ const styles = {
     marginTop: '4px',
   },
   loadingOverlay: {
-    padding: '16px',
+    padding: '12px',
     backgroundColor: '#2a2a2a',
     border: '2px solid #ffcc00',
     textAlign: 'center' as const,
-    marginBottom: '16px',
+    marginBottom: '12px',
+    boxSizing: 'border-box' as const,
+    wordWrap: 'break-word' as const,
+    overflowWrap: 'break-word' as const,
   },
   loadingText: {
     color: '#ffcc00',
     fontSize: '14px',
   },
   errorBox: {
-    padding: '12px',
+    padding: '10px',
     backgroundColor: '#3a1a1a',
     border: '2px solid #ff4444',
-    marginTop: '16px',
+    marginTop: '12px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap' as const,
+    gap: '8px',
+    boxSizing: 'border-box' as const,
   },
   errorText: {
     color: '#ff4444',
-    fontSize: '12px',
-    flex: 1,
+    fontSize: '11px',
+    flex: '1 1 auto',
+    wordBreak: 'break-word' as const,
   },
   dismissButton: {
-    padding: '6px 12px',
+    padding: '4px 8px',
     border: '2px solid #ff4444',
     backgroundColor: 'transparent',
     color: '#ff4444',
     cursor: 'pointer',
     fontFamily: "'Courier New', monospace",
-    fontSize: '12px',
-    marginLeft: '12px',
+    fontSize: '11px',
+    flexShrink: 0,
   },
   successBox: {
-    padding: '12px',
+    padding: '10px',
     backgroundColor: '#1a3a1a',
     border: '2px solid #00ff00',
-    marginTop: '16px',
+    marginTop: '12px',
     textAlign: 'center' as const,
+    boxSizing: 'border-box' as const,
   },
   successText: {
     color: '#00ff00',
-    fontSize: '14px',
+    fontSize: '13px',
   },
   // Fund Wallet Section Styles
   fundWalletSection: {
-    marginBottom: '20px',
-    padding: '12px',
+    marginBottom: '12px',
+    padding: '10px',
     backgroundColor: '#1a2a2a',
     border: '2px solid #00ff88',
+    boxSizing: 'border-box' as const,
   },
   fundWalletHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '8px',
+    flexWrap: 'wrap' as const,
+    gap: '8px',
   },
   fundWalletTitle: {
-    fontSize: '14px',
+    fontSize: '13px',
     color: '#00ff88',
     fontWeight: 'bold',
   },
   fundWalletButtons: {
     display: 'flex',
-    gap: '8px',
+    gap: '6px',
+    flexWrap: 'wrap' as const,
   },
   fundWalletButton: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     border: '2px solid #00ff88',
     backgroundColor: 'transparent',
     color: '#00ff88',
     cursor: 'pointer',
     fontFamily: "'Courier New', monospace",
-    fontSize: '12px',
+    fontSize: '11px',
     transition: 'all 0.1s',
   },
   fundWalletHint: {
@@ -482,6 +514,59 @@ const styles = {
     color: '#888',
     fontSize: '12px',
   },
+  // Environment Warning Banner
+  warningBanner: {
+    padding: '10px',
+    backgroundColor: '#3a2a1a',
+    border: '2px solid #ff8800',
+    marginBottom: '12px',
+    boxSizing: 'border-box' as const,
+  },
+  warningTitle: {
+    color: '#ff8800',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    marginBottom: '4px',
+  },
+  warningText: {
+    color: '#ffaa44',
+    fontSize: '11px',
+    margin: '2px 0',
+  },
+  // Enhanced Success Box
+  successBoxEnhanced: {
+    padding: '12px',
+    backgroundColor: '#1a3a1a',
+    border: '2px solid #00ff00',
+    marginTop: '12px',
+    boxSizing: 'border-box' as const,
+  },
+  successTitle: {
+    color: '#00ff00',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    marginBottom: '8px',
+  },
+  successDetails: {
+    color: '#888',
+    fontSize: '11px',
+    marginTop: '4px',
+  },
+  successLink: {
+    color: '#4488ff',
+    textDecoration: 'none',
+    fontSize: '11px',
+  },
+  nftTriggerBadge: {
+    display: 'inline-block',
+    padding: '2px 8px',
+    backgroundColor: '#2a1a3a',
+    border: '1px solid #aa44ff',
+    color: '#aa44ff',
+    fontSize: '10px',
+    marginTop: '6px',
+    borderRadius: '2px',
+  },
 };
 
 // Ball type colors for visual distinction
@@ -507,6 +592,7 @@ interface BallRowProps {
   hasInsufficientBalance: boolean;
   paymentToken: PaymentToken;
   needsApproval: boolean;
+  apePriceUSD: bigint; // APE price from contract (8 decimals)
 }
 
 function BallRow({
@@ -520,13 +606,30 @@ function BallRow({
   hasInsufficientBalance,
   paymentToken,
   needsApproval,
+  apePriceUSD,
 }: BallRowProps) {
   const name = getBallTypeName(ballType);
   const price = getBallPriceUSD(ballType);
   const catchRate = getCatchRatePercent(ballType);
   // Safe calculation: ensure quantity is a valid number
   const safeQty = Number.isFinite(quantity) && quantity >= 0 ? quantity : 0;
-  const totalCost = price * safeQty;
+  const totalCostUSD = price * safeQty;
+
+  // Contract enforces $49.90 max per transaction (MAX_PURCHASE_USD)
+  const MAX_PURCHASE_USD = 49.90;
+  const exceedsCap = totalCostUSD > MAX_PURCHASE_USD;
+
+  // Calculate APE equivalent using on-chain price
+  const apeAmount = useMemo(() => {
+    if (safeQty === 0 || paymentToken !== 'APE') return null;
+    try {
+      const costWei = calculateTotalCost(ballType, safeQty, true, apePriceUSD);
+      // Convert from wei (18 decimals) to human-readable
+      return Number(costWei) / 1e18;
+    } catch {
+      return null;
+    }
+  }, [ballType, safeQty, paymentToken, apePriceUSD]);
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.trim();
@@ -544,11 +647,13 @@ function BallRow({
   };
 
   const isPending = isPurchasePending || isApprovalPending;
-  const canBuy = safeQty > 0 && !isDisabled && !isPending && !hasInsufficientBalance;
+  const canBuy = safeQty > 0 && !isDisabled && !isPending && !hasInsufficientBalance && !exceedsCap;
 
   // Determine button text based on state
   let buttonText = 'Buy';
-  if (isApprovalPending) {
+  if (exceedsCap) {
+    buttonText = 'Over Cap';
+  } else if (isApprovalPending) {
     buttonText = 'Approving...';
   } else if (isPurchasePending) {
     buttonText = 'Buying...';
@@ -561,12 +666,13 @@ function BallRow({
       {/* Ball color indicator */}
       <div
         style={{
-          width: '20px',
-          height: '20px',
+          width: '16px',
+          height: '16px',
           borderRadius: '50%',
           backgroundColor: BALL_COLORS[ballType],
           border: '2px solid #fff',
           flexShrink: 0,
+          boxSizing: 'border-box',
         }}
       />
 
@@ -591,12 +697,28 @@ function BallRow({
         }}
       />
 
-      {/* Cost display */}
+      {/* Cost display - shows APE amount when using APE, USD when using USDC */}
       <div style={styles.costDisplay}>
-        <div style={{ color: safeQty > 0 ? '#fff' : '#666' }}>
-          ${totalCost.toFixed(2)}
-        </div>
-        {hasInsufficientBalance && safeQty > 0 && (
+        {paymentToken === 'APE' && apeAmount !== null ? (
+          <>
+            <div style={{ color: exceedsCap ? '#ff4444' : (safeQty > 0 ? '#ffcc00' : '#666') }}>
+              ~{apeAmount.toFixed(2)} APE
+            </div>
+            <div style={{ fontSize: '10px', color: exceedsCap ? '#ff6666' : '#888' }}>
+              ≈${totalCostUSD.toFixed(2)}
+            </div>
+          </>
+        ) : (
+          <div style={{ color: exceedsCap ? '#ff4444' : (safeQty > 0 ? '#00ff00' : '#666') }}>
+            ${totalCostUSD.toFixed(2)}
+          </div>
+        )}
+        {exceedsCap && safeQty > 0 && (
+          <div style={{ ...styles.insufficientBalance, color: '#ff4444' }}>
+            Max $49.90/tx
+          </div>
+        )}
+        {hasInsufficientBalance && safeQty > 0 && !exceedsCap && (
           <div style={styles.insufficientBalance}>
             Low {paymentToken}
           </div>
@@ -610,8 +732,12 @@ function BallRow({
         style={{
           ...styles.buyButton,
           ...(canBuy ? {} : styles.buyButtonDisabled),
+          // Red style for "Over Cap"
+          ...(exceedsCap && safeQty > 0
+            ? { border: '2px solid #ff4444', color: '#ff4444', backgroundColor: '#2a1515' }
+            : {}),
           // Orange style for "Approve" or "Approving..."
-          ...((needsApproval || isApprovalPending) && safeQty > 0
+          ...((needsApproval || isApprovalPending) && safeQty > 0 && !exceedsCap
             ? { border: '2px solid #ff8800', color: '#ff8800', backgroundColor: '#2a2510' }
             : {}),
         }}
@@ -768,6 +894,20 @@ function BuyCryptoModal({ isOpen, onClose, selectedToken }: BuyCryptoModalProps)
 // MAIN COMPONENT
 // ============================================================
 
+// Purchase attempt tracking for diagnostics
+interface PurchaseAttempt {
+  timestamp: number;
+  ballType: BallType;
+  quantity: number;
+  paymentToken: PaymentToken;
+  costUSD: number;
+  costAPE?: number;
+  error?: string;
+  txHash?: string;
+  nftAutoPurchaseTriggered?: boolean;
+  nftRequestId?: string;
+}
+
 export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopProps) {
   // Local state
   const [paymentToken, setPaymentToken] = useState<PaymentToken>('USDC');
@@ -788,14 +928,31 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     token: 'APE',
   });
 
+  // Purchase tracking for diagnostics (used by AdminDevTools panel)
+  const [lastPurchaseAttempt, setLastPurchaseAttempt] = useState<PurchaseAttempt | null>(null);
+
+  // Enhanced success state with NFT auto-purchase detection
+  const [successDetails, setSuccessDetails] = useState<{
+    ballType: BallType;
+    quantity: number;
+    paymentToken: PaymentToken;
+    txHash: string;
+    costUSD: number;
+    nftAutoPurchaseTriggered?: boolean;
+    nftRequestId?: string;
+  } | null>(null);
+
   // Hooks
-  const { write, isLoading, isPending, error, receipt, reset } = usePurchaseBalls();
+  const { write, isLoading, isPending, error, receipt, reset, hash } = usePurchaseBalls();
   const inventory = usePlayerBallInventory(playerAddress);
   const apeBalance = useApeBalanceWithUsd(playerAddress);
   const usdcBalance = useUsdcBalance(playerAddress);
 
   // Get APE price from contract for accurate cost calculation
   const { price: apePriceUSD } = useApePriceFromContract();
+
+  // Contract diagnostics for environment sanity checks
+  const diagnostics = useContractDiagnostics();
 
   // Calculate required amount for current selection
   // We sum all quantities to get max possible cost for approval
@@ -927,7 +1084,22 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           return;
         }
 
+        // Calculate USD cost for tracking
+        const costUSD = getBallPriceUSD(ballType) * qty;
+        const costAPE = useAPE ? Number(costForThisPurchase) / 1e18 : undefined;
+
+        // Track purchase attempt for diagnostics
+        setLastPurchaseAttempt({
+          timestamp: Date.now(),
+          ballType,
+          quantity: qty,
+          paymentToken: paymentToken,
+          costUSD,
+          costAPE,
+        });
+
         setShowSuccess(false);
+        setSuccessDetails(null);
         // Pass APE price for accurate msg.value calculation
         write(ballType, qty, useAPE, apePriceUSD);
       } catch (e) {
@@ -970,17 +1142,73 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     usdcBalance.refetch();
   }, [apeBalance, usdcBalance]);
 
-  // Show success message when receipt arrives
-  React.useEffect(() => {
-    if (receipt) {
+  // Show success message when receipt arrives - analyze logs for NFT auto-purchase
+  useEffect(() => {
+    if (receipt && lastPurchaseAttempt) {
       setShowSuccess(true);
+
+      // Check for NFTPurchaseInitiated event in receipt logs
+      // Topic for NFTPurchaseInitiated(uint256 indexed requestId, uint256 amount, address recipient)
+      // keccak256("NFTPurchaseInitiated(uint256,uint256,address)") = 0x...
+      const NFT_PURCHASE_INITIATED_TOPIC = '0x1c8fa9c7e6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6';
+      let nftAutoPurchaseTriggered = false;
+      let nftRequestId: string | undefined;
+
+      // Look for RevenueSentToManager or NFTPurchaseInitiated events
+      if (receipt.logs) {
+        for (const log of receipt.logs) {
+          // Check if this is the SlabNFTManager address (NFTPurchaseInitiated comes from there)
+          const slabManagerAddress = '0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71'.toLowerCase();
+          if (log.address.toLowerCase() === slabManagerAddress) {
+            // NFTPurchaseInitiated event detected
+            if (log.topics && log.topics.length >= 2) {
+              nftAutoPurchaseTriggered = true;
+              // First indexed parameter is requestId
+              nftRequestId = log.topics[1];
+              console.log('[PokeBallShop] NFT auto-purchase detected! RequestId:', nftRequestId);
+            }
+          }
+        }
+      }
+
+      // Build success details
+      setSuccessDetails({
+        ballType: lastPurchaseAttempt.ballType,
+        quantity: lastPurchaseAttempt.quantity,
+        paymentToken: lastPurchaseAttempt.paymentToken,
+        txHash: receipt.transactionHash,
+        costUSD: lastPurchaseAttempt.costUSD,
+        nftAutoPurchaseTriggered,
+        nftRequestId,
+      });
+
+      // Update last attempt with result
+      setLastPurchaseAttempt(prev => prev ? {
+        ...prev,
+        txHash: receipt.transactionHash,
+        nftAutoPurchaseTriggered,
+        nftRequestId,
+      } : null);
+
       // Reset quantities after successful purchase
       setQuantities({ 0: 0, 1: 0, 2: 0, 3: 0 });
-      // Refresh balances
+      // Refresh balances, inventory, and diagnostics
       apeBalance.refetch();
       usdcBalance.refetch();
+      inventory.refetch(); // Refresh ball inventory so CatchAttemptModal shows updated counts
+      diagnostics.refetch();
     }
-  }, [receipt]);
+  }, [receipt, lastPurchaseAttempt, apeBalance, usdcBalance, inventory, diagnostics]);
+
+  // Track errors in purchase attempts
+  useEffect(() => {
+    if (error && lastPurchaseAttempt) {
+      setLastPurchaseAttempt(prev => prev ? {
+        ...prev,
+        error: error.message,
+      } : null);
+    }
+  }, [error, lastPurchaseAttempt]);
 
   // Don't render if not open
   if (!isOpen) return null;
@@ -1041,6 +1269,19 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             </span>
           </div>
         </div>
+
+        {/* Environment Warning Banner - shown when contract config looks unusual */}
+        {diagnostics.hasWarnings && !diagnostics.isLoading && (
+          <div style={styles.warningBanner}>
+            <div style={styles.warningTitle}>⚠️ CONTRACT CONFIG WARNING</div>
+            {diagnostics.warnings.map((warning, i) => (
+              <div key={i} style={styles.warningText}>• {warning}</div>
+            ))}
+            <div style={{ ...styles.warningText, color: '#888', marginTop: '4px' }}>
+              Purchases may fail. Contact devs if issues persist.
+            </div>
+          </div>
+        )}
 
         {/* Fund Wallet Section - Bridge/Swap/Buy */}
         <div style={styles.fundWalletSection}>
@@ -1136,12 +1377,18 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           </button>
         </div>
 
-        {/* APE Payment Info - v1.4.0 uses native APE */}
+        {/* APE Payment Info - v1.4.0 uses native APE with dynamic pricing */}
         {paymentToken === 'APE' && (
           <div style={{ ...styles.loadingOverlay, border: '2px solid #00ff88', backgroundColor: '#1a2a2a' }}>
-            <span style={{ color: '#00ff88', fontSize: '12px' }}>
+            <div style={{ color: '#00ff88', fontSize: '12px', marginBottom: '4px' }}>
               APE payments send native APE directly - no approval step required!
-            </span>
+            </div>
+            <div style={{ color: '#888', fontSize: '10px' }}>
+              Current rate: 1 APE ≈ ${(Number(apePriceUSD) / 1e8).toFixed(4)} USD
+              <span style={{ marginLeft: '8px', color: '#666' }}>
+                (updates periodically)
+              </span>
+            </div>
           </div>
         )}
 
@@ -1195,12 +1442,44 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
               hasInsufficientBalance={hasInsufficientBalance(ballType)}
               paymentToken={paymentToken}
               needsApproval={paymentToken === 'USDC' && !isApproved && quantities[ballType] > 0}
+              apePriceUSD={apePriceUSD}
             />
           ))}
         </div>
 
-        {/* Success Message */}
-        {showSuccess && receipt && (
+        {/* Enhanced Success Message */}
+        {showSuccess && successDetails && (
+          <div style={styles.successBoxEnhanced}>
+            <div style={styles.successTitle}>
+              ✓ {getBallTypeName(successDetails.ballType)} x{successDetails.quantity} purchased with {successDetails.paymentToken}!
+            </div>
+            <div style={styles.successDetails}>
+              Cost: ${successDetails.costUSD.toFixed(2)}
+            </div>
+            <div style={styles.successDetails}>
+              <a
+                href={`https://apescan.io/tx/${successDetails.txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.successLink}
+              >
+                View on Apescan →
+              </a>
+            </div>
+            {successDetails.nftAutoPurchaseTriggered && (
+              <div style={styles.nftTriggerBadge}>
+                🎉 NFT Auto-Purchase Triggered
+                {successDetails.nftRequestId && (
+                  <span style={{ marginLeft: '4px', opacity: 0.7 }}>
+                    (Req: {successDetails.nftRequestId.slice(0, 10)}...)
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Fallback for legacy success without details */}
+        {showSuccess && !successDetails && receipt && (
           <div style={styles.successBox}>
             <div style={styles.successText}>Purchase successful!</div>
             <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>

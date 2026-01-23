@@ -2064,8 +2064,7 @@ import { PokeBallShop } from './components/PokeBallShop';
 - **Enhanced success display**: Shows transaction hash link to Apescan, detects NFT auto-purchase
 - Error display with dismiss button
 - No wallet connected warning
-- **Environment sanity panel**: Shows APE price, NFT pull price, pool balance, inventory count
-- **Developer diagnostics**: Hidden panel for debugging (enable via `?dev=1` or localStorage)
+- **Warning banner**: Yellow banner appears if contract config looks unusual (uses `useContractDiagnostics`)
 
 **Token Approval Flow:**
 1. User selects quantity and payment token (APE or USDC.e)
@@ -2133,36 +2132,11 @@ Scrolling still works via mouse wheel, touchpad, and touch drag. This applies to
 - Main game canvas/page
 - All modals (PokeBallShop, TransactionHistory, etc.)
 
-**Environment Sanity Panel:**
-Displays contract health information above the shop content:
-- **APE Price**: Current `apePriceUSD` from contract (e.g., "$0.1901")
-- **NFT Pull Price**: Cost per NFT from SlabNFTManager (~$51)
-- **NFT Pool Balance**: USDC.e available for NFT auto-purchase
-- **NFT Inventory**: Current/max NFT slots (e.g., "3/20")
-- **Warning Banner**: Yellow banner appears if unusual values detected
-
-**Warning Conditions:**
-| Condition | Warning Message |
-|-----------|-----------------|
-| APE price == 0 | "APE price is 0 - purchases may fail" |
-| APE price < $0.05 | "APE price looks unusually low" |
-| APE price > $10 | "APE price looks unusually high" |
-| Pull price < $50 | "Pull price looks too low - expected ~$51" |
-| Pull price > $100 | "Pull price looks unusually high" |
-| Inventory full | "NFT inventory is full - new catches won't get NFTs" |
-
-**Developer Diagnostics Panel:**
-Hidden debugging panel accessible via:
-- URL query parameter: `?dev=1`
-- localStorage: `localStorage.setItem('pokeballTrader_devMode', 'true')`
-
-**Dev Panel Contents:**
-- Toggle button: "DEV MODE: ON/OFF" with styled indicator
-- Last purchase attempt parameters (ball type, quantity, payment token, APE price)
-- Last error message with full details
-- Transaction hash from last attempt
-- Can auto-purchase status (canAutoPurchase from SlabNFTManager)
-- Auto-purchase threshold value
+**Warning Banner:**
+A yellow warning banner appears when `useContractDiagnostics().hasWarnings` is true. Warning conditions include:
+- APE price is 0 or looks unusually low/high
+- NFT pull price looks incorrect
+- NFT inventory is full
 
 **Enhanced Success Display:**
 After successful purchase, shows:
