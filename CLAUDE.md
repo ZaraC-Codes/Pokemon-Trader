@@ -952,18 +952,19 @@ await pokeballGame.setRevertOnNoNFT(true);
 - v1.4.0 adds native APE payments via msg.value (no more ERC-20 approval for APE!)
 - See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for v1.2.0 upgrade guide
 
-### SlabNFTManager Contract (v2.0.0)
+### SlabNFTManager Contract (v2.1.0)
 NFT inventory management and auto-purchase from SlabMachine:
 
 **Versions:**
 | Version | MAX_INVENTORY_SIZE | Key Features | Status |
 |---------|-------------------|--------------|--------|
 | v1.0.0 | 10 | Initial release | Superseded |
-| v2.0.0 | 20 | Max 20 NFTs, setOwnerWallet, enhanced events | **Latest** |
+| v2.0.0 | 20 | Max 20 NFTs, setOwnerWallet, enhanced events | Superseded |
+| v2.1.0 | 20 | Emergency revenue withdrawal functions | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71`
-- Implementation (v2.0.0): *Deploy via `upgrade_SlabNFTManagerV2.cjs`*
+- Implementation (v2.1.0): `0x8F971004939D2Ab2D043C869B096E8C93470Bcd5`
 
 **Features:**
 - UUPS upgradeable proxy pattern

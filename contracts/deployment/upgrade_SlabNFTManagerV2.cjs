@@ -38,7 +38,7 @@ async function main() {
   console.log("");
 
   // Get current contract to check owner
-  const SlabNFTManagerV1 = await hre.ethers.getContractFactory("SlabNFTManager");
+  const SlabNFTManagerV1 = await hre.ethers.getContractFactory("contracts/SlabNFTManagerV2.sol:SlabNFTManager");
   const currentContract = SlabNFTManagerV1.attach(SLAB_NFT_MANAGER_PROXY);
 
   const owner = await currentContract.owner();
@@ -67,7 +67,7 @@ async function main() {
   console.log("Deploying new SlabNFTManager v2.0.0 implementation...");
 
   // Note: The contract file is SlabNFTManagerV2.sol but the contract name inside is still "SlabNFTManager"
-  const SlabNFTManagerV2 = await hre.ethers.getContractFactory("SlabNFTManager", {
+  const SlabNFTManagerV2 = await hre.ethers.getContractFactory("contracts/SlabNFTManagerV2.sol:SlabNFTManager", {
     libraries: {},
   });
 

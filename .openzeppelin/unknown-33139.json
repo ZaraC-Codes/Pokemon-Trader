@@ -31,7 +31,7 @@
             "label": "slabMachine",
             "offset": 0,
             "slot": "1",
-            "type": "t_contract(ISlabMachine)2536",
+            "type": "t_contract(ISlabMachine)12707",
             "contract": "SlabNFTManager",
             "src": "contracts\\SlabNFTManager.sol:85"
           },
@@ -219,7 +219,7 @@
             "label": "contract IERC721",
             "numberOfBytes": "20"
           },
-          "t_contract(ISlabMachine)2536": {
+          "t_contract(ISlabMachine)12707": {
             "label": "contract ISlabMachine",
             "numberOfBytes": "20"
           },
@@ -1950,6 +1950,1802 @@
           "t_uint8": {
             "label": "uint8",
             "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "35c2bbcb581a71422a1990d4f45db8014ac70372d89e9dac1876e4d803524973": {
+      "address": "0x156340e9f9bA9CBb52abcAA59C76c0f3A53a923f",
+      "txHash": "0x602238b254804e10936ba404cb54dde9b74b37e19d37eb5d98ad56ab6f0f6d54",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "usdce",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC20)1482",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:138"
+          },
+          {
+            "label": "ape",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IERC20)1482",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:139"
+          },
+          {
+            "label": "vrng",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_contract(IPOPVRNG)2500",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:140"
+          },
+          {
+            "label": "slabNFT",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_contract(IERC721)2063",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:141"
+          },
+          {
+            "label": "treasuryWallet",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:143"
+          },
+          {
+            "label": "nftRevenueWallet",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_address",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:144"
+          },
+          {
+            "label": "totalRevenuePool",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:146"
+          },
+          {
+            "label": "totalPlatformFees",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:147"
+          },
+          {
+            "label": "totalNFTsPurchased",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:148"
+          },
+          {
+            "label": "playerBalls",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_address,t_mapping(t_enum(BallType)2596,t_uint256))",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:150"
+          },
+          {
+            "label": "activePokemons",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_array(t_struct(Pokemon)2609_storage)20_storage",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:152"
+          },
+          {
+            "label": "nextPokemonId",
+            "offset": 0,
+            "slot": "110",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:153"
+          },
+          {
+            "label": "pendingThrows",
+            "offset": 0,
+            "slot": "111",
+            "type": "t_mapping(t_uint256,t_struct(PendingThrow)2621_storage)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:155"
+          },
+          {
+            "label": "requestIdToTraceId",
+            "offset": 0,
+            "slot": "112",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:156"
+          },
+          {
+            "label": "_traceIdCounter",
+            "offset": 0,
+            "slot": "113",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:158"
+          },
+          {
+            "label": "apePriceUSD",
+            "offset": 0,
+            "slot": "114",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:161"
+          },
+          {
+            "label": "slabNFTManager",
+            "offset": 0,
+            "slot": "115",
+            "type": "t_contract(ISlabNFTManager)2526",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:164"
+          },
+          {
+            "label": "ballPrices",
+            "offset": 0,
+            "slot": "116",
+            "type": "t_mapping(t_enum(BallType)2596,t_uint256)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:167"
+          },
+          {
+            "label": "ballCatchRates",
+            "offset": 0,
+            "slot": "117",
+            "type": "t_mapping(t_enum(BallType)2596,t_uint8)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:168"
+          },
+          {
+            "label": "revertOnNoNFT",
+            "offset": 0,
+            "slot": "118",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:169"
+          },
+          {
+            "label": "_v130Initialized",
+            "offset": 1,
+            "slot": "118",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:170"
+          },
+          {
+            "label": "accumulatedAPEFees",
+            "offset": 0,
+            "slot": "119",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:173"
+          },
+          {
+            "label": "accumulatedUSDCFees",
+            "offset": 0,
+            "slot": "120",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:176"
+          },
+          {
+            "label": "camelotRouter",
+            "offset": 0,
+            "slot": "121",
+            "type": "t_contract(ICamelotRouter)2551",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:177"
+          },
+          {
+            "label": "wape",
+            "offset": 0,
+            "slot": "122",
+            "type": "t_contract(IWAPE)2577",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:178"
+          },
+          {
+            "label": "swapSlippageBps",
+            "offset": 0,
+            "slot": "123",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:179"
+          },
+          {
+            "label": "_v150Initialized",
+            "offset": 0,
+            "slot": "124",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:180"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "125",
+            "type": "t_array(t_uint256)39_storage",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:1026"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)224_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)288_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_struct(Pokemon)2609_storage)20_storage": {
+            "label": "struct PokeballGame.Pokemon[20]",
+            "numberOfBytes": "3200"
+          },
+          "t_array(t_uint256)39_storage": {
+            "label": "uint256[39]",
+            "numberOfBytes": "1248"
+          },
+          "t_contract(ICamelotRouter)2551": {
+            "label": "contract ICamelotRouter",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC20)1482": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC721)2063": {
+            "label": "contract IERC721",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IPOPVRNG)2500": {
+            "label": "contract IPOPVRNG",
+            "numberOfBytes": "20"
+          },
+          "t_contract(ISlabNFTManager)2526": {
+            "label": "contract ISlabNFTManager",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IWAPE)2577": {
+            "label": "contract IWAPE",
+            "numberOfBytes": "20"
+          },
+          "t_enum(BallType)2596": {
+            "label": "enum PokeballGame.BallType",
+            "members": [
+              "PokeBall",
+              "GreatBall",
+              "UltraBall",
+              "MasterBall"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_mapping(t_enum(BallType)2596,t_uint256))": {
+            "label": "mapping(address => mapping(enum PokeballGame.BallType => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_enum(BallType)2596,t_uint256)": {
+            "label": "mapping(enum PokeballGame.BallType => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_enum(BallType)2596,t_uint8)": {
+            "label": "mapping(enum PokeballGame.BallType => uint8)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(PendingThrow)2621_storage)": {
+            "label": "mapping(uint256 => struct PokeballGame.PendingThrow)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(PendingThrow)2621_storage": {
+            "label": "struct PokeballGame.PendingThrow",
+            "members": [
+              {
+                "label": "thrower",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "pokemonId",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "ballType",
+                "type": "t_enum(BallType)2596",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "resolved",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(Pokemon)2609_storage": {
+            "label": "struct PokeballGame.Pokemon",
+            "members": [
+              {
+                "label": "id",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "positionX",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "positionY",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "throwAttempts",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "isActive",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "3"
+              },
+              {
+                "label": "spawnTime",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "9667e5746f131ecf1966ece3e912e4f4fc0e003e71c65fa229c95fe4929ceeb3": {
+      "address": "0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E",
+      "txHash": "0x902f529f5453645dae1fee5bcdaff5639cd2bc71129eebadcc48f8cf3cb9a612",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "usdce",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC20)1482",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:138"
+          },
+          {
+            "label": "ape",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IERC20)1482",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:139"
+          },
+          {
+            "label": "vrng",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_contract(IPOPVRNG)2500",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:140"
+          },
+          {
+            "label": "slabNFT",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_contract(IERC721)2063",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:141"
+          },
+          {
+            "label": "treasuryWallet",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:143"
+          },
+          {
+            "label": "nftRevenueWallet",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_address",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:144"
+          },
+          {
+            "label": "totalRevenuePool",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:146"
+          },
+          {
+            "label": "totalPlatformFees",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:147"
+          },
+          {
+            "label": "totalNFTsPurchased",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:148"
+          },
+          {
+            "label": "playerBalls",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_address,t_mapping(t_enum(BallType)2596,t_uint256))",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:150"
+          },
+          {
+            "label": "activePokemons",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_array(t_struct(Pokemon)2609_storage)20_storage",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:152"
+          },
+          {
+            "label": "nextPokemonId",
+            "offset": 0,
+            "slot": "110",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:153"
+          },
+          {
+            "label": "pendingThrows",
+            "offset": 0,
+            "slot": "111",
+            "type": "t_mapping(t_uint256,t_struct(PendingThrow)2621_storage)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:155"
+          },
+          {
+            "label": "requestIdToTraceId",
+            "offset": 0,
+            "slot": "112",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:156"
+          },
+          {
+            "label": "_traceIdCounter",
+            "offset": 0,
+            "slot": "113",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:158"
+          },
+          {
+            "label": "apePriceUSD",
+            "offset": 0,
+            "slot": "114",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:161"
+          },
+          {
+            "label": "slabNFTManager",
+            "offset": 0,
+            "slot": "115",
+            "type": "t_contract(ISlabNFTManager)2526",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:164"
+          },
+          {
+            "label": "ballPrices",
+            "offset": 0,
+            "slot": "116",
+            "type": "t_mapping(t_enum(BallType)2596,t_uint256)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:167"
+          },
+          {
+            "label": "ballCatchRates",
+            "offset": 0,
+            "slot": "117",
+            "type": "t_mapping(t_enum(BallType)2596,t_uint8)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:168"
+          },
+          {
+            "label": "revertOnNoNFT",
+            "offset": 0,
+            "slot": "118",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:169"
+          },
+          {
+            "label": "_v130Initialized",
+            "offset": 1,
+            "slot": "118",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:170"
+          },
+          {
+            "label": "accumulatedAPEFees",
+            "offset": 0,
+            "slot": "119",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:173"
+          },
+          {
+            "label": "accumulatedUSDCFees",
+            "offset": 0,
+            "slot": "120",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:176"
+          },
+          {
+            "label": "camelotRouter",
+            "offset": 0,
+            "slot": "121",
+            "type": "t_contract(ICamelotRouter)2551",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:177"
+          },
+          {
+            "label": "wape",
+            "offset": 0,
+            "slot": "122",
+            "type": "t_contract(IWAPE)2577",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:178"
+          },
+          {
+            "label": "swapSlippageBps",
+            "offset": 0,
+            "slot": "123",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:179"
+          },
+          {
+            "label": "_v150Initialized",
+            "offset": 0,
+            "slot": "124",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:180"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "125",
+            "type": "t_array(t_uint256)39_storage",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV5.sol:1036"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)224_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)288_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_struct(Pokemon)2609_storage)20_storage": {
+            "label": "struct PokeballGame.Pokemon[20]",
+            "numberOfBytes": "3200"
+          },
+          "t_array(t_uint256)39_storage": {
+            "label": "uint256[39]",
+            "numberOfBytes": "1248"
+          },
+          "t_contract(ICamelotRouter)2551": {
+            "label": "contract ICamelotRouter",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC20)1482": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC721)2063": {
+            "label": "contract IERC721",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IPOPVRNG)2500": {
+            "label": "contract IPOPVRNG",
+            "numberOfBytes": "20"
+          },
+          "t_contract(ISlabNFTManager)2526": {
+            "label": "contract ISlabNFTManager",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IWAPE)2577": {
+            "label": "contract IWAPE",
+            "numberOfBytes": "20"
+          },
+          "t_enum(BallType)2596": {
+            "label": "enum PokeballGame.BallType",
+            "members": [
+              "PokeBall",
+              "GreatBall",
+              "UltraBall",
+              "MasterBall"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_mapping(t_enum(BallType)2596,t_uint256))": {
+            "label": "mapping(address => mapping(enum PokeballGame.BallType => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_enum(BallType)2596,t_uint256)": {
+            "label": "mapping(enum PokeballGame.BallType => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_enum(BallType)2596,t_uint8)": {
+            "label": "mapping(enum PokeballGame.BallType => uint8)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(PendingThrow)2621_storage)": {
+            "label": "mapping(uint256 => struct PokeballGame.PendingThrow)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(PendingThrow)2621_storage": {
+            "label": "struct PokeballGame.PendingThrow",
+            "members": [
+              {
+                "label": "thrower",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "pokemonId",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "ballType",
+                "type": "t_enum(BallType)2596",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "resolved",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(Pokemon)2609_storage": {
+            "label": "struct PokeballGame.Pokemon",
+            "members": [
+              {
+                "label": "id",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "positionX",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "positionY",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "throwAttempts",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "isActive",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "3"
+              },
+              {
+                "label": "spawnTime",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "5c695371e5229d14e9688075408ed07aab2916c133d5dcda2fb440e1794a84cc": {
+      "address": "0x363f32ca7Cf83a215aDef4B139a47cAd323F1482",
+      "txHash": "0xe7839cc766909641f12b53b3830b2c6686dbc8c1ac235cb591413e14012a4c01",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "usdce",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC20)1482",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:134"
+          },
+          {
+            "label": "ape",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IERC20)1482",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:135"
+          },
+          {
+            "label": "vrng",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_address",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:136"
+          },
+          {
+            "label": "slabNFT",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_contract(IERC721)2063",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:137"
+          },
+          {
+            "label": "treasuryWallet",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:139"
+          },
+          {
+            "label": "nftRevenueWallet",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_address",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:140"
+          },
+          {
+            "label": "totalRevenuePool",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:142"
+          },
+          {
+            "label": "totalPlatformFees",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:143"
+          },
+          {
+            "label": "totalNFTsPurchased",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:144"
+          },
+          {
+            "label": "playerBalls",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_address,t_mapping(t_enum(BallType)3066,t_uint256))",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:146"
+          },
+          {
+            "label": "activePokemons",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_array(t_struct(Pokemon)3079_storage)20_storage",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:148"
+          },
+          {
+            "label": "nextPokemonId",
+            "offset": 0,
+            "slot": "110",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:149"
+          },
+          {
+            "label": "pendingThrows",
+            "offset": 0,
+            "slot": "111",
+            "type": "t_mapping(t_uint256,t_struct(PendingThrow)3091_storage)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:151"
+          },
+          {
+            "label": "requestIdToTraceId",
+            "offset": 0,
+            "slot": "112",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:152"
+          },
+          {
+            "label": "_traceIdCounter",
+            "offset": 0,
+            "slot": "113",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:154"
+          },
+          {
+            "label": "apePriceUSD",
+            "offset": 0,
+            "slot": "114",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:157"
+          },
+          {
+            "label": "slabNFTManager",
+            "offset": 0,
+            "slot": "115",
+            "type": "t_contract(ISlabNFTManager)2994",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:160"
+          },
+          {
+            "label": "ballPrices",
+            "offset": 0,
+            "slot": "116",
+            "type": "t_mapping(t_enum(BallType)3066,t_uint256)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:163"
+          },
+          {
+            "label": "ballCatchRates",
+            "offset": 0,
+            "slot": "117",
+            "type": "t_mapping(t_enum(BallType)3066,t_uint8)",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:164"
+          },
+          {
+            "label": "revertOnNoNFT",
+            "offset": 0,
+            "slot": "118",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:165"
+          },
+          {
+            "label": "_v130Initialized",
+            "offset": 1,
+            "slot": "118",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:166"
+          },
+          {
+            "label": "accumulatedAPEFees",
+            "offset": 0,
+            "slot": "119",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:169"
+          },
+          {
+            "label": "accumulatedUSDCFees",
+            "offset": 0,
+            "slot": "120",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:172"
+          },
+          {
+            "label": "camelotRouter",
+            "offset": 0,
+            "slot": "121",
+            "type": "t_contract(ICamelotRouter)3019",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:173"
+          },
+          {
+            "label": "wape",
+            "offset": 0,
+            "slot": "122",
+            "type": "t_contract(IWAPE)3045",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:174"
+          },
+          {
+            "label": "swapSlippageBps",
+            "offset": 0,
+            "slot": "123",
+            "type": "t_uint256",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:175"
+          },
+          {
+            "label": "_v150Initialized",
+            "offset": 0,
+            "slot": "124",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:176"
+          },
+          {
+            "label": "entropy",
+            "offset": 1,
+            "slot": "124",
+            "type": "t_contract(IEntropyV2)2956",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:179"
+          },
+          {
+            "label": "entropyProvider",
+            "offset": 0,
+            "slot": "125",
+            "type": "t_address",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:180"
+          },
+          {
+            "label": "_v160Initialized",
+            "offset": 20,
+            "slot": "125",
+            "type": "t_bool",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:181"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "126",
+            "type": "t_array(t_uint256)38_storage",
+            "contract": "PokeballGame",
+            "src": "contracts\\PokeballGameV6.sol:1104"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)224_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)288_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_struct(Pokemon)3079_storage)20_storage": {
+            "label": "struct PokeballGame.Pokemon[20]",
+            "numberOfBytes": "3200"
+          },
+          "t_array(t_uint256)38_storage": {
+            "label": "uint256[38]",
+            "numberOfBytes": "1216"
+          },
+          "t_contract(ICamelotRouter)3019": {
+            "label": "contract ICamelotRouter",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC20)1482": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC721)2063": {
+            "label": "contract IERC721",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IEntropyV2)2956": {
+            "label": "contract IEntropyV2",
+            "numberOfBytes": "20"
+          },
+          "t_contract(ISlabNFTManager)2994": {
+            "label": "contract ISlabNFTManager",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IWAPE)3045": {
+            "label": "contract IWAPE",
+            "numberOfBytes": "20"
+          },
+          "t_enum(BallType)3066": {
+            "label": "enum PokeballGame.BallType",
+            "members": [
+              "PokeBall",
+              "GreatBall",
+              "UltraBall",
+              "MasterBall"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_mapping(t_enum(BallType)3066,t_uint256))": {
+            "label": "mapping(address => mapping(enum PokeballGame.BallType => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_enum(BallType)3066,t_uint256)": {
+            "label": "mapping(enum PokeballGame.BallType => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_enum(BallType)3066,t_uint8)": {
+            "label": "mapping(enum PokeballGame.BallType => uint8)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(PendingThrow)3091_storage)": {
+            "label": "mapping(uint256 => struct PokeballGame.PendingThrow)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(PendingThrow)3091_storage": {
+            "label": "struct PokeballGame.PendingThrow",
+            "members": [
+              {
+                "label": "thrower",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "pokemonId",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "ballType",
+                "type": "t_enum(BallType)3066",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "resolved",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(Pokemon)3079_storage": {
+            "label": "struct PokeballGame.Pokemon",
+            "members": [
+              {
+                "label": "id",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "positionX",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "positionY",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "throwAttempts",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "isActive",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "3"
+              },
+              {
+                "label": "spawnTime",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "f2689771339b4d0c1f240c97baecbdae80aae9e3a28c579d797e0a1b44b2b6e6": {
+      "address": "0x8F971004939D2Ab2D043C869B096E8C93470Bcd5",
+      "txHash": "0x6c185d22d617804dfcff0550083d4eaca00455c8cb8b8ced5bd2885c4033246f",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "usdce",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC20)1482",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:90"
+          },
+          {
+            "label": "slabMachine",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(ISlabMachine)2536",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:93"
+          },
+          {
+            "label": "slabNFT",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_contract(IERC721)2063",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:96"
+          },
+          {
+            "label": "pokeballGame",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_address",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:99"
+          },
+          {
+            "label": "treasuryWallet",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:102"
+          },
+          {
+            "label": "nftInventory",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_array(t_uint256)dyn_storage",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:105"
+          },
+          {
+            "label": "isInInventory",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:108"
+          },
+          {
+            "label": "tokenIdToIndex",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:111"
+          },
+          {
+            "label": "totalNFTsPurchased",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:114"
+          },
+          {
+            "label": "totalNFTsAwarded",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:117"
+          },
+          {
+            "label": "totalUSDCSpent",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:120"
+          },
+          {
+            "label": "pendingPullRequests",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:123"
+          },
+          {
+            "label": "pendingRequestCount",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_uint256",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:126"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "SlabNFTManager",
+            "src": "contracts\\SlabNFTManagerV2.sol:838"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)224_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)288_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)1482": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC721)2063": {
+            "label": "contract IERC721",
+            "numberOfBytes": "20"
+          },
+          "t_contract(ISlabMachine)2536": {
+            "label": "contract ISlabMachine",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_uint256,t_address)": {
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bool)": {
+            "label": "mapping(uint256 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
           }
         },
         "namespaces": {
