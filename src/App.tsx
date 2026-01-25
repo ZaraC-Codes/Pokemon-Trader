@@ -162,10 +162,15 @@ function AppContent() {
       setSelectedPokemon(null);
 
       // Show the failure modal
+      // Contract bug: after 3rd failed throw, throwAttempts resets to 0 BEFORE event emission
+      // So contract emits 3-0=3 instead of 0. If we get 3, it means relocation happened (0 remaining).
+      const rawRemaining = Number(latestEvent.args.attemptsRemaining);
+      const actualRemaining = rawRemaining === 3 ? 0 : rawRemaining;
+
       setCatchFailure({
         type: 'failure',
         pokemonId: latestEvent.args.pokemonId,
-        attemptsRemaining: Number(latestEvent.args.attemptsRemaining),
+        attemptsRemaining: actualRemaining,
         txHash: latestEvent.transactionHash ?? undefined,
       });
     }
