@@ -289,8 +289,14 @@ export function useContractDiagnostics(): UseContractDiagnosticsReturn {
     const maxInventorySize = Number(maxInventorySizeResult ?? 20);
 
     // Check for warnings
-    if (apePriceUSD === BigInt(0)) {
-      warnings.push('APE price is 0 - purchases may fail');
+    // Distinguish between "env not configured" vs "on-chain price is 0"
+    if (!POKEBALL_GAME_ADDRESS) {
+      warnings.push('Contract address not configured (VITE_POKEBALL_GAME_ADDRESS missing)');
+    } else if (isApePriceError) {
+      warnings.push('Unable to read APE price from contract - RPC may be unavailable');
+    } else if (apePriceUSD === BigInt(0)) {
+      // On-chain price is actually 0 - needs update via scripts/update_ape_price.cjs
+      warnings.push('APE price is 0 on-chain - run update_ape_price.cjs to set current price');
     } else if (apePriceFormatted < 0.05) {
       warnings.push(`APE price looks unusually low ($${apePriceFormatted.toFixed(4)})`);
     } else if (apePriceFormatted > 10) {
