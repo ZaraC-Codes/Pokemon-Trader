@@ -9,8 +9,9 @@
  * - Chain config: ApeChain Mainnet (ID 33139)
  * - Contract: PokeballGame proxy (UUPS upgradeable)
  * - Tokens: APE (native) and USDC.e (Stargate bridged)
- * - Randomness: Pyth Entropy for provably fair catch mechanics (v1.6.0)
+ * - Randomness: Pyth Entropy for provably fair catch mechanics (v1.7.0)
  *   - throwBall() requires ~0.073 APE fee for entropy callback
+ *   - On catch success, reuses random number to select random NFT from inventory
  *
  * Usage:
  * ```ts
@@ -27,9 +28,10 @@
  */
 
 import { apeChainMainnet, ALCHEMY_RPC_URL } from './apechainConfig';
-// Use V6 ABI with Pyth Entropy integration (v1.6.0)
+// Use V7 ABI with Pyth Entropy integration (v1.7.0)
+// v1.7.0: On catch, reuses Entropy random number to select random NFT from SlabNFTManager inventory
 // Must be a raw array, not a Hardhat artifact object
-import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV6.json';
+import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV7.json';
 
 // ============================================================
 // CHAIN CONFIGURATION
@@ -88,8 +90,8 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
   | undefined;
 
 /**
- * PokeballGame contract ABI (v1.6.0 with Pyth Entropy).
- * Imported from contracts/abi/abi_PokeballGameV6.json.
+ * PokeballGame contract ABI (v1.7.0 with Pyth Entropy).
+ * Imported from contracts/abi/abi_PokeballGameV7.json.
  * Note: The JSON file is an array directly (not { abi: [...] }).
  *
  * Key functions:
@@ -98,6 +100,11 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
  * - getThrowFee() - Get current Pyth Entropy fee for throwBall
  * - getAllPlayerBalls(player) - Get player inventory
  * - getAllActivePokemons() - Get spawned Pokemon
+ *
+ * v1.7.0 Changes:
+ * - On catch success, reuses Entropy random number to select random NFT
+ * - Calls SlabNFTManagerV2_3.awardNFTToWinnerWithRandomness(winner, randomNumber)
+ * - No additional Entropy fee for NFT selection (same ~0.073 APE per throw)
  */
 export const POKEBALL_GAME_ABI = PokeballGameABI as typeof PokeballGameABI;
 

@@ -173,7 +173,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── abi_PokeballGameV6.json  # PokeballGame ABI v1.6.0 (Pyth Entropy)
 │   │   ├── abi_PokeballGameV7.json  # PokeballGame ABI v1.7.0 (random NFT selection, **current**)
 │   │   ├── abi_SlabNFTManager.json  # SlabNFTManager ABI (legacy)
-│   │   └── abi_SlabNFTManagerV2.json  # SlabNFTManager ABI v2.x (**current**)
+│   │   └── abi_SlabNFTManagerV2_3.json  # SlabNFTManager ABI v2.3.0 (**current**)
 │   ├── deployment/
 │   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
 │   │   ├── deploy_PokeballGame.js   # PokeballGame standalone deployment
@@ -251,7 +251,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/abi/abi_PokeballGameV5.json` | PokeballGame ABI v1.5.0 (unified payments) |
 | `contracts/abi/abi_PokeballGameV6.json` | PokeballGame ABI v1.6.0 (Pyth Entropy) |
 | `contracts/abi/abi_PokeballGameV7.json` | PokeballGame ABI v1.7.0 (random NFT selection, **current**) |
-| `contracts/abi/abi_SlabNFTManagerV2.json` | SlabNFTManager ABI v2.x (**current**) |
+| `contracts/abi/abi_SlabNFTManagerV2_3.json` | SlabNFTManager ABI v2.3.0 (random NFT selection, **current**) |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `contracts/deployment/upgrade_PokeballGameV2.cjs` | Upgrade to v1.2.0 (20 Pokemon) |

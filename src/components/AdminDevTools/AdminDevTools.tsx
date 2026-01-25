@@ -1,9 +1,14 @@
 /**
  * AdminDevTools Component
  *
- * Admin panel for SlabNFTManager v2.2.0 operations.
+ * Admin panel for SlabNFTManager v2.3.0 operations.
  * Provides diagnostics and owner-only recovery functions.
  * Only visible when dev mode is enabled (?dev=1 or localStorage).
+ *
+ * v2.3.0 Changes:
+ * - awardNFTToWinnerWithRandomness: Random NFT selection from inventory using
+ *   (randomNumber >> 128) % inventorySize, called by PokeballGame v1.7.0
+ * - All v2.2.0 admin functions preserved (NFT recovery, pending request clearing)
  *
  * Features:
  * - View current inventory and USDC balance

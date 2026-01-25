@@ -296,9 +296,11 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
             <div style={styles.stepContent}>
               <div style={styles.stepTitle}>Collect Your NFT</div>
               <div style={styles.stepText}>
-                When you catch a Pokemon, its{' '}
-                <span style={styles.highlight}>NFT Pokemon card</span> is sent directly to your
-                wallet and appears in your in-game inventory. Each card is unique!
+                When you catch a Pokemon, a{' '}
+                <span style={styles.highlight}>random NFT Pokemon card</span> is selected from the
+                prize pool and sent directly to your wallet. The selection uses the same{' '}
+                <span style={styles.highlight}>provably fair randomness</span> as the catch itself,
+                so every card you receive is a surprise!
               </div>
             </div>
           </div>
