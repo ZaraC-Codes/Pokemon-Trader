@@ -41,8 +41,10 @@ interface TouchInputConfig {
   showTapIndicator: boolean;
   /** Height of bottom UI elements (Inventory button) to avoid overlap (default: 60) */
   bottomUIHeight: number;
-  /** Padding between D-Pad and bottom UI (default: 15) */
+  /** Minimum vertical padding between D-Pad bottom and Inventory button top (default: 10) */
   bottomUIPadding: number;
+  /** Minimum margin from top of screen (default: 10) */
+  topMargin: number;
 }
 
 const DEFAULT_CONFIG: TouchInputConfig = {
@@ -53,7 +55,8 @@ const DEFAULT_CONFIG: TouchInputConfig = {
   tapMoveThreshold: 8,
   showTapIndicator: true,
   bottomUIHeight: 60,    // Height of Inventory button + its bottom margin
-  bottomUIPadding: 15,   // Gap between D-Pad and Inventory button
+  bottomUIPadding: 10,   // Minimum gap between D-Pad bottom and Inventory button top
+  topMargin: 10,         // Minimum margin from top of screen
 };
 
 /**
@@ -286,7 +289,7 @@ export class TouchInputManager {
    * Create virtual D-Pad overlay
    */
   private createDPad(): void {
-    const { dpadSize, dpadOpacity, dpadMargin, bottomUIHeight, bottomUIPadding } = this.config;
+    const { dpadSize, dpadOpacity, dpadMargin, bottomUIHeight, bottomUIPadding, topMargin } = this.config;
     const camera = this.scene.cameras.main;
 
     // Create container (fixed to camera, bottom-left)
@@ -294,17 +297,43 @@ export class TouchInputManager {
     this.dpadContainer.setScrollFactor(0);
     this.dpadContainer.setDepth(2000);
 
-    // Position calculation (bottom-left corner, above the Inventory button)
-    // The Inventory button is at bottom: 20px with ~40px height = 60px from bottom
-    // D-Pad should sit above it with padding
-    const centerX = dpadMargin + dpadSize / 2;
-    const bottomOffset = bottomUIHeight + bottomUIPadding + dpadSize / 2;
-    const centerY = camera.height - bottomOffset;
+    // D-Pad radius for calculations
+    const dpadRadius = dpadSize / 2;
 
-    // Clamp to ensure D-Pad stays fully on screen
-    const minY = dpadSize / 2 + dpadMargin;
-    const clampedCenterY = Math.min(centerY, camera.height - dpadSize / 2 - dpadMargin);
-    const finalCenterY = Math.max(minY, clampedCenterY);
+    // Calculate the Y position of the top of the Inventory button
+    // Inventory button: bottom: 20px margin, ~40px height = top edge at (screenHeight - 60px)
+    const inventoryTopY = camera.height - bottomUIHeight;
+
+    // Desired D-Pad center Y: place D-Pad so its bottom edge is `bottomUIPadding` above Inventory button top
+    // D-Pad bottom edge = centerY + radius
+    // We want: centerY + radius + bottomUIPadding = inventoryTopY
+    // So: centerY = inventoryTopY - bottomUIPadding - radius
+    const desiredCenterY = inventoryTopY - bottomUIPadding - dpadRadius;
+
+    // Calculate min/max bounds for D-Pad center
+    // minY: D-Pad must not go above the screen (top edge at topMargin)
+    const minCenterY = topMargin + dpadRadius;
+    // maxY: D-Pad bottom must stay above Inventory button with padding
+    const maxCenterY = inventoryTopY - bottomUIPadding - dpadRadius;
+
+    // Clamp the center Y position
+    // If screen is too short, minCenterY may exceed maxCenterY - in that case, prioritize keeping D-Pad on screen
+    const finalCenterY = Math.max(minCenterY, Math.min(desiredCenterY, maxCenterY));
+
+    // X position: left side with margin
+    const centerX = dpadMargin + dpadRadius;
+
+    // Log positioning for debugging
+    console.log('[TouchInputManager] D-Pad positioning:', {
+      screenHeight: camera.height,
+      inventoryTopY,
+      desiredCenterY,
+      minCenterY,
+      maxCenterY,
+      finalCenterY,
+      dpadBottomEdge: finalCenterY + dpadRadius,
+      clearanceAboveInventory: inventoryTopY - (finalCenterY + dpadRadius),
+    });
 
     // Background circle
     this.dpadBackground = this.scene.add.graphics();

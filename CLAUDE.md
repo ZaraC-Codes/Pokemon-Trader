@@ -1959,20 +1959,43 @@ TOUCH_CONTROL_CONFIG = {
   forceEnabled: false,   // Force on desktop
   dpadSize: 120,         // D-Pad size in pixels
   dpadOpacity: 0.5,      // D-Pad transparency
-  dpadMargin: 20,        // Margin from screen edge
+  dpadMargin: 20,        // Margin from screen edge (left side)
   tapMoveThreshold: 8,   // Distance to consider target reached
   showTapIndicator: true, // Show pulsing circle at tap target
-  bottomUIHeight: 60,    // Height of Inventory button to avoid overlap
-  bottomUIPadding: 15,   // Gap between D-Pad and Inventory button
+  bottomUIHeight: 60,    // Height of Inventory button + bottom margin
+  bottomUIPadding: 10,   // Min vertical gap between D-Pad bottom and Inventory top
+  topMargin: 10,         // Min margin from top of screen
 }
 ```
 
-**D-Pad Positioning:**
-The D-Pad is positioned above the Inventory button to avoid overlap:
-- `bottomUIHeight` (60px): Accounts for Inventory button height + its bottom margin
-- `bottomUIPadding` (15px): Gap between D-Pad bottom edge and Inventory button top
-- D-Pad Y center = `camera.height - bottomUIHeight - bottomUIPadding - dpadSize/2`
-- Position is clamped to ensure D-Pad stays fully on screen
+**D-Pad Positioning (Responsive):**
+The D-Pad is positioned above the Inventory button and never overlaps, even on small screens like dGen1:
+
+**Calculation:**
+```typescript
+const dpadRadius = dpadSize / 2;
+const inventoryTopY = screenHeight - bottomUIHeight;  // Top edge of Inventory button
+const desiredCenterY = inventoryTopY - bottomUIPadding - dpadRadius;  // Place D-Pad above
+
+// Clamp to keep D-Pad fully on screen
+const minCenterY = topMargin + dpadRadius;  // Can't go above screen
+const maxCenterY = inventoryTopY - bottomUIPadding - dpadRadius;  // Must stay above Inventory
+const finalCenterY = clamp(desiredCenterY, minCenterY, maxCenterY);
+```
+
+**Tweakable Constants:**
+| Constant | Default | Effect |
+|----------|---------|--------|
+| `bottomUIHeight` | 60 | Inventory button height + its bottom margin |
+| `bottomUIPadding` | 10 | Gap between D-Pad bottom and Inventory top (increase to move D-Pad higher) |
+| `topMargin` | 10 | Minimum distance from screen top (prevents D-Pad from going off-screen) |
+| `dpadSize` | 120 | D-Pad diameter (reduce for tiny screens) |
+| `dpadMargin` | 20 | Left margin from screen edge |
+
+**Small Screen Behavior:**
+- If screen is too short to fit D-Pad above Inventory with padding, D-Pad is pushed upward
+- D-Pad is clamped to never go above `topMargin` from screen top
+- On very small screens, D-Pad may touch Inventory but never overlap
 
 **Features:**
 - **Tap-to-move**: Tap anywhere to walk toward that position (4-directional movement)

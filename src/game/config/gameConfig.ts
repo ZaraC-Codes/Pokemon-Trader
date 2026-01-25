@@ -25,16 +25,18 @@ export const TOUCH_CONTROL_CONFIG = {
   dpadSize: 120,
   /** D-Pad opacity (0-1) */
   dpadOpacity: 0.5,
-  /** Margin from screen edge */
+  /** Margin from screen edge (left side) */
   dpadMargin: 20,
   /** Distance threshold to consider tap target reached */
   tapMoveThreshold: 8,
   /** Show tap indicator when moving */
   showTapIndicator: true,
-  /** Height of bottom UI elements (Inventory button) to avoid overlap */
+  /** Height of bottom UI elements (Inventory button + bottom margin) */
   bottomUIHeight: 60,
-  /** Padding between D-Pad and bottom UI */
-  bottomUIPadding: 15,
+  /** Minimum vertical gap between D-Pad bottom and Inventory button top */
+  bottomUIPadding: 10,
+  /** Minimum margin from top of screen */
+  topMargin: 10,
 };
 
 // Get viewport dimensions

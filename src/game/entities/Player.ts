@@ -50,6 +50,7 @@ export class Player extends Phaser.GameObjects.Sprite {
       showTapIndicator: TOUCH_CONTROL_CONFIG.showTapIndicator,
       bottomUIHeight: TOUCH_CONTROL_CONFIG.bottomUIHeight,
       bottomUIPadding: TOUCH_CONTROL_CONFIG.bottomUIPadding,
+      topMargin: TOUCH_CONTROL_CONFIG.topMargin,
     });
 
     // Force enable touch controls if configured (for testing on desktop)
