@@ -614,6 +614,30 @@ npm run dev
   - `useThrowBall` now has `isThrowInProgress` guard flag to prevent duplicate throws
   - `useThrowFee` polling reduced: staleTime 60s, refetchInterval disabled, retry 1
 
+**Localhost proxy causing 429 errors (event watchers and throws broken):**
+- Cause: Development config used `http://localhost:5173/api/rpc` Vite proxy which got rate limited
+- Symptoms:
+  - Console spam: `POST http://localhost:5173/api/rpc → 429 (Too Many Requests)`
+  - `net::ERR_INSUFFICIENT_RESOURCES` errors
+  - Event watchers (BallPurchased, CaughtPokemon) not firing
+  - throwBall fails before wallet opens with "Transaction would fail: HTTP request failed"
+  - Ball inventory not updating after purchase
+- Root cause: Wagmi client was routing ALL RPC calls through Vite dev proxy, which couldn't handle the volume
+- **Fix applied**: Changed `apechainConfig.ts` to use direct Alchemy URL instead of localhost proxy:
+  ```typescript
+  // Old (broken):
+  const isDev = import.meta.env?.DEV;
+  rpcUrls: { default: { http: [isDev ? 'http://localhost:5173/api/rpc' : ALCHEMY_URL] } }
+
+  // New (working):
+  const PRIMARY_RPC_URL = 'https://apechain-mainnet.g.alchemy.com/v2/YOUR_KEY';
+  rpcUrls: { default: { http: [PRIMARY_RPC_URL] } }
+  ```
+- This fixes BOTH issues:
+  - Event watchers work (no proxy timeouts)
+  - Throw transactions work (no localhost RPC errors)
+- After fix, restart dev server: `npm run dev`
+
 **Verify 3%/97% revenue split is working correctly:**
 - Run: `node scripts/verify_revenue_flow.cjs` to check on-chain balances
 - Compares `APESwappedToUSDC` events against `accumulatedUSDCFees` and SlabNFTManager balance

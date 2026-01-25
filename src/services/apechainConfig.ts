@@ -11,13 +11,14 @@ import { defineChain } from 'viem';
 import { dGen1Wallet, glyphWallet } from '../connectors/customWallets';
 import { logWalletDetectionStatus } from '../utils/walletDetection';
 
-// Helper to check if we're in development mode
-const isDev = typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV;
-
 // Log wallet detection status on module load (for debugging)
 if (typeof window !== 'undefined') {
   logWalletDetectionStatus();
 }
+
+// Primary RPC endpoint - use direct Alchemy URL (not proxy)
+// The localhost proxy was causing 429 errors due to request spam
+const PRIMARY_RPC_URL = 'https://apechain-mainnet.g.alchemy.com/v2/U6nPHGu_q380fQMfQRGcX';
 
 // ApeChain Mainnet configuration
 // According to https://docs.apechain.com/contracts/Mainnet/contract-information
@@ -33,16 +34,11 @@ export const apeChainMainnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [isDev 
-        ? 'http://localhost:5173/api/rpc'  // Proxy through Vite dev server in development
-        : 'https://apechain-mainnet.g.alchemy.com/v2/U6nPHGu_q380fQMfQRGcX'  // Direct URL in production
-      ],
+      http: [PRIMARY_RPC_URL],
     },
     public: {
       http: [
-        isDev 
-          ? 'http://localhost:5173/api/rpc'  // Proxy through Vite dev server in development
-          : 'https://apechain-mainnet.g.alchemy.com/v2/U6nPHGu_q380fQMfQRGcX',  // Direct URL in production
+        PRIMARY_RPC_URL,
         'https://apechain.calderachain.xyz/http',
         'https://apechain.drpc.org',
       ],
@@ -115,20 +111,16 @@ export const config = createConfig({
   connectors,
   chains: [apeChainMainnet],
   transports: {
-    [apeChainMainnet.id]: http(isDev
-      ? 'http://localhost:5173/api/rpc'  // Proxy through Vite dev server in development
-      : 'https://apechain-mainnet.g.alchemy.com/v2/U6nPHGu_q380fQMfQRGcX'  // Direct URL in production
-    ),
+    // Use direct Alchemy URL - the localhost proxy was causing 429 errors
+    [apeChainMainnet.id]: http(PRIMARY_RPC_URL),
   },
   ssr: false,
 });
 
 // Alchemy API key for NFT metadata (using the same key as RPC)
 export const ALCHEMY_API_KEY = 'U6nPHGu_q380fQMfQRGcX';
-// Use proxy URL in development to avoid CORS issues, direct URL in production
-export const ALCHEMY_RPC_URL = isDev 
-  ? 'http://localhost:5173/api/rpc'  // Proxy through Vite dev server
-  : 'https://apechain-mainnet.g.alchemy.com/v2/U6nPHGu_q380fQMfQRGcX';  // Direct URL in production
+// Use direct Alchemy URL - the localhost proxy was causing 429 errors
+export const ALCHEMY_RPC_URL = PRIMARY_RPC_URL;
 
 // OTC Marketplace contract configuration - ApeChain Mainnet
 export const CONTRACT_ADDRESSES = {
