@@ -4,6 +4,9 @@
  * Hook for subscribing to PokeballGame contract events.
  * Accumulates events into a local state array for the current session.
  *
+ * IMPORTANT: Uses manual eth_getLogs polling instead of eth_newFilter because
+ * the ApeChain public RPC does not support stateful filters (filter not found errors).
+ *
  * Usage:
  * ```tsx
  * // Subscribe to BallPurchased events
@@ -29,9 +32,9 @@
  * ```
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { useWatchContractEvent } from 'wagmi';
-import type { Log } from 'viem';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { usePublicClient } from 'wagmi';
+import { parseEventLogs, type Log } from 'viem';
 import {
   POKEBALL_GAME_ADDRESS,
   POKEBALL_GAME_ABI,
@@ -141,11 +144,22 @@ export interface UseContractEventsReturn<T extends PokeballGameEventName> {
 }
 
 // ============================================================
+// CONFIGURATION
+// ============================================================
+
+// Poll every 2 seconds (ApeChain has ~0.25s blocks, so this catches events quickly)
+const POLL_INTERVAL_MS = 2000;
+
+// How many blocks to look back on initial load (about 10 seconds of history)
+const INITIAL_LOOKBACK_BLOCKS = 40n;
+
+// ============================================================
 // HOOK IMPLEMENTATION
 // ============================================================
 
 /**
  * Hook for subscribing to a specific PokeballGame contract event.
+ * Uses manual eth_getLogs polling instead of filters (which ApeChain RPC doesn't support).
  *
  * @param eventName - The event name to subscribe to
  * @param onEvent - Optional callback for each new event
@@ -156,48 +170,156 @@ export function useContractEvents<T extends PokeballGameEventName>(
   onEvent?: (event: TypedContractEvent<T>) => void
 ): UseContractEventsReturn<T> {
   const { isConfigured } = usePokeballGameAddress();
+  const publicClient = usePublicClient({ chainId: POKEBALL_GAME_CHAIN_ID });
   const [events, setEvents] = useState<TypedContractEvent<T>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Watch for contract events
-  useWatchContractEvent({
-    address: POKEBALL_GAME_ADDRESS,
-    abi: POKEBALL_GAME_ABI,
-    eventName,
-    chainId: POKEBALL_GAME_CHAIN_ID,
-    onLogs: (logs) => {
-      setIsLoading(false);
+  // Track the last block we queried to avoid duplicate events
+  const lastBlockRef = useRef<bigint | null>(null);
+  // Track seen event keys to dedupe
+  const seenEventsRef = useRef<Set<string>>(new Set());
+  // Store onEvent callback in ref to avoid effect dependency issues
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
-      for (const log of logs) {
-        const typedEvent = log as TypedContractEvent<T>;
-        typedEvent.eventName = eventName;
-
-        console.log(`[useContractEvents] ${eventName} event:`, typedEvent);
-
-        // Add to accumulated events
-        setEvents((prev) => [...prev, typedEvent]);
-
-        // Call optional callback
-        if (onEvent) {
-          onEvent(typedEvent);
-        }
-      }
-    },
-    enabled: isConfigured,
-  });
-
-  // Set loading to false after initial subscription
+  // Log on mount to verify hook is initialized
   useEffect(() => {
-    if (isConfigured) {
-      // Give a short delay for subscription to establish
-      const timer = setTimeout(() => setIsLoading(false), 1000);
-      return () => clearTimeout(timer);
+    console.log(`[useContractEvents] ${eventName} hook MOUNTED. Address:`, POKEBALL_GAME_ADDRESS, 'ChainId:', POKEBALL_GAME_CHAIN_ID, 'Enabled:', isConfigured);
+    return () => {
+      console.log(`[useContractEvents] ${eventName} hook UNMOUNTED`);
+    };
+  }, [eventName, isConfigured]);
+
+  // Manual polling for events using eth_getLogs
+  useEffect(() => {
+    if (!isConfigured || !publicClient || !POKEBALL_GAME_ADDRESS) {
+      console.log(`[useContractEvents] ${eventName} - Not starting poll: configured=${isConfigured}, client=${!!publicClient}, address=${POKEBALL_GAME_ADDRESS}`);
+      return;
     }
-  }, [isConfigured]);
+
+    let isMounted = true;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const pollForEvents = async () => {
+      if (!isMounted) return;
+
+      try {
+        // Get current block number
+        const currentBlock = await publicClient.getBlockNumber();
+
+        // Determine fromBlock - either last queried block + 1 or lookback from current
+        let fromBlock: bigint;
+        if (lastBlockRef.current !== null) {
+          fromBlock = lastBlockRef.current + 1n;
+        } else {
+          // First poll - look back a bit to catch recent events
+          fromBlock = currentBlock > INITIAL_LOOKBACK_BLOCKS ? currentBlock - INITIAL_LOOKBACK_BLOCKS : 0n;
+          console.log(`[useContractEvents] ${eventName} - Initial poll from block ${fromBlock} to ${currentBlock}`);
+        }
+
+        // Skip if we're already caught up
+        if (fromBlock > currentBlock) {
+          // Schedule next poll
+          if (isMounted) {
+            pollTimer = setTimeout(pollForEvents, POLL_INTERVAL_MS);
+          }
+          return;
+        }
+
+        // Query logs using eth_getLogs (no filter required)
+        const logs = await publicClient.getLogs({
+          address: POKEBALL_GAME_ADDRESS,
+          fromBlock,
+          toBlock: currentBlock,
+        });
+
+        // Update last block
+        lastBlockRef.current = currentBlock;
+
+        if (logs.length > 0) {
+          // Parse logs to get typed events
+          try {
+            const parsedEvents = parseEventLogs({
+              abi: POKEBALL_GAME_ABI,
+              logs,
+              eventName,
+            });
+
+            if (parsedEvents.length > 0) {
+              console.log(`[useContractEvents] ${eventName} received ${parsedEvents.length} log(s) at`, new Date().toISOString());
+
+              const newEvents: TypedContractEvent<T>[] = [];
+
+              for (const log of parsedEvents) {
+                // Create unique key for deduplication
+                const eventKey = `${log.transactionHash}-${log.logIndex}`;
+
+                // Skip if we've already seen this event
+                if (seenEventsRef.current.has(eventKey)) {
+                  continue;
+                }
+                seenEventsRef.current.add(eventKey);
+
+                const typedEvent = log as unknown as TypedContractEvent<T>;
+                typedEvent.eventName = eventName;
+
+                console.log(`[useContractEvents] ${eventName} event:`, {
+                  eventKey,
+                  args: typedEvent.args,
+                  blockNumber: typedEvent.blockNumber?.toString(),
+                  transactionHash: typedEvent.transactionHash,
+                });
+
+                newEvents.push(typedEvent);
+
+                // Call optional callback
+                if (onEventRef.current) {
+                  onEventRef.current(typedEvent);
+                }
+              }
+
+              if (newEvents.length > 0) {
+                setEvents((prev) => [...prev, ...newEvents]);
+              }
+            }
+          } catch (parseError) {
+            // This is expected - most logs won't match our specific event
+            // Only log if it's an unexpected error
+            if (!(parseError instanceof Error && parseError.message.includes('no matching event'))) {
+              console.warn(`[useContractEvents] ${eventName} parse warning:`, parseError);
+            }
+          }
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error(`[useContractEvents] ${eventName} poll error:`, error);
+        // Don't update lastBlockRef on error - we'll retry from the same block
+      }
+
+      // Schedule next poll
+      if (isMounted) {
+        pollTimer = setTimeout(pollForEvents, POLL_INTERVAL_MS);
+      }
+    };
+
+    // Start polling
+    console.log(`[useContractEvents] ${eventName} - Starting manual eth_getLogs polling (interval: ${POLL_INTERVAL_MS}ms)`);
+    pollForEvents();
+
+    return () => {
+      isMounted = false;
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+      }
+      console.log(`[useContractEvents] ${eventName} - Stopped polling`);
+    };
+  }, [eventName, isConfigured, publicClient]);
 
   // Clear events function
   const clearEvents = useCallback(() => {
     setEvents([]);
+    seenEventsRef.current.clear();
   }, []);
 
   // Return safe defaults if contract not configured

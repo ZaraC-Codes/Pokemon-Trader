@@ -16,9 +16,21 @@ if (typeof window !== 'undefined') {
   logWalletDetectionStatus();
 }
 
-// Primary RPC endpoint - use direct Alchemy URL (not proxy)
-// The localhost proxy was causing 429 errors due to request spam
-const PRIMARY_RPC_URL = 'https://apechain-mainnet.g.alchemy.com/v2/U6nPHGu_q380fQMfQRGcX';
+// =============================================================================
+// RPC CONFIGURATION - SINGLE STABLE ENDPOINT
+// =============================================================================
+// Using the OFFICIAL ApeChain public RPC from Caldera (per docs.apechain.com)
+// This endpoint is:
+// - CORS-enabled (works directly from browser)
+// - No rate limits for normal usage
+// - No API key required
+// - Official and maintained by the ApeChain team
+//
+// DO NOT add conditional logic or multiple endpoints here.
+// If this endpoint fails, we need to fix it at the source, not add fallbacks
+// that mask the problem.
+// =============================================================================
+const PRIMARY_RPC_URL = 'https://rpc.apechain.com/http';
 
 // ApeChain Mainnet configuration
 // According to https://docs.apechain.com/contracts/Mainnet/contract-information
@@ -37,11 +49,7 @@ export const apeChainMainnet = defineChain({
       http: [PRIMARY_RPC_URL],
     },
     public: {
-      http: [
-        PRIMARY_RPC_URL,
-        'https://apechain.calderachain.xyz/http',
-        'https://apechain.drpc.org',
-      ],
+      http: [PRIMARY_RPC_URL],
     },
   },
   blockExplorers: {
@@ -111,7 +119,7 @@ export const config = createConfig({
   connectors,
   chains: [apeChainMainnet],
   transports: {
-    // Use direct Alchemy URL - the localhost proxy was causing 429 errors
+    // Use environment-appropriate RPC (proxy in dev, Caldera in prod)
     [apeChainMainnet.id]: http(PRIMARY_RPC_URL),
   },
   ssr: false,
@@ -119,7 +127,8 @@ export const config = createConfig({
 
 // Alchemy API key for NFT metadata (using the same key as RPC)
 export const ALCHEMY_API_KEY = 'U6nPHGu_q380fQMfQRGcX';
-// Use direct Alchemy URL - the localhost proxy was causing 429 errors
+// Export the browser-safe RPC URL (used by wagmi client)
+// Note: useTransactionHistory uses Caldera directly for historical queries
 export const ALCHEMY_RPC_URL = PRIMARY_RPC_URL;
 
 // OTC Marketplace contract configuration - ApeChain Mainnet

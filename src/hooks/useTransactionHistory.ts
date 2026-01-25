@@ -12,13 +12,14 @@
  *
  * Strategy:
  * - Uses Caldera public RPC for historical log queries (no block range limit)
- * - Uses wagmi's publicClient for real-time event watching
- * - Single request for all events in a large block range
+ * - Uses manual eth_getLogs polling for real-time events (2s interval)
+ * - ApeChain RPC doesn't support eth_newFilter, so we avoid wagmi's useWatchContractEvent
+ * - Deduplicates events using txHash-logIndex keys
  */
 
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { usePublicClient, useWatchContractEvent } from 'wagmi';
-import { createPublicClient, http, type Log, formatUnits, parseAbiItem } from 'viem';
+import { usePublicClient } from 'wagmi';
+import { createPublicClient, http, type Log, formatUnits, parseAbiItem, parseEventLogs } from 'viem';
 import { pokeballGameConfig, getBallConfig, isPokeballGameConfigured, getTransactionUrl } from '../services/pokeballGameConfig';
 import { apeChainMainnet } from '../services/apechainConfig';
 
@@ -128,8 +129,9 @@ export interface UseTransactionHistoryReturn {
 const DEFAULT_PAGE_SIZE = 50;
 const STATS_STORAGE_KEY_PREFIX = 'pokemonTrader_txStats_';
 
-// Caldera public RPC - no block range limits!
-const PUBLIC_RPC_URL = 'https://apechain.calderachain.xyz/http';
+// Official ApeChain public RPC (Caldera) - no block range limits, CORS-enabled
+// This must match PRIMARY_RPC_URL in apechainConfig.ts
+const PUBLIC_RPC_URL = 'https://rpc.apechain.com/http';
 
 // How many blocks to search (~12 hours at 2s/block = 21,600 blocks)
 const DEFAULT_LOOKBACK_BLOCKS = BigInt(25000);
@@ -798,90 +800,154 @@ export function useTransactionHistory(
     });
   }, [playerAddress]);
 
-  // Real-time event subscriptions (for new events only)
-  useWatchContractEvent({
-    address: contractAddress,
-    abi: pokeballGameConfig.abi,
-    eventName: 'BallPurchased',
-    args: { buyer: playerAddress },
-    enabled: isConfigured,
-    onLogs: async (logs) => {
-      const newTxs = await parseWatcherLogs(logs as Log[], 'BallPurchased');
-      if (newTxs.length > 0) {
-        // Update stats with new purchase transactions
-        updateStatsWithNewTxs(newTxs);
+  // ============================================================
+  // REAL-TIME EVENT POLLING (replaces useWatchContractEvent)
+  // ============================================================
+  // ApeChain public RPC doesn't support eth_newFilter, so we use manual polling
+  // with eth_getLogs instead of wagmi's filter-based watching.
 
-        setTransactions((prev) => {
-          const existingIds = new Set(prev.map((t) => t.id));
-          const unique = newTxs.filter((t) => !existingIds.has(t.id));
-          return [...unique, ...prev];
+  const REALTIME_POLL_INTERVAL_MS = 2000;
+  const lastPolledBlockRef = useRef<bigint | null>(null);
+  const seenEventKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isConfigured || !playerAddress || !contractAddress) {
+      return;
+    }
+
+    let isMounted = true;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const pollForNewEvents = async () => {
+      if (!isMounted) return;
+
+      try {
+        const currentBlock = await publicRpcClient.getBlockNumber();
+
+        // Determine fromBlock - either last polled block + 1 or current block (no lookback for real-time)
+        let fromBlock: bigint;
+        if (lastPolledBlockRef.current !== null) {
+          fromBlock = lastPolledBlockRef.current + 1n;
+        } else {
+          // First poll - start from current block (historical is handled by initial fetch)
+          fromBlock = currentBlock;
+          lastPolledBlockRef.current = currentBlock;
+          // Schedule next poll
+          if (isMounted) {
+            pollTimer = setTimeout(pollForNewEvents, REALTIME_POLL_INTERVAL_MS);
+          }
+          return;
+        }
+
+        // Skip if we're already caught up
+        if (fromBlock > currentBlock) {
+          if (isMounted) {
+            pollTimer = setTimeout(pollForNewEvents, REALTIME_POLL_INTERVAL_MS);
+          }
+          return;
+        }
+
+        // Query all logs from the contract (we'll filter by event type after)
+        const logs = await publicRpcClient.getLogs({
+          address: contractAddress,
+          fromBlock,
+          toBlock: currentBlock,
         });
+
+        // Update last polled block
+        lastPolledBlockRef.current = currentBlock;
+
+        if (logs.length > 0) {
+          // Parse logs for each event type we care about
+          const eventTypes = ['BallPurchased', 'ThrowAttempted', 'CaughtPokemon', 'FailedCatch'] as const;
+          const allNewTxs: Transaction[] = [];
+
+          for (const eventName of eventTypes) {
+            try {
+              const parsedEvents = parseEventLogs({
+                abi: pokeballGameConfig.abi,
+                logs,
+                eventName,
+              });
+
+              if (parsedEvents.length > 0) {
+                // Filter by player address based on event type
+                const playerFilteredEvents = parsedEvents.filter((event) => {
+                  const args = event.args as Record<string, unknown>;
+                  if (eventName === 'BallPurchased') {
+                    return (args.buyer as string)?.toLowerCase() === playerAddress.toLowerCase();
+                  } else if (eventName === 'ThrowAttempted' || eventName === 'FailedCatch') {
+                    return (args.thrower as string)?.toLowerCase() === playerAddress.toLowerCase();
+                  } else if (eventName === 'CaughtPokemon') {
+                    return (args.catcher as string)?.toLowerCase() === playerAddress.toLowerCase();
+                  }
+                  return false;
+                });
+
+                if (playerFilteredEvents.length > 0) {
+                  // Deduplicate using txHash-logIndex
+                  const newEvents = playerFilteredEvents.filter((event) => {
+                    const eventKey = `${event.transactionHash}-${event.logIndex}`;
+                    if (seenEventKeysRef.current.has(eventKey)) {
+                      return false;
+                    }
+                    seenEventKeysRef.current.add(eventKey);
+                    return true;
+                  });
+
+                  if (newEvents.length > 0) {
+                    console.log(`[useTransactionHistory] Real-time poll found ${newEvents.length} new ${eventName} event(s)`);
+                    const taggedLogs = newEvents.map(log => ({ ...log, _eventType: eventName })) as (Log & { _eventType: string })[];
+                    const txs = await parseLogsToTransactions(taggedLogs);
+                    allNewTxs.push(...txs);
+                  }
+                }
+              }
+            } catch (parseError) {
+              // Expected - most logs won't match our specific event
+              // Only log if it's an unexpected error
+              if (!(parseError instanceof Error && parseError.message.includes('no matching event'))) {
+                console.warn(`[useTransactionHistory] Parse warning for ${eventName}:`, parseError);
+              }
+            }
+          }
+
+          // Update state with all new transactions
+          if (allNewTxs.length > 0) {
+            // Update stats
+            updateStatsWithNewTxs(allNewTxs);
+
+            // Add to transactions (newest first)
+            setTransactions((prev) => {
+              const existingIds = new Set(prev.map((t) => t.id));
+              const unique = allNewTxs.filter((t) => !existingIds.has(t.id));
+              return [...unique, ...prev];
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[useTransactionHistory] Real-time poll error:', error);
+        // Don't update lastPolledBlockRef on error - we'll retry from the same block
       }
-    },
-  });
 
-  useWatchContractEvent({
-    address: contractAddress,
-    abi: pokeballGameConfig.abi,
-    eventName: 'ThrowAttempted',
-    args: { thrower: playerAddress },
-    enabled: isConfigured,
-    onLogs: async (logs) => {
-      const newTxs = await parseWatcherLogs(logs as Log[], 'ThrowAttempted');
-      if (newTxs.length > 0) {
-        // Update stats with new throw transactions
-        updateStatsWithNewTxs(newTxs);
-
-        setTransactions((prev) => {
-          const existingIds = new Set(prev.map((t) => t.id));
-          const unique = newTxs.filter((t) => !existingIds.has(t.id));
-          return [...unique, ...prev];
-        });
+      // Schedule next poll
+      if (isMounted) {
+        pollTimer = setTimeout(pollForNewEvents, REALTIME_POLL_INTERVAL_MS);
       }
-    },
-  });
+    };
 
-  useWatchContractEvent({
-    address: contractAddress,
-    abi: pokeballGameConfig.abi,
-    eventName: 'CaughtPokemon',
-    args: { catcher: playerAddress },
-    enabled: isConfigured,
-    onLogs: async (logs) => {
-      const newTxs = await parseWatcherLogs(logs as Log[], 'CaughtPokemon');
-      if (newTxs.length > 0) {
-        // Update stats with new catch transactions
-        updateStatsWithNewTxs(newTxs);
+    // Start polling
+    console.log(`[useTransactionHistory] Starting real-time event polling (interval: ${REALTIME_POLL_INTERVAL_MS}ms)`);
+    pollForNewEvents();
 
-        setTransactions((prev) => {
-          const existingIds = new Set(prev.map((t) => t.id));
-          const unique = newTxs.filter((t) => !existingIds.has(t.id));
-          return [...unique, ...prev];
-        });
+    return () => {
+      isMounted = false;
+      if (pollTimer) {
+        clearTimeout(pollTimer);
       }
-    },
-  });
-
-  useWatchContractEvent({
-    address: contractAddress,
-    abi: pokeballGameConfig.abi,
-    eventName: 'FailedCatch',
-    args: { thrower: playerAddress },
-    enabled: isConfigured,
-    onLogs: async (logs) => {
-      const newTxs = await parseWatcherLogs(logs as Log[], 'FailedCatch');
-      if (newTxs.length > 0) {
-        // Update stats with new failed catch transactions
-        updateStatsWithNewTxs(newTxs);
-
-        setTransactions((prev) => {
-          const existingIds = new Set(prev.map((t) => t.id));
-          const unique = newTxs.filter((t) => !existingIds.has(t.id));
-          return [...unique, ...prev];
-        });
-      }
-    },
-  });
+      console.log('[useTransactionHistory] Stopped real-time event polling');
+    };
+  }, [isConfigured, playerAddress, contractAddress, parseLogsToTransactions, updateStatsWithNewTxs]);
 
   return {
     transactions,

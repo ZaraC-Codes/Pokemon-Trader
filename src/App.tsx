@@ -122,27 +122,45 @@ function AppContent() {
   }, []);
 
   // Listen for CaughtPokemon events
-  const { events: caughtEvents } = useCaughtPokemonEvents();
+  const { events: caughtEvents, eventCount: caughtCount } = useCaughtPokemonEvents();
 
   // Listen for FailedCatch events
-  const { events: failedEvents } = useFailedCatchEvents();
+  const { events: failedEvents, eventCount: failedCount } = useFailedCatchEvents();
+
+  // DEBUG: Log event counts on every render
+  console.log('[App] Event counts - Caught:', caughtCount, 'Failed:', failedCount, 'Account:', account?.slice(0, 10));
 
   // Listen for BallPurchased events (for instant inventory update)
   const { events: purchaseEvents } = useBallPurchasedEvents();
 
   // Handle caught Pokemon events
   useEffect(() => {
+    console.log('[App] CaughtPokemon effect triggered. Events count:', caughtEvents.length);
     if (caughtEvents.length === 0) return;
 
     const latestEvent = caughtEvents[caughtEvents.length - 1];
     const eventKey = `${latestEvent.transactionHash}-${latestEvent.logIndex}`;
+    console.log('[App] Latest CaughtPokemon event:', {
+      eventKey,
+      catcher: latestEvent.args.catcher,
+      pokemonId: latestEvent.args.pokemonId?.toString(),
+      nftTokenId: latestEvent.args.nftTokenId?.toString(),
+      txHash: latestEvent.transactionHash,
+    });
 
     // Skip if we've already processed this event
-    if (processedCatchEventsRef.current.has(eventKey)) return;
+    if (processedCatchEventsRef.current.has(eventKey)) {
+      console.log('[App] CaughtPokemon event already processed, skipping:', eventKey);
+      return;
+    }
     processedCatchEventsRef.current.add(eventKey);
+    console.log('[App] Processing new CaughtPokemon event:', eventKey);
 
     // Only show for current user's catches
-    if (account && latestEvent.args.catcher.toLowerCase() === account.toLowerCase()) {
+    const isCurrentUser = account && latestEvent.args.catcher.toLowerCase() === account.toLowerCase();
+    console.log('[App] CaughtPokemon - Is current user?', isCurrentUser, 'Account:', account?.slice(0, 10), 'Catcher:', latestEvent.args.catcher?.slice(0, 10));
+
+    if (isCurrentUser) {
       console.log('[App] CaughtPokemon event for current user:', latestEvent.args);
 
       // Invalidate ALL queries to force refetch of ball inventory
@@ -160,6 +178,11 @@ function AppContent() {
       setSelectedPokemon(null);
 
       // Show the win modal
+      console.log('[App] Setting catchWin state to show CatchWinModal:', {
+        tokenId: latestEvent.args.nftTokenId?.toString(),
+        pokemonId: latestEvent.args.pokemonId?.toString(),
+        txHash: latestEvent.transactionHash,
+      });
       setCatchWin({
         tokenId: latestEvent.args.nftTokenId,
         pokemonId: latestEvent.args.pokemonId,
@@ -168,22 +191,38 @@ function AppContent() {
 
       // Show a success toast
       addToast('You caught a Pokemon!', 'success');
+      console.log('[App] CatchWinModal should now be visible');
     }
   }, [caughtEvents, account, addToast, queryClient]);
 
   // Handle failed catch events
   useEffect(() => {
+    console.log('[App] FailedCatch effect triggered. Events count:', failedEvents.length);
     if (failedEvents.length === 0) return;
 
     const latestEvent = failedEvents[failedEvents.length - 1];
     const eventKey = `${latestEvent.transactionHash}-${latestEvent.logIndex}`;
+    console.log('[App] Latest FailedCatch event:', {
+      eventKey,
+      thrower: latestEvent.args.thrower,
+      pokemonId: latestEvent.args.pokemonId?.toString(),
+      attemptsRemaining: latestEvent.args.attemptsRemaining,
+      txHash: latestEvent.transactionHash,
+    });
 
     // Skip if we've already processed this event
-    if (processedFailEventsRef.current.has(eventKey)) return;
+    if (processedFailEventsRef.current.has(eventKey)) {
+      console.log('[App] FailedCatch event already processed, skipping:', eventKey);
+      return;
+    }
     processedFailEventsRef.current.add(eventKey);
+    console.log('[App] Processing new FailedCatch event:', eventKey);
 
     // Only show for current user's throws
-    if (account && latestEvent.args.thrower.toLowerCase() === account.toLowerCase()) {
+    const isCurrentUser = account && latestEvent.args.thrower.toLowerCase() === account.toLowerCase();
+    console.log('[App] FailedCatch - Is current user?', isCurrentUser, 'Account:', account?.slice(0, 10), 'Thrower:', latestEvent.args.thrower?.slice(0, 10));
+
+    if (isCurrentUser) {
       console.log('[App] FailedCatch event for current user:', latestEvent.args);
 
       // Invalidate ALL queries to force refetch of ball inventory
@@ -206,12 +245,18 @@ function AppContent() {
       const rawRemaining = Number(latestEvent.args.attemptsRemaining);
       const actualRemaining = rawRemaining === 3 ? 0 : rawRemaining;
 
+      console.log('[App] Setting catchFailure state to show CatchResultModal:', {
+        pokemonId: latestEvent.args.pokemonId?.toString(),
+        attemptsRemaining: actualRemaining,
+        txHash: latestEvent.transactionHash,
+      });
       setCatchFailure({
         type: 'failure',
         pokemonId: latestEvent.args.pokemonId,
         attemptsRemaining: actualRemaining,
         txHash: latestEvent.transactionHash ?? undefined,
       });
+      console.log('[App] CatchResultModal (failure) should now be visible');
     }
   }, [failedEvents, account, queryClient]);
 

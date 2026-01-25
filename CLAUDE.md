@@ -538,8 +538,22 @@ npm run dev
 - Symptom 2: 429 Too Many Requests when chunking into many small requests
 - Fix: `useTransactionHistory` uses Caldera public RPC for historical queries (no block limits)
 - The hook creates a separate viem client: `createPublicClient({ transport: http(CALDERA_URL) })`
-- Wagmi's Alchemy client is still used for real-time event subscriptions
+- Real-time updates use manual `eth_getLogs` polling (not wagmi's `useWatchContractEvent`)
 - Default lookback: 25,000 blocks (~14 hours) covers most recent activity
+
+**Contract events not detected ("filter not found" RPC errors):**
+- Cause: ApeChain public RPC (`rpc.apechain.com`) does NOT support `eth_newFilter`/`eth_getFilterChanges`
+- Symptom: `InvalidInputRpcError: Missing or invalid parameters. Details: filter not found`
+- wagmi's `useWatchContractEvent` uses filters internally and fails on ApeChain
+- **Fix**: Both `useContractEvents` and `useTransactionHistory` now use manual `eth_getLogs` polling:
+  - Poll interval: 2 seconds
+  - Initial lookback: 40 blocks for `useContractEvents`, current block for `useTransactionHistory`
+  - Deduplication: Uses `${txHash}-${logIndex}` keys to prevent duplicate events
+  - Player filtering: Events filtered by buyer/thrower/catcher address
+- Console logs to watch for:
+  - `[useContractEvents] CaughtPokemon received 1 log(s)` - Event detected successfully
+  - `[useTransactionHistory] Real-time poll found 1 new BallPurchased event(s)` - Purchase detected
+  - `[useTransactionHistory] Starting real-time event polling (interval: 2000ms)` - Polling started
 
 **useThrowBall rejects Pokemon slots > 2 ("Invalid pokemon slot must be 0-2"):**
 - Cause: Hardcoded validation `pokemonSlot > 2` from v1.1.0 (only 3 slots)
@@ -946,9 +960,10 @@ interface PurchaseStats {
 - Caldera has NO block range limits (unlike Alchemy's 10-block free tier limit)
 - Queries 25,000 blocks (~14 hours at 2s/block) by default
 - Creates separate viem `PublicClient` for historical event fetching
-- Uses Wagmi `useWatchContractEvent` for real-time updates (new events)
+- Uses manual `eth_getLogs` polling for real-time updates (2s interval)
 - Filters events by player address (indexed parameter: `buyer`, `thrower`, `catcher`)
 - Sorts transactions by timestamp (newest first)
+- Deduplicates using `${txHash}-${logIndex}` keys
 
 **RPC Architecture:**
 ```typescript
@@ -958,15 +973,19 @@ const publicRpcClient = createPublicClient({
   transport: http('https://apechain.calderachain.xyz/http'),
 });
 
-// Real-time subscriptions - Wagmi's configured client (Alchemy)
-useWatchContractEvent({ ... });
+// Real-time polling - uses same Caldera client with eth_getLogs
+// ApeChain RPC doesn't support eth_newFilter, so we poll manually
+const pollForNewEvents = async () => {
+  const logs = await publicRpcClient.getLogs({ address, fromBlock, toBlock });
+  // Parse and filter by player address
+};
 ```
 
-**Why Two RPC Clients:**
-- Alchemy free tier limits `eth_getLogs` to 10 blocks per request (400 errors)
-- Too many chunked requests hit rate limits (429 errors)
-- Caldera public RPC has no block range limits, ideal for historical queries
-- Wagmi client still used for real-time event subscriptions
+**Why Manual Polling (not useWatchContractEvent):**
+- ApeChain public RPC doesn't support `eth_newFilter`/`eth_getFilterChanges`
+- wagmi's `useWatchContractEvent` uses filters internally and fails with "filter not found"
+- Manual `eth_getLogs` polling works reliably on all RPC endpoints
+- 2-second poll interval catches events quickly (ApeChain has ~0.25s blocks)
 
 ### PokemonCard Component
 Reusable component for displaying Slab NFTs as Pokemon cards with metadata:
