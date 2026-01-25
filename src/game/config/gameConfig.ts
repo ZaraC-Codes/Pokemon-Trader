@@ -1,4 +1,5 @@
 import { Types } from 'phaser';
+import type { TouchControlMode } from '../managers/TouchInputManager';
 
 // GameBoy Pokemon Red/Blue resolution (scaled up)
 export const GAME_WIDTH = 160 * 4; // 640px
@@ -7,6 +8,30 @@ export const GAME_HEIGHT = 144 * 4; // 576px
 export const TILE_SIZE = 16; // 16x16 pixel tiles
 export const MAP_WIDTH = 150; // tiles (increased by 50% from 100)
 export const MAP_HEIGHT = 150; // tiles (increased by 50% from 100)
+
+/**
+ * Touch control configuration
+ *
+ * Environment variables:
+ * - VITE_TOUCH_CONTROL_MODE: 'tap' | 'dpad' | 'auto' (default: 'tap')
+ * - VITE_FORCE_TOUCH_CONTROLS: 'true' to force touch controls on desktop (for testing)
+ */
+export const TOUCH_CONTROL_CONFIG = {
+  /** Control mode: 'tap' for tap-to-move, 'dpad' for virtual D-Pad, 'auto' for auto-detect */
+  mode: (import.meta.env.VITE_TOUCH_CONTROL_MODE as TouchControlMode) || 'tap',
+  /** Force touch controls even on desktop (for testing) */
+  forceEnabled: import.meta.env.VITE_FORCE_TOUCH_CONTROLS === 'true',
+  /** D-Pad size in pixels */
+  dpadSize: 120,
+  /** D-Pad opacity (0-1) */
+  dpadOpacity: 0.5,
+  /** Margin from screen edge */
+  dpadMargin: 20,
+  /** Distance threshold to consider tap target reached */
+  tapMoveThreshold: 8,
+  /** Show tap indicator when moving */
+  showTapIndicator: true,
+};
 
 // Get viewport dimensions
 const getViewportSize = () => ({

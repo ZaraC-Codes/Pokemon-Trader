@@ -105,7 +105,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   │   ├── BikeShop.ts          # Interactive bike shop
 │   │   │   ├── BikeShopOwner.ts     # Bike shop NPC
 │   │   │   └── TradingOutpost.ts    # Trading building
-│   │   ├── managers/                # MapManager, NPCManager, TradeIconManager, PokemonSpawnManager, BallInventoryManager, CatchMechanicsManager
+│   │   ├── managers/                # MapManager, NPCManager, TradeIconManager, PokemonSpawnManager, BallInventoryManager, CatchMechanicsManager, TouchInputManager
 │   │   ├── utils/                   # Audio utilities (chiptune music, SFX)
 │   │   └── config/                  # Game configuration
 │   │
@@ -1915,6 +1915,96 @@ scene.events.on('pokemon-caught', (data) => {
 });
 ```
 
+### TouchInputManager (Frontend)
+Handles mobile/touch input for player movement on phones, tablets, and dGen1:
+
+**Location:** `src/game/managers/TouchInputManager.ts`
+
+**Control Modes:**
+| Mode | Description |
+|------|-------------|
+| `tap` | Tap anywhere on the map to walk toward that position (default) |
+| `dpad` | Virtual D-Pad overlay for directional input |
+| `auto` | Auto-detect device and choose appropriate mode |
+
+**Environment Variables:**
+| Variable | Values | Default | Description |
+|----------|--------|---------|-------------|
+| `VITE_TOUCH_CONTROL_MODE` | `tap`, `dpad`, `auto` | `tap` | Control mode |
+| `VITE_FORCE_TOUCH_CONTROLS` | `true`, `false` | `false` | Force touch controls on desktop (for testing) |
+
+**Device Detection:**
+- Checks `ontouchstart` in window
+- Checks `navigator.maxTouchPoints > 0`
+- Checks `pointer: coarse` media query
+- Checks mobile user agent (including dGen1)
+
+**Touch Movement State:**
+```typescript
+interface TouchMovementState {
+  left: boolean;
+  right: boolean;
+  up: boolean;
+  down: boolean;
+  targetX?: number;      // Tap-to-move target
+  targetY?: number;
+  reachedTarget: boolean;
+}
+```
+
+**Configuration (from `gameConfig.ts`):**
+```typescript
+TOUCH_CONTROL_CONFIG = {
+  mode: 'tap',           // Control mode
+  forceEnabled: false,   // Force on desktop
+  dpadSize: 120,         // D-Pad size in pixels
+  dpadOpacity: 0.5,      // D-Pad transparency
+  dpadMargin: 20,        // Margin from screen edge
+  tapMoveThreshold: 8,   // Distance to consider target reached
+  showTapIndicator: true // Show pulsing circle at tap target
+}
+```
+
+**Features:**
+- **Tap-to-move**: Tap anywhere to walk toward that position (4-directional movement)
+- **Virtual D-Pad**: On-screen directional buttons (bottom-left corner)
+- **Tap indicator**: Green pulsing circle shows tap target
+- **Interactive object detection**: Tapping on Pokemon/NPCs triggers their click handler instead of movement
+- **Keyboard priority**: Keyboard input overrides touch (both work simultaneously)
+- **Cancel on keyboard**: Using keyboard cancels any active tap-to-move
+
+**Player Integration:**
+```typescript
+// In Player.ts update():
+const touchState = this.touchInputManager?.update(this.x, this.y);
+
+// Combine with keyboard (keyboard takes priority)
+if (hasKeyboardInput) {
+  // Use keyboard, cancel touch
+  this.touchInputManager?.cancelMovement();
+} else if (touchState) {
+  // Use touch movement
+  leftDown = touchState.left;
+  // ...
+}
+```
+
+**Public Methods:**
+- `update(playerX, playerY)` - Update and return movement state
+- `getMovementState()` - Get current state without updating
+- `isTouchActive()` - Check if touch controls are active
+- `hasMovementInput()` - Check if any direction is pressed
+- `setEnabled(enabled)` - Enable/disable touch input
+- `cancelMovement()` - Stop current tap-to-move
+- `setMode(mode)` - Change control mode at runtime
+- `forceEnable()` - Force touch controls on (for testing)
+- `destroy()` - Clean up resources
+
+**Testing on Desktop:**
+1. Set `VITE_FORCE_TOUCH_CONTROLS=true` in `.env`
+2. Or use Chrome DevTools mobile emulation
+3. Or call `player.getTouchInputManager()?.forceEnable()` in console
+
 ### Pokemon Entity (Frontend)
 Visual representation of wild Pokemon in the game world:
 
@@ -3397,6 +3487,8 @@ Required environment variables for the application:
 | `VITE_WALLETCONNECT_PROJECT_ID` | No | WalletConnect project ID (has default) |
 | `VITE_BUNDLER_RPC_URL` | No | ERC-4337 bundler endpoint for dGen1/EthereumPhone Account Abstraction |
 | `VITE_GLYPH_API_KEY` | No | Glyph Wallet API key (if required by SDK) |
+| `VITE_TOUCH_CONTROL_MODE` | No | Touch control mode: `tap`, `dpad`, or `auto` (default: `tap`) |
+| `VITE_FORCE_TOUCH_CONTROLS` | No | Set to `true` to force touch controls on desktop (for testing) |
 
 Example `.env` file (see `.env.example` for full template):
 ```env
@@ -3406,6 +3498,10 @@ VITE_THIRDWEB_CLIENT_ID=your_thirdweb_client_id
 # Wallet Integration (optional)
 VITE_BUNDLER_RPC_URL=https://your-bundler-endpoint
 VITE_GLYPH_API_KEY=your_glyph_api_key
+
+# Touch Controls (optional)
+VITE_TOUCH_CONTROL_MODE=tap
+VITE_FORCE_TOUCH_CONTROLS=false
 ```
 
 See `docs/SETUP_POKEBALL_GAME.md` for complete setup instructions.

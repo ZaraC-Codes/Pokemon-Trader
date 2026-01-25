@@ -1,4 +1,6 @@
 import { Scene } from 'phaser';
+import { TouchInputManager, type TouchMovementState } from '../managers/TouchInputManager';
+import { TOUCH_CONTROL_CONFIG } from '../config/gameConfig';
 
 export class Player extends Phaser.GameObjects.Sprite {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -9,6 +11,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     d: Phaser.Input.Keyboard.Key;
   };
   private spaceKey?: Phaser.Input.Keyboard.Key;
+  private touchInputManager?: TouchInputManager;
   private speed = 100;
   private walkSpeed = 100;
   private bikeSpeed = 200;
@@ -30,13 +33,28 @@ export class Player extends Phaser.GameObjects.Sprite {
     this.createAnimations();
     this.anims.play('player-idle-down');
     
-    // Set up input
+    // Set up keyboard input
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
       this.wasdKeys = scene.input.keyboard.addKeys('W,S,A,D') as any;
       this.spaceKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
-    
+
+    // Set up touch input for mobile devices
+    this.touchInputManager = new TouchInputManager(scene, {
+      mode: TOUCH_CONTROL_CONFIG.mode,
+      dpadSize: TOUCH_CONTROL_CONFIG.dpadSize,
+      dpadOpacity: TOUCH_CONTROL_CONFIG.dpadOpacity,
+      dpadMargin: TOUCH_CONTROL_CONFIG.dpadMargin,
+      tapMoveThreshold: TOUCH_CONTROL_CONFIG.tapMoveThreshold,
+      showTapIndicator: TOUCH_CONTROL_CONFIG.showTapIndicator,
+    });
+
+    // Force enable touch controls if configured (for testing on desktop)
+    if (TOUCH_CONTROL_CONFIG.forceEnabled) {
+      this.touchInputManager.forceEnable();
+    }
+
     // Create bicycle sprite (initially hidden)
     this.bicycle = scene.add.sprite(x, y, 'bicycle');
     this.bicycle.setDepth(9); // Just below player
@@ -119,16 +137,53 @@ export class Player extends Phaser.GameObjects.Sprite {
   update(): void {
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
-    
+
     // Toggle bicycle with spacebar (optional, can also rent from shop)
     if (this.spaceKey?.isDown && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
       this.toggleBike();
     }
-    
-    const leftDown = this.cursors?.left?.isDown || this.wasdKeys?.a?.isDown || false;
-    const rightDown = this.cursors?.right?.isDown || this.wasdKeys?.d?.isDown || false;
-    const upDown = this.cursors?.up?.isDown || this.wasdKeys?.w?.isDown || false;
-    const downDown = this.cursors?.down?.isDown || this.wasdKeys?.s?.isDown || false;
+
+    // Get keyboard input
+    const keyboardLeft = this.cursors?.left?.isDown || this.wasdKeys?.a?.isDown || false;
+    const keyboardRight = this.cursors?.right?.isDown || this.wasdKeys?.d?.isDown || false;
+    const keyboardUp = this.cursors?.up?.isDown || this.wasdKeys?.w?.isDown || false;
+    const keyboardDown = this.cursors?.down?.isDown || this.wasdKeys?.s?.isDown || false;
+
+    // Get touch input (updates internal state based on player position)
+    let touchState: TouchMovementState | undefined;
+    if (this.touchInputManager) {
+      touchState = this.touchInputManager.update(this.x, this.y);
+    }
+
+    // Combine inputs: keyboard takes priority, then touch
+    // This ensures both input methods work, with keyboard overriding touch if active
+    const hasKeyboardInput = keyboardLeft || keyboardRight || keyboardUp || keyboardDown;
+
+    let leftDown: boolean;
+    let rightDown: boolean;
+    let upDown: boolean;
+    let downDown: boolean;
+
+    if (hasKeyboardInput) {
+      // Keyboard input active - use keyboard, cancel any tap-to-move
+      leftDown = keyboardLeft;
+      rightDown = keyboardRight;
+      upDown = keyboardUp;
+      downDown = keyboardDown;
+      // Cancel touch movement when keyboard is used
+      this.touchInputManager?.cancelMovement();
+    } else if (touchState) {
+      // No keyboard input - use touch
+      leftDown = touchState.left;
+      rightDown = touchState.right;
+      upDown = touchState.up;
+      downDown = touchState.down;
+    } else {
+      leftDown = false;
+      rightDown = false;
+      upDown = false;
+      downDown = false;
+    }
 
     // Reset velocity
     body.setVelocity(0);
@@ -164,7 +219,7 @@ export class Player extends Phaser.GameObjects.Sprite {
         this.anims.play(`player-idle-${direction}`, true);
       }
     }
-    
+
     // Update bicycle position to follow player (slightly below to appear under feet)
     if (this.bicycle) {
       this.bicycle.setPosition(this.x, this.y + 2);
@@ -211,5 +266,35 @@ export class Player extends Phaser.GameObjects.Sprite {
     } else {
       this.rentBike();
     }
+  }
+
+  /**
+   * Get the touch input manager for external control
+   */
+  getTouchInputManager(): TouchInputManager | undefined {
+    return this.touchInputManager;
+  }
+
+  /**
+   * Cancel any active touch movement (e.g., when opening UI)
+   */
+  cancelTouchMovement(): void {
+    this.touchInputManager?.cancelMovement();
+  }
+
+  /**
+   * Check if touch controls are active on this device
+   */
+  isTouchControlsActive(): boolean {
+    return this.touchInputManager?.isTouchActive() ?? false;
+  }
+
+  /**
+   * Clean up resources
+   */
+  destroy(fromScene?: boolean): void {
+    this.touchInputManager?.destroy();
+    this.bicycle?.destroy();
+    super.destroy(fromScene);
   }
 }
