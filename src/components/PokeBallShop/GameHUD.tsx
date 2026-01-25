@@ -70,7 +70,7 @@ const responsiveStyles = `
   /* Wallet connector - always top-right */
   .wallet-connector {
     position: fixed;
-    top: 12px;
+    top: 20px;
     right: 12px;
     z-index: 1000;
   }
@@ -78,7 +78,7 @@ const responsiveStyles = `
   /* Game HUD - positioned to the left of wallet */
   .game-hud-container {
     position: fixed;
-    top: 12px;
+    top: 20px;
     right: 280px; /* Leave space for RainbowKit wallet button (~260px) + margin */
     z-index: 100;
     font-family: 'Courier New', monospace;
@@ -103,7 +103,7 @@ const responsiveStyles = `
    * ============================================================ */
   @media (max-width: 900px) {
     .game-hud-container {
-      top: 70px; /* Move below wallet row */
+      top: 78px; /* Move below wallet row */
       right: 12px; /* Align with wallet */
       flex-direction: row;
     }
@@ -114,12 +114,12 @@ const responsiveStyles = `
    * ============================================================ */
   @media (max-width: 768px) {
     .wallet-connector {
-      top: 8px;
+      top: 16px;
       right: 8px;
     }
 
     .game-hud-container {
-      top: 60px; /* Below wallet */
+      top: 68px; /* Below wallet */
       right: 8px;
       flex-direction: column !important;
       align-items: flex-end !important;
@@ -141,12 +141,12 @@ const responsiveStyles = `
    * ============================================================ */
   @media (max-width: 480px) {
     .wallet-connector {
-      top: 6px;
+      top: 12px;
       right: 6px;
     }
 
     .game-hud-container {
-      top: 55px;
+      top: 60px;
       right: 6px;
       gap: 4px !important;
     }
