@@ -840,7 +840,7 @@ import { TransactionHistory } from './components/TransactionHistory';
 
 **Hook (useTransactionHistory):**
 ```typescript
-import { useTransactionHistory } from '../hooks/useTransactionHistory';
+import { useTransactionHistory, type PurchaseStats } from '../hooks/useTransactionHistory';
 
 const {
   transactions,    // All fetched transactions (newest first)
@@ -851,8 +851,36 @@ const {
   isLoadingMore,   // Load more in progress
   refresh,         // Refresh all transactions
   totalCount,      // Total loaded count
+  purchaseStats,   // All-time stats (persisted to localStorage)
+  isStatsLoading,  // Stats loading state
 } = useTransactionHistory(playerAddress, { pageSize: 50 });
 ```
+
+**PurchaseStats Interface:**
+```typescript
+interface PurchaseStats {
+  totalPurchaseCount: number;    // All-time purchase transactions
+  totalSpentUSDCRaw: bigint;     // Raw USDC.e spent (6 decimals)
+  totalSpentAPERaw: bigint;      // Raw APE spent (18 decimals)
+  totalSpentUSDC: string;        // Formatted USDC.e (e.g., "125.50")
+  totalSpentAPE: string;         // Formatted APE (e.g., "50.25")
+  totalSpentUSD: number;         // Estimated total USD value
+  totalThrows: number;           // All-time throw attempts
+  totalCaught: number;           // Successful catches
+  totalFailed: number;           // Failed catches
+  catchRate: number;             // Success percentage (0-100)
+  oldestBlockNumber: bigint;     // Oldest block in stats
+  lastUpdated: number;           // Timestamp of last update
+}
+```
+
+**Stats Persistence (localStorage):**
+- Stats calculated from ALL transactions BEFORE slicing to pageSize (50)
+- Cached to localStorage with key: `pokemonTrader_txStats_${playerAddress.toLowerCase()}`
+- On page load, cached stats shown immediately while fresh data fetches
+- Real-time events update stats and persist changes automatically
+- "Load More" merges new stats with existing (takes max of all values)
+- Stats survive page refresh and modal close/reopen
 
 **Transaction Types:**
 | Type | Event | Data |

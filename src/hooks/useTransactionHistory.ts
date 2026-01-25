@@ -76,6 +76,36 @@ export interface UseTransactionHistoryOptions {
   fromBlock?: bigint;
 }
 
+/**
+ * Purchase stats calculated from ALL transactions (not just visible ones)
+ */
+export interface PurchaseStats {
+  /** Total number of purchase transactions (all-time) */
+  totalPurchaseCount: number;
+  /** Total USDC.e spent (raw bigint, 6 decimals) */
+  totalSpentUSDCRaw: bigint;
+  /** Total APE spent (raw bigint, 18 decimals) */
+  totalSpentAPERaw: bigint;
+  /** Total USDC.e spent formatted as string */
+  totalSpentUSDC: string;
+  /** Total APE spent formatted as string */
+  totalSpentAPE: string;
+  /** Approximate total USD spent (number) */
+  totalSpentUSD: number;
+  /** Total throws (all-time) */
+  totalThrows: number;
+  /** Total catches (all-time) */
+  totalCaught: number;
+  /** Total escapes (all-time) */
+  totalFailed: number;
+  /** Catch rate percentage (all-time) */
+  catchRate: number;
+  /** Block number of oldest transaction in stats */
+  oldestBlockNumber: bigint;
+  /** Timestamp when stats were last updated */
+  lastUpdated: number;
+}
+
 export interface UseTransactionHistoryReturn {
   transactions: Transaction[];
   isLoading: boolean;
@@ -85,6 +115,10 @@ export interface UseTransactionHistoryReturn {
   isLoadingMore: boolean;
   refresh: () => void;
   totalCount: number;
+  /** All-time purchase stats (persisted to localStorage) */
+  purchaseStats: PurchaseStats;
+  /** Whether stats are still loading */
+  isStatsLoading: boolean;
 }
 
 // ============================================================
@@ -92,6 +126,7 @@ export interface UseTransactionHistoryReturn {
 // ============================================================
 
 const DEFAULT_PAGE_SIZE = 50;
+const STATS_STORAGE_KEY_PREFIX = 'pokemonTrader_txStats_';
 
 // Caldera public RPC - no block range limits!
 const PUBLIC_RPC_URL = 'https://apechain.calderachain.xyz/http';
@@ -151,6 +186,170 @@ const publicRpcClient = createPublicClient({
 });
 
 // ============================================================
+// STATS CALCULATION & PERSISTENCE
+// ============================================================
+
+const DEFAULT_STATS: PurchaseStats = {
+  totalPurchaseCount: 0,
+  totalSpentUSDCRaw: BigInt(0),
+  totalSpentAPERaw: BigInt(0),
+  totalSpentUSDC: '0.00',
+  totalSpentAPE: '0.00',
+  totalSpentUSD: 0,
+  totalThrows: 0,
+  totalCaught: 0,
+  totalFailed: 0,
+  catchRate: 0,
+  oldestBlockNumber: BigInt(0),
+  lastUpdated: 0,
+};
+
+/**
+ * Calculate stats from ALL transactions (before any slicing)
+ */
+function calculateStatsFromTransactions(
+  transactions: Transaction[],
+  oldestBlockNumber: bigint
+): PurchaseStats {
+  let totalPurchaseCount = 0;
+  let totalSpentUSDCRaw = BigInt(0);
+  let totalSpentAPERaw = BigInt(0);
+  let totalSpentUSD = 0;
+  let totalThrows = 0;
+  let totalCaught = 0;
+  let totalFailed = 0;
+
+  for (const tx of transactions) {
+    switch (tx.type) {
+      case 'purchase': {
+        totalPurchaseCount++;
+        const purchaseTx = tx as PurchaseTransaction;
+        const ballPrice = BALL_PRICES_USDC[purchaseTx.ballType] || BigInt(0);
+        const qty = purchaseTx.quantity;
+        const totalUsdcValue = ballPrice * qty;
+
+        if (purchaseTx.usedAPE) {
+          // For APE purchases, we can extract the APE amount from estimatedCost
+          const match = purchaseTx.estimatedCost.match(/^~?([\d.]+)\s*APE/i);
+          if (match) {
+            const apeAmount = parseFloat(match[1]);
+            // Convert to raw (18 decimals)
+            totalSpentAPERaw += BigInt(Math.floor(apeAmount * 1e18));
+          }
+          // Still track USD equivalent based on ball price
+          totalSpentUSD += Number(formatUnits(totalUsdcValue, 6));
+        } else {
+          totalSpentUSDCRaw += totalUsdcValue;
+          totalSpentUSD += Number(formatUnits(totalUsdcValue, 6));
+        }
+        break;
+      }
+      case 'throw':
+        totalThrows++;
+        break;
+      case 'caught':
+        totalCaught++;
+        break;
+      case 'failed':
+        totalFailed++;
+        break;
+    }
+  }
+
+  const catchRate = totalThrows > 0 ? Math.round((totalCaught / totalThrows) * 100) : 0;
+
+  return {
+    totalPurchaseCount,
+    totalSpentUSDCRaw,
+    totalSpentAPERaw,
+    totalSpentUSDC: formatUnits(totalSpentUSDCRaw, 6),
+    totalSpentAPE: formatUnits(totalSpentAPERaw, 18),
+    totalSpentUSD,
+    totalThrows,
+    totalCaught,
+    totalFailed,
+    catchRate,
+    oldestBlockNumber,
+    lastUpdated: Date.now(),
+  };
+}
+
+/**
+ * Load stats from localStorage
+ */
+function loadStatsFromStorage(playerAddress: string): PurchaseStats | null {
+  try {
+    const key = `${STATS_STORAGE_KEY_PREFIX}${playerAddress.toLowerCase()}`;
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored);
+    // Restore bigint values (stored as strings)
+    return {
+      ...parsed,
+      totalSpentUSDCRaw: BigInt(parsed.totalSpentUSDCRaw || '0'),
+      totalSpentAPERaw: BigInt(parsed.totalSpentAPERaw || '0'),
+      oldestBlockNumber: BigInt(parsed.oldestBlockNumber || '0'),
+    };
+  } catch (err) {
+    console.warn('[useTransactionHistory] Failed to load stats from localStorage:', err);
+    return null;
+  }
+}
+
+/**
+ * Save stats to localStorage
+ */
+function saveStatsToStorage(playerAddress: string, stats: PurchaseStats): void {
+  try {
+    const key = `${STATS_STORAGE_KEY_PREFIX}${playerAddress.toLowerCase()}`;
+    // Convert bigint to string for JSON serialization
+    const toStore = {
+      ...stats,
+      totalSpentUSDCRaw: stats.totalSpentUSDCRaw.toString(),
+      totalSpentAPERaw: stats.totalSpentAPERaw.toString(),
+      oldestBlockNumber: stats.oldestBlockNumber.toString(),
+    };
+    localStorage.setItem(key, JSON.stringify(toStore));
+    console.log('[useTransactionHistory] Stats saved to localStorage:', {
+      purchases: stats.totalPurchaseCount,
+      spentUSD: stats.totalSpentUSD.toFixed(2),
+    });
+  } catch (err) {
+    console.warn('[useTransactionHistory] Failed to save stats to localStorage:', err);
+  }
+}
+
+/**
+ * Merge new stats with existing stats (for loadMore)
+ */
+function mergeStats(existing: PurchaseStats, newStats: PurchaseStats): PurchaseStats {
+  const totalPurchaseCount = existing.totalPurchaseCount + newStats.totalPurchaseCount;
+  const totalSpentUSDCRaw = existing.totalSpentUSDCRaw + newStats.totalSpentUSDCRaw;
+  const totalSpentAPERaw = existing.totalSpentAPERaw + newStats.totalSpentAPERaw;
+  const totalSpentUSD = existing.totalSpentUSD + newStats.totalSpentUSD;
+  const totalThrows = existing.totalThrows + newStats.totalThrows;
+  const totalCaught = existing.totalCaught + newStats.totalCaught;
+  const totalFailed = existing.totalFailed + newStats.totalFailed;
+  const catchRate = totalThrows > 0 ? Math.round((totalCaught / totalThrows) * 100) : 0;
+
+  return {
+    totalPurchaseCount,
+    totalSpentUSDCRaw,
+    totalSpentAPERaw,
+    totalSpentUSDC: formatUnits(totalSpentUSDCRaw, 6),
+    totalSpentAPE: formatUnits(totalSpentAPERaw, 18),
+    totalSpentUSD,
+    totalThrows,
+    totalCaught,
+    totalFailed,
+    catchRate,
+    oldestBlockNumber: newStats.oldestBlockNumber, // Use the older block
+    lastUpdated: Date.now(),
+  };
+}
+
+// ============================================================
 // MAIN HOOK
 // ============================================================
 
@@ -167,14 +366,49 @@ export function useTransactionHistory(
   const [oldestBlock, setOldestBlock] = useState<bigint | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
+  // All-time purchase stats (persisted to localStorage)
+  const [purchaseStats, setPurchaseStats] = useState<PurchaseStats>(() => {
+    // Initialize from localStorage if available
+    if (playerAddress) {
+      const cached = loadStatsFromStorage(playerAddress);
+      if (cached) {
+        console.log('[useTransactionHistory] Loaded cached stats for', playerAddress.slice(0, 8));
+        return cached;
+      }
+    }
+    return DEFAULT_STATS;
+  });
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+
   // Ref to prevent overlapping fetches
   const isFetchingRef = useRef(false);
+
+  // Track all-time transaction count (not sliced)
+  const allTimeTransactionCountRef = useRef(0);
 
   // Use wagmi's client for real-time events
   const wagmiClient = usePublicClient();
   const contractAddress = pokeballGameConfig.pokeballGameAddress;
 
   const isConfigured = isPokeballGameConfigured() && !!playerAddress && !!wagmiClient;
+
+  // Reset and reload stats when playerAddress changes
+  useEffect(() => {
+    if (playerAddress) {
+      const cached = loadStatsFromStorage(playerAddress);
+      if (cached) {
+        console.log('[useTransactionHistory] Address changed, loaded cached stats for', playerAddress.slice(0, 8));
+        setPurchaseStats(cached);
+        setIsStatsLoading(false);
+      } else {
+        setPurchaseStats(DEFAULT_STATS);
+        setIsStatsLoading(true);
+      }
+    } else {
+      setPurchaseStats(DEFAULT_STATS);
+      setIsStatsLoading(true);
+    }
+  }, [playerAddress]);
 
   /**
    * Fetch all events for a player in one request using public RPC.
@@ -275,7 +509,7 @@ export function useTransactionHistory(
           }
         }
 
-        const args = (log as Log & { args: Record<string, unknown> }).args || {};
+        const args = ((log as unknown) as { args: Record<string, unknown> }).args || {};
         const eventType = log._eventType;
 
         switch (eventType) {
@@ -390,6 +624,23 @@ export function useTransactionHistory(
         const txs = await parseLogsRef.current(logs);
         console.log(`[useTransactionHistory] Parsed ${txs.length} transactions`);
 
+        // Calculate stats from ALL transactions BEFORE slicing
+        allTimeTransactionCountRef.current = txs.length;
+        const newStats = calculateStatsFromTransactions(txs, fromBlock);
+        console.log('[useTransactionHistory] Calculated all-time stats:', {
+          purchases: newStats.totalPurchaseCount,
+          spentUSD: newStats.totalSpentUSD.toFixed(2),
+          throws: newStats.totalThrows,
+          catches: newStats.totalCaught,
+        });
+
+        setPurchaseStats(newStats);
+        setIsStatsLoading(false);
+
+        // Save stats to localStorage for persistence across refreshes
+        saveStatsToStorage(playerAddress, newStats);
+
+        // NOW slice for display
         setTransactions(txs.slice(0, pageSize));
         setHasMore(txs.length > pageSize);
         setOldestBlock(fromBlock);
@@ -397,6 +648,7 @@ export function useTransactionHistory(
       } catch (err) {
         console.error('[useTransactionHistory] Load error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load transaction history');
+        setIsStatsLoading(false);
       } finally {
         setIsLoading(false);
         isFetchingRef.current = false;
@@ -432,6 +684,23 @@ export function useTransactionHistory(
       if (txs.length === 0) {
         setHasMore(false);
       } else {
+        // Calculate stats from the new transactions
+        const newStats = calculateStatsFromTransactions(txs, newFrom);
+
+        // Merge with existing stats
+        setPurchaseStats((prevStats) => {
+          const merged = mergeStats(prevStats, newStats);
+          // Save updated stats to localStorage
+          if (playerAddress) {
+            saveStatsToStorage(playerAddress, merged);
+          }
+          console.log('[useTransactionHistory] Merged stats after loadMore:', {
+            purchases: merged.totalPurchaseCount,
+            spentUSD: merged.totalSpentUSD.toFixed(2),
+          });
+          return merged;
+        });
+
         setTransactions((prev) => {
           const existingIds = new Set(prev.map((t) => t.id));
           const newTxs = txs.filter((t) => !existingIds.has(t.id));
@@ -446,7 +715,7 @@ export function useTransactionHistory(
       setIsLoadingMore(false);
       isFetchingRef.current = false;
     }
-  }, [isConfigured, oldestBlock, isLoadingMore, hasMore, fetchAllEvents, parseLogsToTransactions]);
+  }, [isConfigured, oldestBlock, isLoadingMore, hasMore, fetchAllEvents, parseLogsToTransactions, playerAddress]);
 
   // Refresh
   const refresh = useCallback(async () => {
@@ -474,6 +743,21 @@ export function useTransactionHistory(
 
       const txs = await parseLogsToTransactions(logs);
 
+      // Recalculate stats from ALL transactions BEFORE slicing
+      allTimeTransactionCountRef.current = txs.length;
+      const newStats = calculateStatsFromTransactions(txs, fromBlock);
+      console.log('[useTransactionHistory] Refreshed all-time stats:', {
+        purchases: newStats.totalPurchaseCount,
+        spentUSD: newStats.totalSpentUSD.toFixed(2),
+      });
+
+      setPurchaseStats(newStats);
+
+      // Save updated stats to localStorage
+      if (playerAddress) {
+        saveStatsToStorage(playerAddress, newStats);
+      }
+
       setTransactions(txs.slice(0, pageSize));
       setHasMore(txs.length > pageSize);
       setOldestBlock(fromBlock);
@@ -484,7 +768,7 @@ export function useTransactionHistory(
       setIsLoading(false);
       isFetchingRef.current = false;
     }
-  }, [isConfigured, initialFromBlock, pageSize, fetchAllEvents, parseLogsToTransactions]);
+  }, [isConfigured, initialFromBlock, pageSize, fetchAllEvents, parseLogsToTransactions, playerAddress]);
 
   // Parse logs for real-time watchers (uses simpler format)
   const parseWatcherLogs = useCallback(
@@ -494,6 +778,22 @@ export function useTransactionHistory(
     },
     [parseLogsToTransactions]
   );
+
+  // Helper to update stats when real-time events arrive
+  const updateStatsWithNewTxs = useCallback((newTxs: Transaction[]) => {
+    if (newTxs.length === 0 || !playerAddress) return;
+
+    const newStats = calculateStatsFromTransactions(newTxs, BigInt(0));
+    setPurchaseStats((prevStats) => {
+      const merged = mergeStats(prevStats, newStats);
+      saveStatsToStorage(playerAddress, merged);
+      console.log('[useTransactionHistory] Updated stats from real-time event:', {
+        purchases: merged.totalPurchaseCount,
+        spentUSD: merged.totalSpentUSD.toFixed(2),
+      });
+      return merged;
+    });
+  }, [playerAddress]);
 
   // Real-time event subscriptions (for new events only)
   useWatchContractEvent({
@@ -505,6 +805,9 @@ export function useTransactionHistory(
     onLogs: async (logs) => {
       const newTxs = await parseWatcherLogs(logs as Log[], 'BallPurchased');
       if (newTxs.length > 0) {
+        // Update stats with new purchase transactions
+        updateStatsWithNewTxs(newTxs);
+
         setTransactions((prev) => {
           const existingIds = new Set(prev.map((t) => t.id));
           const unique = newTxs.filter((t) => !existingIds.has(t.id));
@@ -523,6 +826,9 @@ export function useTransactionHistory(
     onLogs: async (logs) => {
       const newTxs = await parseWatcherLogs(logs as Log[], 'ThrowAttempted');
       if (newTxs.length > 0) {
+        // Update stats with new throw transactions
+        updateStatsWithNewTxs(newTxs);
+
         setTransactions((prev) => {
           const existingIds = new Set(prev.map((t) => t.id));
           const unique = newTxs.filter((t) => !existingIds.has(t.id));
@@ -541,6 +847,9 @@ export function useTransactionHistory(
     onLogs: async (logs) => {
       const newTxs = await parseWatcherLogs(logs as Log[], 'CaughtPokemon');
       if (newTxs.length > 0) {
+        // Update stats with new catch transactions
+        updateStatsWithNewTxs(newTxs);
+
         setTransactions((prev) => {
           const existingIds = new Set(prev.map((t) => t.id));
           const unique = newTxs.filter((t) => !existingIds.has(t.id));
@@ -559,6 +868,9 @@ export function useTransactionHistory(
     onLogs: async (logs) => {
       const newTxs = await parseWatcherLogs(logs as Log[], 'FailedCatch');
       if (newTxs.length > 0) {
+        // Update stats with new failed catch transactions
+        updateStatsWithNewTxs(newTxs);
+
         setTransactions((prev) => {
           const existingIds = new Set(prev.map((t) => t.id));
           const unique = newTxs.filter((t) => !existingIds.has(t.id));
@@ -577,6 +889,8 @@ export function useTransactionHistory(
     isLoadingMore,
     refresh,
     totalCount: transactions.length,
+    purchaseStats,
+    isStatsLoading,
   };
 }
 

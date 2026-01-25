@@ -31,6 +31,7 @@ import {
   type ThrowTransaction,
   type CaughtTransaction,
   type FailedTransaction,
+  type PurchaseStats,
   isPurchaseTransaction,
   isThrowTransaction,
   isCaughtTransaction,
@@ -40,10 +41,10 @@ import {
 import { getNftUrl, RELATED_CONTRACTS } from '../../services/pokeballGameConfig';
 
 // ============================================================
-// CACHED STATS TYPE
+// DISPLAY STATS TYPE (derived from hook's PurchaseStats)
 // ============================================================
 
-interface CachedStats {
+interface DisplayStats {
   purchases: number;
   throws: number;
   caught: number;
@@ -52,6 +53,22 @@ interface CachedStats {
   totalSpentUSD: number;
   totalSpentAPE: number;
   totalSpentUSDC: number;
+}
+
+/**
+ * Convert hook's PurchaseStats to DisplayStats format
+ */
+function toDisplayStats(stats: PurchaseStats): DisplayStats {
+  return {
+    purchases: stats.totalPurchaseCount,
+    throws: stats.totalThrows,
+    caught: stats.totalCaught,
+    failed: stats.totalFailed,
+    catchRate: stats.catchRate,
+    totalSpentUSD: stats.totalSpentUSD,
+    totalSpentAPE: parseFloat(stats.totalSpentAPE),
+    totalSpentUSDC: parseFloat(stats.totalSpentUSDC),
+  };
 }
 
 // ============================================================
@@ -552,83 +569,28 @@ export function TransactionHistory({
     isLoadingMore,
     refresh,
     totalCount,
+    purchaseStats,  // All-time stats from hook (persisted to localStorage)
+    isStatsLoading, // Stats loading state
   } = useTransactionHistory(playerAddress);
 
   // Track if we've ever loaded data (to distinguish first load from refetch)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   // Cache the last known stats to avoid flashing zeros during refetch
-  const cachedStatsRef = useRef<CachedStats | null>(null);
+  const cachedStatsRef = useRef<DisplayStats | null>(null);
 
-  // Calculate stats including spending totals for NFT trigger visibility
-  const stats = useMemo(() => {
-    let purchases = 0;
-    let throws = 0;
-    let caught = 0;
-    let failed = 0;
-    let totalSpentUSD = 0; // Approximate USD spent (for NFT pool threshold)
-    let totalSpentAPE = 0;
-    let totalSpentUSDC = 0;
-
-    for (const tx of transactions) {
-      switch (tx.type) {
-        case 'purchase': {
-          purchases++;
-          // Parse spending from estimatedCost (e.g., "52.63 APE" or "10.00 USDC")
-          const purchaseTx = tx as PurchaseTransaction;
-          const costStr = purchaseTx.estimatedCost;
-          const match = costStr.match(/^~?([\d.]+)\s*(APE|USDC)/i);
-          if (match) {
-            const amount = parseFloat(match[1]);
-            const token = match[2].toUpperCase();
-            if (token === 'APE') {
-              totalSpentAPE += amount;
-              // Approximate USD from ball prices (since we know ball type)
-              const ballPrices = [1, 10, 25, 49.9];
-              const qty = Number(purchaseTx.quantity);
-              totalSpentUSD += (ballPrices[purchaseTx.ballType] || 0) * qty;
-            } else {
-              totalSpentUSDC += amount;
-              totalSpentUSD += amount;
-            }
-          }
-          break;
-        }
-        case 'throw':
-          throws++;
-          break;
-        case 'caught':
-          caught++;
-          break;
-        case 'failed':
-          failed++;
-          break;
-      }
-    }
-
-    const catchRate = throws > 0 ? Math.round((caught / throws) * 100) : 0;
-
-    return {
-      purchases,
-      throws,
-      caught,
-      failed,
-      catchRate,
-      totalSpentUSD,
-      totalSpentAPE,
-      totalSpentUSDC,
-    };
-  }, [transactions]);
+  // Convert hook's purchaseStats to DisplayStats format
+  const stats = useMemo(() => toDisplayStats(purchaseStats), [purchaseStats]);
 
   // Update cache when we have real data
   useEffect(() => {
-    if (!isLoading && transactions.length > 0) {
+    if (!isLoading && !isStatsLoading) {
       setHasLoadedOnce(true);
-      cachedStatsRef.current = stats;
-    } else if (!isLoading && transactions.length === 0 && !error) {
-      // Loaded but empty - mark as loaded
-      setHasLoadedOnce(true);
+      // Only cache if we have actual data
+      if (stats.purchases > 0 || stats.throws > 0) {
+        cachedStatsRef.current = stats;
+      }
     }
-  }, [isLoading, transactions.length, stats, error]);
+  }, [isLoading, isStatsLoading, stats]);
 
   // Reset hasLoadedOnce when playerAddress changes
   useEffect(() => {
@@ -636,14 +598,29 @@ export function TransactionHistory({
     cachedStatsRef.current = null;
   }, [playerAddress]);
 
-  // Determine which stats to display: during first load, show nothing (loading state)
-  // During refetch, show cached stats to avoid flash of zeros
-  const displayStats = isLoading && !hasLoadedOnce ? null : (
-    transactions.length > 0 ? stats : cachedStatsRef.current
-  );
+  // Determine which stats to display:
+  // - During first load with no cached data: show loading state (null)
+  // - During refetch: show cached stats to avoid flash of zeros
+  // - After load: show current stats (from hook, which includes localStorage cache)
+  const displayStats = useMemo(() => {
+    // If we have real stats from the hook, always prefer those
+    if (stats.purchases > 0 || stats.throws > 0) {
+      return stats;
+    }
+    // During loading, show cached stats if available
+    if ((isLoading || isStatsLoading) && cachedStatsRef.current) {
+      return cachedStatsRef.current;
+    }
+    // First load with no cache
+    if (isStatsLoading && !hasLoadedOnce) {
+      return null;
+    }
+    // Empty state (no transactions)
+    return stats;
+  }, [stats, isLoading, isStatsLoading, hasLoadedOnce]);
 
   // Is this the initial load (never loaded before)?
-  const isFirstLoad = isLoading && !hasLoadedOnce;
+  const isFirstLoad = (isLoading || isStatsLoading) && !hasLoadedOnce;
 
   if (!isOpen) return null;
 
