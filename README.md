@@ -2,6 +2,31 @@
 
 Pokemon Trader is a 2D pixel-art, Pokemon-style game on **ApeChain** where players buy Poke Balls with APE or USDC.e, explore the map, and attempt to catch Pokemon for a chance to win real **Pokemon card NFTs** from the Slab collection.
 
+---
+
+## What's New
+
+- **dGen1/EthereumPhone Support** – First-class wallet integration for ethOS devices with ERC-4337 Account Abstraction and touch-optimized UI for 2.5"–3" square screens
+- **Glyph Wallet Support** – Fast onboarding (<75 seconds) and seamless multi-chain swaps, optimized for ApeChain
+- **RainbowKit Unified Wallet Picker** – 50+ wallet options with dGen1 and Glyph prominently featured at the top
+- **Random NFT Selection** – Pyth Entropy now determines both catch success AND which card you win (v1.7.0)
+- **Responsive Design** – Full support for compact 240px–360px viewports
+
+---
+
+## Features
+
+- 🎮 **Pixel Art Pokemon Game** – Explore a 2D world, find wild Pokemon, and throw balls to catch them
+- 🎴 **Win Real NFTs** – Successful catches award Pokemon card NFTs from the Slab collection
+- 💳 **Multi-Wallet Support** – Connect via RainbowKit with 50+ options including MetaMask, Rainbow, and WalletConnect
+- 📱 **dGen1/EthereumPhone** – Native support for ethOS devices with ERC-4337 and compact touchscreen UI
+- 🎯 **Glyph Wallet** – ApeChain-optimized wallet with fast onboarding and built-in swaps
+- 🌉 **Cross-Chain Funding** – Buy APE or USDC.e from any chain via Thirdweb Universal Bridge
+- 🎲 **Provably Fair** – Pyth Entropy provides verifiable randomness for catches and NFT selection
+- 🚴 **Bike Rental** – 2x movement speed boost for faster exploration
+
+---
+
 ## Challenge Context
 
 This project is a custom implementation of the **Pokemon Trader** challenge app created by @simplefarmer69. The original challenge brief and baseline app are documented in `README_CHALLENGE.md`.
@@ -155,22 +180,15 @@ Slab NFT Pokemon Cards
 Existing NFT collection contract that stores all Pokemon card NFTs used as gachapon prizes.
 
 Frontend
-React + TypeScript + Vite for UI and build tooling.
 
-Phaser 3 for the 2D pixel-art game world (movement, Pokemon entities, animations).
+- **React + TypeScript + Vite** for UI and build tooling
+- **Phaser 3** for the 2D pixel-art game world (movement, Pokemon entities, animations)
+- **Wagmi + Viem + RainbowKit** for wallet connection, contract calls, and event subscriptions
+- **Custom Wagmi connectors** for dGen1/EthereumPhone and Glyph Wallet (see `docs/WALLET_INTEGRATION.md`)
+- **Thirdweb Checkout / Universal Bridge** for multi-chain APE/USDC.e funding
+- **Alchemy NFT API** for resolving NFT metadata and images
 
-Wagmi + Viem + RainbowKit for wallet connection, contract calls, and event subscriptions.
-
-Custom wallet connectors for enhanced device support:
-- **dGen1/EthereumPhone** connector with ERC-4337 Account Abstraction
-- **Glyph Wallet** connector for streamlined ApeChain onboarding
-- Touch-optimized responsive design for 240px–360px viewports (dGen1 2.5"–3" square touchscreen)
-
-Thirdweb Checkout / Universal Bridge for multi-chain APE/USDC.e funding from other networks.
-
-Alchemy NFT API + useSlabNFTMetadata to resolve NFT metadata and images when showing Pokemon cards.
-
-For a detailed breakdown of files, hooks, contracts, and troubleshooting notes, see CLAUDE.md in this repository.
+For a detailed breakdown of files, hooks, contracts, and troubleshooting notes, see `CLAUDE.md`.
 
 Mapping to the Challenge Checklist
 This section shows how this implementation satisfies the Testing Checklist and core requirements described in README_CHALLENGE.md.
