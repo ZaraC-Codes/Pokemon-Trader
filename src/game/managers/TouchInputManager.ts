@@ -39,6 +39,10 @@ interface TouchInputConfig {
   tapMoveThreshold: number;
   /** Show tap indicator when moving (default: true) */
   showTapIndicator: boolean;
+  /** Height of bottom UI elements (Inventory button) to avoid overlap (default: 60) */
+  bottomUIHeight: number;
+  /** Padding between D-Pad and bottom UI (default: 15) */
+  bottomUIPadding: number;
 }
 
 const DEFAULT_CONFIG: TouchInputConfig = {
@@ -48,6 +52,8 @@ const DEFAULT_CONFIG: TouchInputConfig = {
   dpadMargin: 20,
   tapMoveThreshold: 8,
   showTapIndicator: true,
+  bottomUIHeight: 60,    // Height of Inventory button + its bottom margin
+  bottomUIPadding: 15,   // Gap between D-Pad and Inventory button
 };
 
 /**
@@ -280,7 +286,7 @@ export class TouchInputManager {
    * Create virtual D-Pad overlay
    */
   private createDPad(): void {
-    const { dpadSize, dpadOpacity, dpadMargin } = this.config;
+    const { dpadSize, dpadOpacity, dpadMargin, bottomUIHeight, bottomUIPadding } = this.config;
     const camera = this.scene.cameras.main;
 
     // Create container (fixed to camera, bottom-left)
@@ -288,16 +294,24 @@ export class TouchInputManager {
     this.dpadContainer.setScrollFactor(0);
     this.dpadContainer.setDepth(2000);
 
-    // Position calculation (bottom-left corner)
+    // Position calculation (bottom-left corner, above the Inventory button)
+    // The Inventory button is at bottom: 20px with ~40px height = 60px from bottom
+    // D-Pad should sit above it with padding
     const centerX = dpadMargin + dpadSize / 2;
-    const centerY = camera.height - dpadMargin - dpadSize / 2;
+    const bottomOffset = bottomUIHeight + bottomUIPadding + dpadSize / 2;
+    const centerY = camera.height - bottomOffset;
+
+    // Clamp to ensure D-Pad stays fully on screen
+    const minY = dpadSize / 2 + dpadMargin;
+    const clampedCenterY = Math.min(centerY, camera.height - dpadSize / 2 - dpadMargin);
+    const finalCenterY = Math.max(minY, clampedCenterY);
 
     // Background circle
     this.dpadBackground = this.scene.add.graphics();
     this.dpadBackground.fillStyle(0x000000, dpadOpacity * 0.5);
-    this.dpadBackground.fillCircle(centerX, centerY, dpadSize / 2);
+    this.dpadBackground.fillCircle(centerX, finalCenterY, dpadSize / 2);
     this.dpadBackground.lineStyle(2, 0xffffff, dpadOpacity);
-    this.dpadBackground.strokeCircle(centerX, centerY, dpadSize / 2);
+    this.dpadBackground.strokeCircle(centerX, finalCenterY, dpadSize / 2);
     this.dpadContainer.add(this.dpadBackground);
 
     // Button size and positions
@@ -306,10 +320,10 @@ export class TouchInputManager {
 
     // Create directional buttons
     const directions = [
-      { key: 'up', x: centerX, y: centerY - buttonOffset },
-      { key: 'down', x: centerX, y: centerY + buttonOffset },
-      { key: 'left', x: centerX - buttonOffset, y: centerY },
-      { key: 'right', x: centerX + buttonOffset, y: centerY },
+      { key: 'up', x: centerX, y: finalCenterY - buttonOffset },
+      { key: 'down', x: centerX, y: finalCenterY + buttonOffset },
+      { key: 'left', x: centerX - buttonOffset, y: finalCenterY },
+      { key: 'right', x: centerX + buttonOffset, y: finalCenterY },
     ];
 
     for (const dir of directions) {

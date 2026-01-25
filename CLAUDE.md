@@ -1961,13 +1961,22 @@ TOUCH_CONTROL_CONFIG = {
   dpadOpacity: 0.5,      // D-Pad transparency
   dpadMargin: 20,        // Margin from screen edge
   tapMoveThreshold: 8,   // Distance to consider target reached
-  showTapIndicator: true // Show pulsing circle at tap target
+  showTapIndicator: true, // Show pulsing circle at tap target
+  bottomUIHeight: 60,    // Height of Inventory button to avoid overlap
+  bottomUIPadding: 15,   // Gap between D-Pad and Inventory button
 }
 ```
 
+**D-Pad Positioning:**
+The D-Pad is positioned above the Inventory button to avoid overlap:
+- `bottomUIHeight` (60px): Accounts for Inventory button height + its bottom margin
+- `bottomUIPadding` (15px): Gap between D-Pad bottom edge and Inventory button top
+- D-Pad Y center = `camera.height - bottomUIHeight - bottomUIPadding - dpadSize/2`
+- Position is clamped to ensure D-Pad stays fully on screen
+
 **Features:**
 - **Tap-to-move**: Tap anywhere to walk toward that position (4-directional movement)
-- **Virtual D-Pad**: On-screen directional buttons (bottom-left corner)
+- **Virtual D-Pad**: On-screen directional buttons (bottom-left corner, above Inventory button)
 - **Tap indicator**: Green pulsing circle shows tap target
 - **Interactive object detection**: Tapping on Pokemon/NPCs triggers their click handler instead of movement
 - **Keyboard priority**: Keyboard input overrides touch (both work simultaneously)
