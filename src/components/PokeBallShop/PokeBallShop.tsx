@@ -557,16 +557,6 @@ const styles = {
     textDecoration: 'none',
     fontSize: '11px',
   },
-  nftTriggerBadge: {
-    display: 'inline-block',
-    padding: '2px 8px',
-    backgroundColor: '#2a1a3a',
-    border: '1px solid #aa44ff',
-    color: '#aa44ff',
-    fontSize: '10px',
-    marginTop: '6px',
-    borderRadius: '2px',
-  },
 };
 
 // Ball type colors for visual distinction
@@ -904,8 +894,6 @@ interface PurchaseAttempt {
   costAPE?: number;
   error?: string;
   txHash?: string;
-  nftAutoPurchaseTriggered?: boolean;
-  nftRequestId?: string;
 }
 
 export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopProps) {
@@ -931,15 +919,13 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   // Purchase tracking for diagnostics (used by AdminDevTools panel)
   const [lastPurchaseAttempt, setLastPurchaseAttempt] = useState<PurchaseAttempt | null>(null);
 
-  // Enhanced success state with NFT auto-purchase detection
+  // Success state for displaying purchase confirmation
   const [successDetails, setSuccessDetails] = useState<{
     ballType: BallType;
     quantity: number;
     paymentToken: PaymentToken;
     txHash: string;
     costUSD: number;
-    nftAutoPurchaseTriggered?: boolean;
-    nftRequestId?: string;
   } | null>(null);
 
   // Hooks
@@ -1142,31 +1128,10 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     usdcBalance.refetch();
   }, [apeBalance, usdcBalance]);
 
-  // Show success message when receipt arrives - analyze logs for NFT auto-purchase
+  // Show success message when receipt arrives
   useEffect(() => {
     if (receipt && lastPurchaseAttempt) {
       setShowSuccess(true);
-
-      // Check for NFTPurchaseInitiated event in receipt logs
-      let nftAutoPurchaseTriggered = false;
-      let nftRequestId: string | undefined;
-
-      // Look for RevenueSentToManager or NFTPurchaseInitiated events
-      if (receipt.logs) {
-        for (const log of receipt.logs) {
-          // Check if this is the SlabNFTManager address (NFTPurchaseInitiated comes from there)
-          const slabManagerAddress = '0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71'.toLowerCase();
-          if (log.address.toLowerCase() === slabManagerAddress) {
-            // NFTPurchaseInitiated event detected
-            if (log.topics && log.topics.length >= 2) {
-              nftAutoPurchaseTriggered = true;
-              // First indexed parameter is requestId
-              nftRequestId = log.topics[1];
-              console.log('[PokeBallShop] NFT auto-purchase detected! RequestId:', nftRequestId);
-            }
-          }
-        }
-      }
 
       // Build success details
       setSuccessDetails({
@@ -1175,16 +1140,12 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
         paymentToken: lastPurchaseAttempt.paymentToken,
         txHash: receipt.transactionHash,
         costUSD: lastPurchaseAttempt.costUSD,
-        nftAutoPurchaseTriggered,
-        nftRequestId,
       });
 
       // Update last attempt with result
       setLastPurchaseAttempt(prev => prev ? {
         ...prev,
         txHash: receipt.transactionHash,
-        nftAutoPurchaseTriggered,
-        nftRequestId,
       } : null);
 
       // Reset quantities after successful purchase
@@ -1463,11 +1424,6 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
                 View on Apescan →
               </a>
             </div>
-            {successDetails.nftAutoPurchaseTriggered && (
-              <div style={styles.nftTriggerBadge}>
-                🎉 NFT Added to Prize Pool!
-              </div>
-            )}
           </div>
         )}
         {/* Fallback for legacy success without details */}
