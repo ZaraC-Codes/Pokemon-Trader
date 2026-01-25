@@ -31,12 +31,12 @@ export const TOUCH_CONTROL_CONFIG = {
   tapMoveThreshold: 8,
   /** Show tap indicator when moving */
   showTapIndicator: true,
-  /** Height of bottom UI elements (Inventory button + bottom margin) */
-  bottomUIHeight: 60,
+  /** Height of bottom UI elements (Inventory button: ~44px height + 20px bottom margin = 64px, plus buffer) */
+  bottomUIHeight: 70,
   /** Minimum vertical gap between D-Pad bottom and Inventory button top */
-  bottomUIPadding: 10,
+  bottomUIPadding: 12,
   /** Minimum margin from top of screen */
-  topMargin: 10,
+  topMargin: 8,
 };
 
 // Get viewport dimensions

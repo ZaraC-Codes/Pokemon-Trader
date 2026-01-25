@@ -54,9 +54,9 @@ const DEFAULT_CONFIG: TouchInputConfig = {
   dpadMargin: 20,
   tapMoveThreshold: 8,
   showTapIndicator: true,
-  bottomUIHeight: 60,    // Height of Inventory button + its bottom margin
-  bottomUIPadding: 10,   // Minimum gap between D-Pad bottom and Inventory button top
-  topMargin: 10,         // Minimum margin from top of screen
+  bottomUIHeight: 70,    // Inventory button (~44px) + bottom margin (20px) + buffer (6px)
+  bottomUIPadding: 12,   // Minimum gap between D-Pad bottom and Inventory button top
+  topMargin: 8,          // Minimum margin from top of screen
 };
 
 /**
