@@ -20,7 +20,9 @@ This implementation was selected as the **winner** of the Pixelverse / Slab.cash
 
 - Node.js 18+
 - npm or yarn
-- A Web3 wallet (MetaMask, RainbowKit-compatible) connected to **ApeChain Mainnet (Chain ID 33139)**
+- A Web3 wallet connected to **ApeChain Mainnet (Chain ID 33139)**:
+  - Desktop: MetaMask, Rainbow, WalletConnect, Coinbase, Ledger, and 50+ more via RainbowKit
+  - Mobile: **dGen1/EthereumPhone** (ethOS), **Glyph Wallet**, or any WalletConnect-compatible wallet
 
 ### Environment setup
 
@@ -44,10 +46,39 @@ git clone <your-fork-url>
 cd Pokemon-Trader
 npm install
 The app is pre-configured with an Alchemy API key for ApeChain, so a .env file is optional.
-To override the key, create .env and set:
+To override the key or configure wallet integrations, create .env and set:
 
-bash
+```bash
+# Alchemy (optional override)
 VITE_ALCHEMY_API_KEY=your_api_key_here
+
+# Wallet Integration (optional)
+VITE_BUNDLER_RPC_URL=https://your-bundler-endpoint  # For dGen1 ERC-4337 Account Abstraction
+VITE_GLYPH_API_KEY=<api-key>                         # For Glyph Wallet (if required)
+
+# ThirdWeb (for crypto checkout)
+VITE_THIRDWEB_CLIENT_ID=your_client_id
+```
+
+### Wallet Configuration
+
+The app supports multiple wallet options out of the box:
+
+1. **Desktop Wallets** (MetaMask, Rainbow, WalletConnect, etc.)
+   - Click "Connect Wallet" and select from the RainbowKit modal
+
+2. **dGen1/EthereumPhone** (ethOS Android device)
+   - Appears at the top of the wallet picker on compatible devices
+   - Supports ERC-4337 Account Abstraction for gasless transactions
+   - Requires `VITE_BUNDLER_RPC_URL` for transaction bundling
+   - Gracefully falls back to standard wallets on desktop
+
+3. **Glyph Wallet** (ApeChain-optimized)
+   - Appears at the top of the wallet picker
+   - Fast onboarding (<75 seconds)
+   - Seamless multi-chain swaps built-in
+
+See `docs/WALLET_INTEGRATION.md` for detailed setup instructions.
 Development
 bash
 npm run dev
@@ -130,6 +161,11 @@ Phaser 3 for the 2D pixel-art game world (movement, Pokemon entities, animations
 
 Wagmi + Viem + RainbowKit for wallet connection, contract calls, and event subscriptions.
 
+Custom wallet connectors for enhanced device support:
+- **dGen1/EthereumPhone** connector with ERC-4337 Account Abstraction
+- **Glyph Wallet** connector for streamlined ApeChain onboarding
+- Touch-optimized responsive design for 240px–360px viewports (dGen1 2.5"–3" square touchscreen)
+
 Thirdweb Checkout / Universal Bridge for multi-chain APE/USDC.e funding from other networks.
 
 Alchemy NFT API + useSlabNFTMetadata to resolve NFT metadata and images when showing Pokemon cards.
@@ -201,7 +237,46 @@ Audio controls and the inventory/terminal overlays are implemented so they do no
 
 ### Owner / Maintenance Scripts
 
-For contract revenue verification and withdraw flows (e.g. `scripts/verifyrevenueflow.cjs`, `scripts/withdrawtestfunds.cjs`), see `CLAUDE.md` under “New Features – SlabNFTManager Contract v2.2.0” and “Development Notes – Revenue & Withdraw Scripts.”
+For contract revenue verification and withdraw flows (e.g. `scripts/verifyrevenueflow.cjs`, `scripts/withdrawtestfunds.cjs`), see `CLAUDE.md` under "New Features – SlabNFTManager Contract v2.2.0" and "Development Notes – Revenue & Withdraw Scripts."
+
+---
+
+## Device & Platform Support
+
+### Browsers
+- Chrome/Chromium (Recommended)
+- Safari (macOS & iOS)
+- Firefox
+- Edge
+
+### Wallets
+- **Desktop:** MetaMask, Rainbow, WalletConnect, Ledger, Coinbase, and 50+ more
+- **Mobile:** Glyph, dGen1/EthereumPhone, and WalletConnect-compatible wallets
+- **Hardware:** Ledger, Trezor (via WalletConnect)
+
+### Devices
+- Desktop (Windows, macOS, Linux) ✅
+- Mobile (iPhone, Android) ✅
+- **dGen1/EthereumPhone** (ethOS, 2.5"–3" square touchscreen) ✅
+- Tablet ✅
+
+### Screen Sizes
+- Desktop: 1024px+ ✅
+- Mobile: 320px+ ✅
+- **Compact: 240px–360px** ✅ (dGen1 optimized)
+
+---
+
+## Wallet Documentation
+
+- [RainbowKit Documentation](https://www.rainbowkit.com)
+- [Wagmi Documentation](https://wagmi.sh)
+- [dGen1/EthereumPhone SDK](https://github.com/EthereumPhone/WalletSDK)
+- [Glyph Wallet Documentation](https://docs.useglyph.io)
+- [ERC-4337 Account Abstraction](https://eips.ethereum.org/EIPS/eip-4337)
+- See `docs/WALLET_INTEGRATION.md` for the detailed integration guide
+
+---
 
 ### License
 

@@ -22,6 +22,7 @@ Pokemon Trader is a 2D pixel art game built on ApeChain that integrates Web3 fun
 - **RainbowKit 2.0.0** - Wallet connection UI
 - **TanStack Query 5.17.0** - Server state management
 - **ThirdWeb SDK v5** - Crypto checkout/payment widgets
+- **Custom Wallet Connectors** - dGen1/EthereumPhone, Glyph Wallet
 
 ### Smart Contracts
 - **Hardhat 2.28.x** - Solidity development framework
@@ -143,6 +144,12 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │       ├── useTokenApproval.ts      # ERC-20 approval for APE/USDC.e
 │   │       ├── useSetOwnerWallet.ts     # Transfer ownership (owner)
 │   │       └── useSetTreasuryWallet.ts  # Update treasury (owner)
+│   │
+│   ├── connectors/              # Custom wallet connectors
+│   │   ├── index.ts                 # Barrel export
+│   │   ├── ethereumPhoneConnector.ts # dGen1/ethOS Wagmi connector
+│   │   ├── glyphConnector.ts        # Glyph Wallet Wagmi connector
+│   │   └── customWallets.ts         # RainbowKit wallet metadata
 │   │
 │   ├── config/                  # Static configuration
 │   │   ├── knownListings.ts         # Pre-identified listing IDs
@@ -3290,14 +3297,21 @@ Required environment variables for the application:
 | `VITE_THIRDWEB_CLIENT_ID` | No | ThirdWeb client ID for crypto checkout (get free at thirdweb.com/create-api-key) |
 | `VITE_PUBLIC_RPC_URL` | No | Override default ApeChain RPC URL |
 | `VITE_WALLETCONNECT_PROJECT_ID` | No | WalletConnect project ID (has default) |
+| `VITE_BUNDLER_RPC_URL` | No | ERC-4337 bundler endpoint for dGen1/EthereumPhone Account Abstraction |
+| `VITE_GLYPH_API_KEY` | No | Glyph Wallet API key (if required by SDK) |
 
 Example `.env` file (see `.env.example` for full template):
 ```env
 VITE_POKEBALL_GAME_ADDRESS=0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f
 VITE_THIRDWEB_CLIENT_ID=your_thirdweb_client_id
+
+# Wallet Integration (optional)
+VITE_BUNDLER_RPC_URL=https://your-bundler-endpoint
+VITE_GLYPH_API_KEY=your_glyph_api_key
 ```
 
 See `docs/SETUP_POKEBALL_GAME.md` for complete setup instructions.
+See `docs/WALLET_INTEGRATION.md` for wallet connector configuration.
 
 ## Centralized Configuration
 
@@ -3337,6 +3351,7 @@ Comprehensive documentation available in `docs/`:
 - `implementation_plan.md` - Development roadmap
 - `pop_vrng_integration.md` - POP VRNG integration guide
 - `WALLET_CONFIG.md` - Wallet setup instructions
+- `WALLET_INTEGRATION.md` - **dGen1/EthereumPhone & Glyph Wallet integration guide**
 - `UUPS_UPGRADE_GUIDE.md` - UUPS proxy upgrade guide
 - `SETUP_POKEBALL_GAME.md` - **PokeballGame integration setup guide**
 - `UPGRADE_V1.2.0_20_POKEMON.md` - **v1.2.0 upgrade guide (3→20 Pokemon)**
