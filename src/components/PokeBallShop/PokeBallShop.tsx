@@ -943,7 +943,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   } | null>(null);
 
   // Hooks
-  const { write, isLoading, isPending, error, receipt, reset, hash } = usePurchaseBalls();
+  const { write, isLoading, isPending, error, receipt, reset } = usePurchaseBalls();
   const inventory = usePlayerBallInventory(playerAddress);
   const apeBalance = useApeBalanceWithUsd(playerAddress);
   const usdcBalance = useUsdcBalance(playerAddress);
@@ -991,7 +991,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     isConfirming: isApprovalConfirming,
     isConfirmed: isApprovalConfirmed,
     error: approvalError,
-    refetch: refetchAllowance,
+    refetch: _refetchAllowance,
   } = useTokenApproval(tokenType, requiredAmount);
 
   // Debug logging for approval state in shop
@@ -1148,9 +1148,6 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
       setShowSuccess(true);
 
       // Check for NFTPurchaseInitiated event in receipt logs
-      // Topic for NFTPurchaseInitiated(uint256 indexed requestId, uint256 amount, address recipient)
-      // keccak256("NFTPurchaseInitiated(uint256,uint256,address)") = 0x...
-      const NFT_PURCHASE_INITIATED_TOPIC = '0x1c8fa9c7e6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6';
       let nftAutoPurchaseTriggered = false;
       let nftRequestId: string | undefined;
 
@@ -1468,12 +1465,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             </div>
             {successDetails.nftAutoPurchaseTriggered && (
               <div style={styles.nftTriggerBadge}>
-                🎉 NFT Auto-Purchase Triggered
-                {successDetails.nftRequestId && (
-                  <span style={{ marginLeft: '4px', opacity: 0.7 }}>
-                    (Req: {successDetails.nftRequestId.slice(0, 10)}...)
-                  </span>
-                )}
+                🎉 NFT Added to Prize Pool!
               </div>
             )}
           </div>

@@ -470,23 +470,51 @@ export function CatchAttemptModal({
 
   // Handle throw
   const handleThrow = useCallback(
-    (ballType: BallType) => {
-      if (!write) return;
-      if (getBallCount(ballType) <= 0) return;
+    async (ballType: BallType) => {
+      if (!write) {
+        console.error('[CatchAttemptModal] write function not available');
+        return;
+      }
+      if (getBallCount(ballType) <= 0) {
+        console.error('[CatchAttemptModal] No balls of type', ballType);
+        return;
+      }
+
+      console.log('[CatchAttemptModal] === THROW INITIATED ===');
+      console.log('[CatchAttemptModal] ballType:', ballType);
+      console.log('[CatchAttemptModal] slotIndex:', slotIndex);
+      console.log('[CatchAttemptModal] pokemonId:', pokemonId.toString());
 
       setThrowingBallType(ballType);
 
-      // Trigger visual throw animation BEFORE contract write
-      // so the ball arc plays while the transaction is pending
-      if (onVisualThrow) {
-        onVisualThrow(pokemonId, ballType);
+      // CRITICAL: Call the contract FIRST before closing modal
+      // The write function triggers wallet popup - we must do this BEFORE unmounting
+      console.log('[CatchAttemptModal] Calling write() to send contract transaction...');
+      try {
+        const success = await write(slotIndex, ballType);
+        console.log('[CatchAttemptModal] write() returned:', success);
+
+        if (success) {
+          console.log('[CatchAttemptModal] Transaction initiated! Wallet should have opened.');
+
+          // Trigger visual throw animation AFTER contract call succeeds
+          if (onVisualThrow) {
+            console.log('[CatchAttemptModal] Triggering visual throw animation...');
+            onVisualThrow(pokemonId, ballType);
+          }
+
+          // Close the modal AFTER transaction is sent so the animation is visible
+          console.log('[CatchAttemptModal] Closing modal after transaction sent...');
+          onClose();
+        } else {
+          console.error('[CatchAttemptModal] write() returned false - transaction blocked');
+          // Don't close modal - show error state
+          setThrowingBallType(null);
+        }
+      } catch (err) {
+        console.error('[CatchAttemptModal] write() threw error:', err);
+        setThrowingBallType(null);
       }
-
-      // Close the modal immediately so the throw animation is visible
-      // The result will be shown via CatchWinModal or CatchResultModal
-      onClose();
-
-      write(slotIndex, ballType);
     },
     [write, slotIndex, getBallCount, onVisualThrow, pokemonId, onClose]
   );

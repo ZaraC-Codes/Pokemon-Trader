@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { config } from './services/apechainConfig';
 import GameCanvas, { type PokemonClickData, type CatchOutOfRangeData } from './components/GameCanvas';
 import WalletConnector from './components/WalletConnector';
@@ -59,6 +59,7 @@ declare global {
 /** Inner app component that uses hooks requiring WagmiProvider context */
 function AppContent() {
   const { account } = useActiveWeb3React();
+  const queryClient = useQueryClient();
   const [selectedTrade, setSelectedTrade] = useState<TradeListing | null>(null);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [musicVolume, setMusicVolume] = useState(0.5);
@@ -118,6 +119,11 @@ function AppContent() {
     if (account && latestEvent.args.catcher.toLowerCase() === account.toLowerCase()) {
       console.log('[App] CaughtPokemon event for current user:', latestEvent.args);
 
+      // Invalidate ball inventory query to trigger instant refetch
+      // Uses wagmi's query key pattern for readContract
+      console.log('[App] Invalidating ball inventory query...');
+      queryClient.invalidateQueries({ queryKey: ['readContract'] });
+
       // Notify Phaser to reset CatchMechanicsManager state
       if (catchResultRef.current) {
         catchResultRef.current(true, latestEvent.args.pokemonId);
@@ -136,7 +142,7 @@ function AppContent() {
       // Show a success toast
       addToast('You caught a Pokemon!', 'success');
     }
-  }, [caughtEvents, account, addToast]);
+  }, [caughtEvents, account, addToast, queryClient]);
 
   // Handle failed catch events
   useEffect(() => {
@@ -152,6 +158,11 @@ function AppContent() {
     // Only show for current user's throws
     if (account && latestEvent.args.thrower.toLowerCase() === account.toLowerCase()) {
       console.log('[App] FailedCatch event for current user:', latestEvent.args);
+
+      // Invalidate ball inventory query to trigger instant refetch
+      // Uses wagmi's query key pattern for readContract
+      console.log('[App] Invalidating ball inventory query...');
+      queryClient.invalidateQueries({ queryKey: ['readContract'] });
 
       // Notify Phaser to reset CatchMechanicsManager state
       if (catchResultRef.current) {
@@ -174,7 +185,7 @@ function AppContent() {
         txHash: latestEvent.transactionHash ?? undefined,
       });
     }
-  }, [failedEvents, account]);
+  }, [failedEvents, account, queryClient]);
 
   useEffect(() => {
     // Expose test functions to window for browser console testing

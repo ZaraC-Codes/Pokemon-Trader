@@ -337,15 +337,28 @@ export function useThrowBall(): UseThrowBallReturn {
       }
 
       // All checks passed - proceed with transaction
-      console.log('[useThrowBall] Sending transaction...');
-      writeContract({
-        address: POKEBALL_GAME_ADDRESS,
-        abi: POKEBALL_GAME_ABI,
-        functionName: 'throwBall',
-        args: [pokemonSlot, ballType],
-        chainId: POKEBALL_GAME_CHAIN_ID,
-        value: feeToSend, // v1.6.0: Include Entropy fee
-      });
+      console.log('[useThrowBall] === SENDING TRANSACTION ===');
+      console.log('[useThrowBall] Contract address:', POKEBALL_GAME_ADDRESS);
+      console.log('[useThrowBall] Function: throwBall');
+      console.log('[useThrowBall] Args: [pokemonSlot=' + pokemonSlot + ', ballType=' + ballType + ']');
+      console.log('[useThrowBall] Value (fee):', feeToSend.toString());
+      console.log('[useThrowBall] Chain ID:', POKEBALL_GAME_CHAIN_ID);
+      console.log('[useThrowBall] Calling writeContract NOW - wallet should open...');
+
+      try {
+        writeContract({
+          address: POKEBALL_GAME_ADDRESS,
+          abi: POKEBALL_GAME_ABI,
+          functionName: 'throwBall',
+          args: [pokemonSlot, ballType],
+          chainId: POKEBALL_GAME_CHAIN_ID,
+          value: feeToSend, // v1.6.0: Include Entropy fee
+        });
+        console.log('[useThrowBall] writeContract() called successfully');
+      } catch (writeErr) {
+        console.error('[useThrowBall] writeContract() threw:', writeErr);
+        throw writeErr;
+      }
 
       return true;
     },
