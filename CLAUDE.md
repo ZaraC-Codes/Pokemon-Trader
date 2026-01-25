@@ -2542,7 +2542,8 @@ function AppContent() {
 All ball icons use circular styling (`borderRadius: '50%'`) for visual consistency:
 - HUD ball dots: 12×12px circles with 1px white border
 - Shop inventory: 14×14px circles with 1px white border
-- Shop purchase rows: 20×20px circles with 2px white border
+- Shop purchase rows: 16×16px circles with 2px white border
+- CatchAttemptModal: 20×20px circles with 2px white border
 
 **Ball Colors:**
 | Ball Type | Color |
