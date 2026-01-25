@@ -472,6 +472,18 @@ npm run dev
 
 ### Troubleshooting
 
+**Black bar appears at top of screen on desktop:**
+- Cause: CSS `body { place-items: center }` vertically centers content
+- When the game canvas is shorter than viewport, this creates a gap at top
+- Fix: Changed to `align-items: flex-start` in `src/index.css`
+- This keeps content at the top while still horizontally centering
+
+**D-Pad overlaps with Inventory button on dGen1 (square screens):**
+- Cause: Both D-Pad and Inventory button were positioned at bottom-left
+- Fix: On square screens, Inventory button moves RIGHT via CSS media queries
+- See `src/styles/touchscreen.css` for `.inventory-button` responsive rules
+- Button also gets smaller padding/font on dGen1 to save space
+
 **Contract calls fail with "execution reverted" or "aggregate3 returned no data":**
 1. Check Multicall3 address in `apechainConfig.ts` is `0xcA11bde05977b3631167028862bE2a173976CA11`
 2. Verify contract address is correct in `.env` (`VITE_POKEBALL_GAME_ADDRESS`)
@@ -1962,49 +1974,62 @@ TOUCH_CONTROL_CONFIG = {
   dpadMargin: 20,        // Margin from screen edge (left side)
   tapMoveThreshold: 8,   // Distance to consider target reached
   showTapIndicator: true, // Show pulsing circle at tap target
-  bottomUIHeight: 70,    // Inventory button (~44px) + bottom margin (20px) + buffer
-  bottomUIPadding: 12,   // Min vertical gap between D-Pad bottom and Inventory top
+  bottomUIHeight: 50,    // Screen bottom clearance (reduced - Inventory now positioned to right)
+  bottomUIPadding: 10,   // Min vertical gap between D-Pad bottom and screen edge
   topMargin: 8,          // Min margin from top of screen
 }
 ```
 
-**D-Pad Positioning (Responsive):**
-The D-Pad is positioned above the Inventory button and never overlaps, even on small screens like dGen1 (1:1 aspect ratio ~480x480):
+**D-Pad and Inventory Button Layout:**
+On square screens (dGen1), the Inventory button is repositioned to the RIGHT of the D-Pad via CSS media queries, eliminating vertical overlap concerns.
 
-**Inventory Button Dimensions:**
-- Height: ~44px (14px font + 24px padding + 6px border)
-- Bottom margin: 20px
-- Total from screen bottom to button top: ~64px
+**Desktop/Wide Screens:**
+- D-Pad: bottom-left corner (left: 20px margin)
+- Inventory button: bottom-left (left: 20px, bottom: 20px)
+- No overlap because D-Pad only shows on touch devices
 
-**Calculation:**
-```typescript
-const dpadRadius = dpadSize / 2;
-const inventoryTopY = screenHeight - bottomUIHeight;  // Top edge of Inventory button
-const desiredCenterY = inventoryTopY - bottomUIPadding - dpadRadius;  // Place D-Pad above
+**Square Screens (dGen1 ~480x480):**
+- D-Pad: bottom-left corner (left: 20px, size: 120px, so right edge at ~140px)
+- Inventory button: moved RIGHT via CSS (left: 150px, bottom: 10px)
+- Button is smaller (padding: 6px 10px, font: 10px, icon hidden)
+- No vertical overlap - button is horizontally offset from D-Pad
 
-// Clamp to keep D-Pad fully on screen
-const minCenterY = topMargin + dpadRadius;  // Can't go above screen
-const maxCenterY = inventoryTopY - bottomUIPadding - dpadRadius;  // Must stay above Inventory
-const finalCenterY = clamp(desiredCenterY, minCenterY, maxCenterY);
+**Responsive CSS (`touchscreen.css`):**
+```css
+/* Square screens (aspect ratio 4:5 to 5:4) */
+@media (min-aspect-ratio: 4/5) and (max-aspect-ratio: 5/4) {
+  .inventory-button {
+    left: 140px !important;   /* Move right of D-Pad */
+    bottom: 12px !important;
+    padding: 8px 12px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* Very small square screens (dGen1 ~480px) */
+@media (min-aspect-ratio: 4/5) and (max-aspect-ratio: 5/4) and (max-width: 520px) {
+  .inventory-button {
+    left: 150px !important;
+    bottom: 10px !important;
+    padding: 6px 10px !important;
+    font-size: 10px !important;
+  }
+  .inventory-button i { display: none !important; }  /* Hide icon */
+}
 ```
 
 **Tweakable Constants:**
 | Constant | Default | Effect |
 |----------|---------|--------|
-| `bottomUIHeight` | 70 | Inventory button height + bottom margin + buffer |
-| `bottomUIPadding` | 12 | Gap between D-Pad bottom and Inventory top (increase to move D-Pad higher) |
-| `topMargin` | 8 | Minimum distance from screen top (prevents D-Pad from going off-screen) |
-| `dpadSize` | 120 | D-Pad diameter (reduce for tiny screens) |
+| `bottomUIHeight` | 50 | Screen bottom clearance for D-Pad |
+| `bottomUIPadding` | 10 | Gap between D-Pad bottom and screen edge |
+| `topMargin` | 8 | Minimum distance from screen top |
+| `dpadSize` | 120 | D-Pad diameter |
 | `dpadMargin` | 20 | Left margin from screen edge |
-
-**Small Screen Behavior (dGen1 ~480x480):**
-- D-Pad is placed above Inventory button with at least `bottomUIPadding` (12px) gap
-- If screen is too short, D-Pad is pushed upward but clamped at `topMargin` (8px) from top
-- On extremely small screens, D-Pad may need to be smaller (reduce `dpadSize`)
 
 **Features:**
 - **Tap-to-move**: Tap anywhere to walk toward that position (4-directional movement)
-- **Virtual D-Pad**: On-screen directional buttons (bottom-left corner, above Inventory button)
+- **Virtual D-Pad**: On-screen directional buttons (bottom-left corner)
 - **Tap indicator**: Green pulsing circle shows tap target
 - **Interactive object detection**: Tapping on Pokemon/NPCs triggers their click handler instead of movement
 - **Keyboard priority**: Keyboard input overrides touch (both work simultaneously)
