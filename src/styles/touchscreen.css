@@ -313,3 +313,38 @@
     top: 4px;
   }
 }
+
+/* ============================================================
+   DGEN1 / SQUARE SCREEN INVENTORY BUTTON
+   ============================================================ */
+
+/* Make Inventory button smaller on square screens to avoid D-Pad overlap */
+@media (min-aspect-ratio: 4/5) and (max-aspect-ratio: 5/4) {
+  .inventory-button {
+    /* Smaller padding and font for square screens */
+    padding: 8px 12px !important;
+    font-size: 11px !important;
+    border-width: 2px !important;
+    /* Move button further right to avoid D-Pad */
+    left: 140px !important;
+    bottom: 12px !important;
+  }
+}
+
+/* Even smaller on very small square screens (dGen1 ~480x480) */
+@media (min-aspect-ratio: 4/5) and (max-aspect-ratio: 5/4) and (max-width: 520px) {
+  .inventory-button {
+    /* Even more compact for dGen1 */
+    padding: 6px 10px !important;
+    font-size: 10px !important;
+    border-width: 2px !important;
+    /* Position further right to clear D-Pad (120px size + 20px margin + buffer) */
+    left: 150px !important;
+    bottom: 10px !important;
+  }
+
+  /* Hide the icon on very small screens to save space */
+  .inventory-button i {
+    display: none !important;
+  }
+}

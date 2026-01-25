@@ -730,6 +730,7 @@ function AppContent() {
 
       {/* Inventory Button */}
       <button
+        className="inventory-button"
         onClick={handleInventoryOpen}
         style={{
           position: 'fixed',

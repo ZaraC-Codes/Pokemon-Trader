@@ -40,7 +40,9 @@
 body {
   margin: 0;
   display: flex;
-  place-items: center;
+  /* Remove place-items: center to prevent vertical centering causing top gap */
+  justify-content: center;
+  align-items: flex-start;
   min-width: 320px;
   min-height: 100vh;
   image-rendering: pixelated;
