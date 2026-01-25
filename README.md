@@ -85,7 +85,11 @@ Each Pokemon relocates after 3 failed attempts, so you have up to three chances.
 
 Win a Pokemon NFT
 
-On a successful catch, the PokeballGame contract uses Pyth Entropy randomness and pulls a Pokemon card NFT from the SlabMachine → SlabNFTManager pipeline.
+On a successful catch, the PokeballGame contract uses Pyth Entropy randomness to determine both the catch outcome and which NFT you receive.
+
+SlabNFTManager holds a pool of Pokemon card NFTs. When you win, a random index is selected from that pool using Pyth Entropy, so neither players nor on‑chain observers can predict which card comes next.
+
+The platform covers Entropy fees from a small APE buffer, so players only pay ball prices.
 
 The NFT is transferred to your wallet and appears both:
 
@@ -97,7 +101,7 @@ An in‑game Help modal (accessible via a “?” button) summarizes these steps
 
 Architecture Overview
 Smart Contracts (ApeChain Mainnet)
-PokeballGame v1.6.0 (proxy)
+PokeballGame v1.7.0 (proxy)
 
 Unified APE/USDC.e payments; APE is auto‑swapped to USDC.e via Camelot DEX.
 
@@ -105,13 +109,15 @@ Uses Pyth Entropy for verifiable randomness instead of POP VRNG.
 
 Handles ball purchases, throwBall, randomness callbacks, and NFT award logic.
 
-Routes 97% of spend to SlabNFTManager (NFT pool) and 3% to the treasury as fees, in USDC.e.
+Routes ~96.5% of spend to SlabNFTManager (NFT pool) and 3% to the treasury as fees, in USDC.e. A small APE buffer (~0.5%) is retained to fund Entropy fees and SlabMachine pull gas, so players pay only ball prices.
 
-SlabNFTManager v2.2.0 (proxy)
+SlabNFTManager v2.3.0 (proxy)
 
-Holds the USDC.e revenue and auto‑purchases NFTs from SlabMachine when the balance reaches the pull price (51 USDC.e).
+Holds USDC.e revenue and a pool of Pokemon card NFTs. Auto‑purchases new NFTs from SlabMachine when the balance reaches the pull price (51 USDC.e).
 
-Tracks NFT inventory, awards NFTs to caught players, and includes recovery utilities for NFTs received via transferFrom.
+When a catch succeeds, Pyth Entropy is used to select a random index from the NFT pool—no deterministic "next in array" selection. This ensures unpredictability for players and on‑chain observers.
+
+Tracks NFT inventory, awards NFTs to winners, and includes recovery utilities for NFTs received via transferFrom.
 
 Slab NFT Pokemon Cards
 
@@ -135,7 +141,7 @@ This section shows how this implementation satisfies the Testing Checklist and c
 
 Deposit functionality works with APE
 
-APE payments route through PokeballGame v1.6.0, which auto‑swaps APE to USDC.e and records the deposit for RNG and revenue accounting.
+APE payments route through PokeballGame v1.7.0, which auto‑swaps APE to USDC.e and records the deposit for RNG and revenue accounting.
 
 Deposit functionality works with USDC.e
 

@@ -1077,7 +1077,7 @@ Pokemon catching mini-game with provably fair mechanics:
 - Implementation (v1.4.1): `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` (superseded)
 - Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5` (legacy)
 
-**v1.5.0 Unified Payment Flow:**
+**v1.7.0 Unified Payment Flow:**
 All payments (APE or USDC.e) follow the same economics:
 ```
 User pays in APE or USDC.e
@@ -1085,10 +1085,22 @@ User pays in APE or USDC.e
 APE → auto-swap to USDC.e via Camelot DEX
 USDC.e → pass through directly
     ↓
-Split: 3% → accumulatedUSDCFees, 97% → SlabNFTManager.depositRevenue()
+Split: 3% → treasury (accumulatedUSDCFees)
+       ~96.5% → SlabNFTManager.depositRevenue() (NFT pool)
+       ~0.5% → APE buffer for Entropy fees + SlabMachine pull gas
     ↓
 SlabNFTManager.checkAndPurchaseNFT() triggers auto-buy if ≥$51
+    ↓
+On catch success: random NFT selected from pool via Pyth Entropy
 ```
+
+**APE Buffer for Entropy/Ops (~0.5%):**
+A small slice of revenue is retained in APE to fund:
+- Pyth Entropy fees for catch randomness (~0.073 APE per throw)
+- SlabMachine pull gas when auto-purchasing NFTs
+- Future randomness requests
+
+This buffer is platform-controlled and not withdrawable as player rewards. It ensures players pay only ball prices while the platform covers Entropy and gas costs. Effective RTP for players remains ~97%.
 
 **Payment Methods (v1.5.0):**
 | Token | Method | Approval Required | What Happens |
@@ -1101,14 +1113,16 @@ SlabNFTManager.checkAndPurchaseNFT() triggers auto-buy if ≥$51
 - WAPE: `0x48b62137EdfA95a428D35C09E44256a739F6B557`
 - Slippage: Configurable (default 1%)
 
-**Fee Structure (v1.5.0 - Unified USDC.e):**
+**Fee Structure (v1.7.0 - Unified USDC.e + APE Buffer):**
 Users pay the **exact ball price** with no markup. Fees are split internally:
-| User Pays | Treasury (3%) | NFT Pool (97%) |
-|-----------|--------------|----------------|
-| $1.00 | $0.03 | $0.97 |
-| $10.00 | $0.30 | $9.70 |
-| $25.00 | $0.75 | $24.25 |
-| $49.90 | $1.50 | $48.40 |
+| User Pays | Treasury (3%) | NFT Pool (~96.5%) | APE Buffer (~0.5%) |
+|-----------|--------------|-------------------|-------------------|
+| $1.00 | $0.03 | ~$0.965 | ~$0.005 |
+| $10.00 | $0.30 | ~$9.65 | ~$0.05 |
+| $25.00 | $0.75 | ~$24.13 | ~$0.12 |
+| $49.90 | $1.50 | ~$48.15 | ~$0.25 |
+
+The APE buffer funds Entropy fees and SlabMachine pull gas. Players still see ~97% RTP.
 
 **v1.4.1 Bug Fix:** Previous versions calculated fees from `msg.value` (which could include user-sent buffer), causing users to overpay. Now fees are calculated from the exact required amount.
 
@@ -1152,14 +1166,15 @@ To check current price: `await contract.apePriceUSD()` → returns 8-decimal val
 - **v1.4.1:** Users pay exact ball price - no fee markup (fees split internally)
 - USDC.e payments use ERC-20 `transferFrom` (requires approval)
 - **v1.6.0:** Pyth Entropy integration for fair randomness (replaces POP VRNG)
-- 97% revenue sent to SlabNFTManager, 3% platform fee to treasury
+- **v1.7.0:** Revenue split: 3% treasury, ~96.5% NFT pool, ~0.5% APE buffer for Entropy/ops
 - Delegates NFT management to SlabNFTManager
 - Up to 20 active Pokemon spawns
 - Max 3 throw attempts per Pokemon before relocation
 - **v1.3.0:** Configurable ball prices via `setBallPrice()`
 - **v1.3.0:** $49.90 max purchase cap per transaction (`MAX_PURCHASE_USD`)
 - **v1.3.0:** Optional revert if no NFT available on catch (`revertOnNoNFT`)
-- **v1.7.0:** Random NFT selection from inventory using Pyth Entropy (no extra fee)
+- **v1.7.0:** Random NFT selection from inventory using Pyth Entropy—no deterministic "next in array" selection
+- **v1.7.0:** Platform pays Entropy fees from APE buffer; players pay only ball prices
 
 **Key Functions:**
 - `purchaseBalls(ballType, quantity, useAPE)` - Buy balls (if useAPE=true, send APE via msg.value)
@@ -1255,10 +1270,11 @@ npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_3.cjs --network ap
 npx hardhat run contracts/deployment/upgrade_PokeballGameV7.cjs --network apechain      # Second
 ```
 
-**v1.5.0 Payment Flow:**
-- **APE payments**: User sends native APE → contract wraps to WAPE → swaps via Camelot to USDC.e → splits 3%/97%
-- **USDC.e payments**: User sends USDC.e (requires approval) → splits 3%/97% directly
-- **Both paths**: 97% goes to `SlabNFTManager.depositRevenue()` then `checkAndPurchaseNFT()`
+**v1.7.0 Payment Flow:**
+- **APE payments**: User sends native APE → contract wraps to WAPE → swaps via Camelot to USDC.e → splits 3% treasury / ~96.5% NFT pool / ~0.5% APE buffer
+- **USDC.e payments**: User sends USDC.e (requires approval) → same split
+- **Both paths**: ~96.5% goes to `SlabNFTManager.depositRevenue()` then `checkAndPurchaseNFT()`
+- **APE buffer**: ~0.5% retained in APE to fund Entropy fees and SlabMachine pull gas (platform-controlled, not player rewards)
 - **Fee withdrawal**: Owner calls `withdrawUSDCFees()` to send accumulated USDC.e to treasury
 
 **Post-Upgrade Configuration (v1.3.0):**
@@ -1308,8 +1324,9 @@ NFT inventory management and auto-purchase from SlabMachine:
 **Features:**
 - UUPS upgradeable proxy pattern
 - Max 10 NFTs in inventory (v1.0.0) / **Max 20 NFTs (v2.0.0)**
+- Holds a pool of Pokemon card NFTs for random award on catch success
 - Auto-purchase when USDC.e balance >= $51
-- Awards NFTs to Pokemon catchers
+- **v2.3.0:** Random NFT selection from pool using Pyth Entropy—no deterministic "next in array" selection
 - Integrates with SlabMachine for NFT purchasing
 - ERC721Receiver for receiving NFTs
 - **v2.0.0:** `setOwnerWallet()` for ownership transfer with event
@@ -1394,7 +1411,10 @@ npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_3.cjs --network ap
 ```
 Player → PokeballGame.purchaseBalls()
     ↓
-PokeballGame → SlabNFTManager.depositRevenue(97%)
+Revenue split:
+  - 3% → treasury (accumulatedUSDCFees)
+  - ~96.5% → SlabNFTManager.depositRevenue() (NFT pool)
+  - ~0.5% → APE buffer for Entropy fees + SlabMachine pull gas
     ↓
 SlabNFTManager → SlabMachine.pull() (when >= $51)
     ↓
@@ -1417,6 +1437,10 @@ PokeballGame v1.7.0+ → SlabNFTManager.awardNFTToWinnerWithRandomness(player, r
 SlabNFTManager v2.3.0 → Random index selection via (randomNumber >> 128) % inventorySize
     ↓
 O(1) swap-and-pop removal → Random NFT transferred to Player
+
+Note: The APE buffer is platform-controlled and not withdrawable as player rewards.
+It exists to guarantee randomness and SlabMachine pulls without charging players extra fees.
+Effective RTP for players remains ~97%.
 ```
 
 **SlabMachine VRF Flow (Slab Reveal):**

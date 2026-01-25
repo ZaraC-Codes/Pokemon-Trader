@@ -145,6 +145,7 @@ Create an on-screen terminal or experience within the pixelverse that allows use
 3. **Payout Function**
 
    - Transfer Pokemon card NFT to winner's wallet
+   - NFT selection uses verifiable randomness (Pyth Entropy) to pick a random card from the pool
    - Handle NFT transfer from contract to user
    - Emit events for tracking
 
@@ -215,7 +216,16 @@ contract PixelverseGachapon {
 - Implemented through:
   - Win probability scaling
   - NFT value distribution
-  - Fair random number generation using **POP VRNG** to ensure verifiable fairness
+  - Fair random number generation using **Pyth Entropy** to ensure verifiable fairness
+
+#### Randomness Coverage (Implementation Note)
+
+The game uses verifiable randomness (Pyth Entropy) for two decisions:
+
+1. **Catch success/failure** – determines whether a throw wins.
+2. **NFT selection** – when a player wins, a random index is selected from the SlabNFTManager pool, so the card awarded is unpredictable.
+
+The 97% RTP target is still respected. Approximately 3% goes to the treasury, ~96.5% funds the NFT pool (USDC.e used to purchase cards), and a sub‑percent slice (~0.5%) is held in APE to cover Entropy gas and SlabMachine pull costs. This APE buffer is platform‑controlled and not withdrawable as player rewards; it exists solely to guarantee randomness and future NFT pulls without charging players extra fees.
 
 ### Integration Points
 
