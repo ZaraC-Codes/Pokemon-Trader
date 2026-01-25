@@ -23,7 +23,7 @@
  * ```
  */
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import {
   useTransactionHistory,
   type Transaction,
@@ -38,6 +38,21 @@ import {
   getTransactionUrl,
 } from '../../hooks/useTransactionHistory';
 import { getNftUrl, RELATED_CONTRACTS } from '../../services/pokeballGameConfig';
+
+// ============================================================
+// CACHED STATS TYPE
+// ============================================================
+
+interface CachedStats {
+  purchases: number;
+  throws: number;
+  caught: number;
+  failed: number;
+  catchRate: number;
+  totalSpentUSD: number;
+  totalSpentAPE: number;
+  totalSpentUSDC: number;
+}
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -259,6 +274,29 @@ const styles = {
     textAlign: 'center' as const,
     padding: '40px',
     color: '#888',
+  },
+  statsLoadingBar: {
+    display: 'flex',
+    gap: '16px',
+    marginBottom: '16px',
+    padding: '12px',
+    backgroundColor: '#2a2a2a',
+    border: '1px solid #444',
+    flexWrap: 'wrap' as const,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statsLoadingText: {
+    color: '#888',
+    fontSize: '12px',
+    fontStyle: 'italic' as const,
+  },
+  skeleton: {
+    display: 'inline-block',
+    backgroundColor: '#3a3a3a',
+    borderRadius: '2px',
+    animation: 'pulse 1.5s ease-in-out infinite',
   },
 };
 
@@ -516,6 +554,11 @@ export function TransactionHistory({
     totalCount,
   } = useTransactionHistory(playerAddress);
 
+  // Track if we've ever loaded data (to distinguish first load from refetch)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  // Cache the last known stats to avoid flashing zeros during refetch
+  const cachedStatsRef = useRef<CachedStats | null>(null);
+
   // Calculate stats including spending totals for NFT trigger visibility
   const stats = useMemo(() => {
     let purchases = 0;
@@ -576,6 +619,32 @@ export function TransactionHistory({
     };
   }, [transactions]);
 
+  // Update cache when we have real data
+  useEffect(() => {
+    if (!isLoading && transactions.length > 0) {
+      setHasLoadedOnce(true);
+      cachedStatsRef.current = stats;
+    } else if (!isLoading && transactions.length === 0 && !error) {
+      // Loaded but empty - mark as loaded
+      setHasLoadedOnce(true);
+    }
+  }, [isLoading, transactions.length, stats, error]);
+
+  // Reset hasLoadedOnce when playerAddress changes
+  useEffect(() => {
+    setHasLoadedOnce(false);
+    cachedStatsRef.current = null;
+  }, [playerAddress]);
+
+  // Determine which stats to display: during first load, show nothing (loading state)
+  // During refetch, show cached stats to avoid flash of zeros
+  const displayStats = isLoading && !hasLoadedOnce ? null : (
+    transactions.length > 0 ? stats : cachedStatsRef.current
+  );
+
+  // Is this the initial load (never loaded before)?
+  const isFirstLoad = isLoading && !hasLoadedOnce;
+
   if (!isOpen) return null;
 
   return (
@@ -601,32 +670,39 @@ export function TransactionHistory({
           </div>
         )}
 
-        {/* Stats Bar */}
-        {playerAddress && transactions.length > 0 && (
+        {/* Stats Bar - Loading State (first load only) */}
+        {playerAddress && isFirstLoad && (
+          <div style={styles.statsLoadingBar}>
+            <span style={styles.statsLoadingText}>Loading history...</span>
+          </div>
+        )}
+
+        {/* Stats Bar - Data loaded (or cached during refetch) */}
+        {playerAddress && displayStats && (
           <>
             <div style={styles.statsBar}>
               <span style={styles.statItem}>
                 Purchases:
                 <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.purchase }}>
-                  {stats.purchases}
+                  {displayStats.purchases}
                 </span>
               </span>
               <span style={styles.statItem}>
                 Throws:
                 <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.throw }}>
-                  {stats.throws}
+                  {displayStats.throws}
                 </span>
               </span>
               <span style={styles.statItem}>
                 Caught:
                 <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.caught }}>
-                  {stats.caught}
+                  {displayStats.caught}
                 </span>
               </span>
               <span style={styles.statItem}>
                 Escaped:
                 <span style={{ ...styles.statValue, color: TX_TYPE_COLORS.failed }}>
-                  {stats.failed}
+                  {displayStats.failed}
                 </span>
               </span>
               <span style={styles.statItem}>
@@ -634,10 +710,10 @@ export function TransactionHistory({
                 <span
                   style={{
                     ...styles.statValue,
-                    color: stats.catchRate >= 50 ? '#00ff88' : '#ffcc00',
+                    color: displayStats.catchRate >= 50 ? '#00ff88' : '#ffcc00',
                   }}
                 >
-                  {stats.catchRate}%
+                  {displayStats.catchRate}%
                 </span>
               </span>
             </div>
@@ -646,22 +722,22 @@ export function TransactionHistory({
               <span style={styles.statItem}>
                 Total Spent (USD):
                 <span style={{ ...styles.statValue, color: '#00ff88' }}>
-                  ${stats.totalSpentUSD.toFixed(2)}
+                  ${displayStats.totalSpentUSD.toFixed(2)}
                 </span>
               </span>
-              {stats.totalSpentAPE > 0 && (
+              {displayStats.totalSpentAPE > 0 && (
                 <span style={styles.statItem}>
                   APE Used:
                   <span style={{ ...styles.statValue, color: '#ffcc00' }}>
-                    {stats.totalSpentAPE.toFixed(2)}
+                    {displayStats.totalSpentAPE.toFixed(2)}
                   </span>
                 </span>
               )}
-              {stats.totalSpentUSDC > 0 && (
+              {displayStats.totalSpentUSDC > 0 && (
                 <span style={styles.statItem}>
                   USDC.e Used:
                   <span style={{ ...styles.statValue, color: '#00ff00' }}>
-                    ${stats.totalSpentUSDC.toFixed(2)}
+                    ${displayStats.totalSpentUSDC.toFixed(2)}
                   </span>
                 </span>
               )}
@@ -686,15 +762,15 @@ export function TransactionHistory({
           </div>
         )}
 
-        {/* Loading State */}
-        {playerAddress && isLoading && (
+        {/* Loading State - only show if first load AND no cached data to display */}
+        {playerAddress && isFirstLoad && !displayStats && (
           <div style={styles.loadingState}>
             Loading transaction history...
           </div>
         )}
 
-        {/* Empty State */}
-        {playerAddress && !isLoading && transactions.length === 0 && !error && (
+        {/* Empty State - only after first successful load with no data */}
+        {playerAddress && hasLoadedOnce && !isLoading && transactions.length === 0 && !error && (
           <div style={styles.emptyState}>
             No transactions found.
             <br />
@@ -704,17 +780,22 @@ export function TransactionHistory({
           </div>
         )}
 
-        {/* Transaction List */}
-        {playerAddress && !isLoading && transactions.length > 0 && (
+        {/* Transaction List - show transactions OR cached list during refetch */}
+        {playerAddress && (transactions.length > 0 || (isLoading && hasLoadedOnce && cachedStatsRef.current)) && (
           <div style={styles.transactionList}>
             {transactions.map((tx) => (
               <TransactionCard key={tx.id} tx={tx} />
             ))}
+            {isLoading && hasLoadedOnce && transactions.length === 0 && (
+              <div style={{ ...styles.loadingState, padding: '20px' }}>
+                Refreshing...
+              </div>
+            )}
           </div>
         )}
 
-        {/* Load More Button */}
-        {playerAddress && !isLoading && transactions.length > 0 && (
+        {/* Load More Button - show when we have transactions */}
+        {playerAddress && transactions.length > 0 && (
           <button
             style={{
               ...styles.loadMoreButton,
