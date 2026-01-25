@@ -42,7 +42,7 @@ import {
   type BallType,
   type TokenType,
 } from '../../hooks/pokeballGame';
-import { useApeBalanceWithUsd, useUsdcBalance } from '../../hooks/useTokenBalances';
+import { useApeBalanceWithUsd, useUsdcBalance, useApeUsdPrice } from '../../hooks/useTokenBalances';
 import {
   thirdwebClient,
   apechain,
@@ -934,8 +934,12 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   const apeBalance = useApeBalanceWithUsd(playerAddress);
   const usdcBalance = useUsdcBalance(playerAddress);
 
-  // Get APE price from contract for accurate cost calculation
+  // Get APE price from contract for accurate cost calculation (used for tx amounts)
   const { price: apePriceUSD } = useApePriceFromContract();
+
+  // Get real-time APE price from CoinGecko for display purposes
+  // The contract's apePriceUSD may be stale, so we show the live market price to users
+  const { price: liveApePrice } = useApeUsdPrice();
 
   // Contract diagnostics for environment sanity checks
   const diagnostics = useContractDiagnostics();
@@ -1341,12 +1345,11 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             <div style={{ color: '#00ff88', fontSize: '12px', marginBottom: '4px' }}>
               APE payments send native APE directly - no approval step required!
             </div>
-            <div style={{ color: '#888', fontSize: '10px' }}>
-              Current rate: 1 APE ≈ ${(Number(apePriceUSD) / 1e8).toFixed(4)} USD
-              <span style={{ marginLeft: '8px', color: '#666' }}>
-                (updates periodically)
-              </span>
-            </div>
+            {liveApePrice && (
+              <div style={{ color: '#888', fontSize: '10px' }}>
+                Current APE price: ~${liveApePrice.toFixed(2)} USD
+              </div>
+            )}
           </div>
         )}
 
