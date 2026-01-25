@@ -2,6 +2,16 @@
 
 Pokemon Trader is a 2D pixel-art, Pokemon-style game on **ApeChain** where players buy Poke Balls with APE or USDC.e, explore the map, and attempt to catch Pokemon for a chance to win real **Pokemon card NFTs** from the Slab collection.
 
+## Challenge Context
+
+This project is a custom implementation of the **Pokemon Trader** challenge app created by @simplefarmer69. The original challenge brief and baseline app are documented in `README_CHALLENGE.md`.
+
+I implemented the Pokéball catch game mechanics, UI/UX polish, and on-chain integrations as my submission to this challenge, and this repo represents my contribution on top of the original work.
+
+### Challenge Result
+
+This implementation was selected as the **winner** of the Pixelverse / Slab.cash Pokéball game challenge.
+
 ---
 
 ## How to Run
@@ -183,16 +193,26 @@ Volume control and terminal overlays
 
 Audio controls and the inventory/terminal overlays are implemented so they do not reset or interfere with the core game loop.
 
-License
-This challenge entry inherits the license of the original Pokemon Trader / Slab Cash Challenge repository.
-If a specific license is later chosen by the maintainers (e.g., MIT), this entry is intended to be compatible with that choice.
+### Owner / Maintenance Scripts
 
-Contributing
+For contract revenue verification and withdraw flows (e.g. `scripts/verifyrevenueflow.cjs`, `scripts/withdrawtestfunds.cjs`), see `CLAUDE.md` under “New Features – SlabNFTManager Contract v2.2.0” and “Development Notes – Revenue & Withdraw Scripts.”
+
+### License
+
+This repository is a public fork of the original Pokemon Trader challenge app, which did not declare a formal license in its root.
+
+- Core game code, art, and original docs are authored by the upstream Pokemon Trader / Pixelverse / Slab.cash team.
+- My contributions (Pokéball catch game, UI/UX changes, and integration work) are shared for learning and portfolio purposes only and should be treated as extensions to that upstream codebase.
+
+For any commercial or production use, please coordinate with the original project owners regarding licensing.
+
+### Contributing
+
 This branch is submitted as part of the Slab Cash Gachapon Challenge.
 External contributions are not expected during the judging period, but forks are welcome for experimentation or further development.
 
 For maintainers or reviewers, the best starting points are:
 
-docs/README_CHALLENGE.md – original challenge description and checklist.
+README_CHALLENGE.md – original challenge description and checklist.
 
 CLAUDE.md – full technical log, contract versions, debugging history, and agent-oriented documentation for this implementation.
