@@ -12,9 +12,26 @@ dist
 dist-ssr
 *.local
 
+# Hardhat / Foundry build artifacts
+artifacts/
+cache/
+typechain/
+typechain-types/
+coverage/
+coverage.json
+
+# Windows reserved file names (can be created accidentally)
+NUL
+CON
+PRN
+AUX
+COM[1-9]
+LPT[1-9]
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+.claude/
 .idea
 .DS_Store
 *.suo
