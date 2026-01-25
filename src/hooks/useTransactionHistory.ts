@@ -143,12 +143,14 @@ const BALL_PRICES_USDC: Record<number, bigint> = {
 };
 
 // Event ABIs for parsing
+// IMPORTANT: These must match the actual contract event signatures exactly
+// ThrowAttempted uses uint64 sequenceNumber (not uint256 requestId)
 const EVENT_ABIS = {
   BallPurchased: parseAbiItem(
     'event BallPurchased(address indexed buyer, uint8 ballType, uint256 quantity, bool usedAPE, uint256 totalAmount)'
   ),
   ThrowAttempted: parseAbiItem(
-    'event ThrowAttempted(address indexed thrower, uint256 pokemonId, uint8 ballTier, uint256 requestId)'
+    'event ThrowAttempted(address indexed thrower, uint256 pokemonId, uint8 ballTier, uint64 sequenceNumber)'
   ),
   CaughtPokemon: parseAbiItem(
     'event CaughtPokemon(address indexed catcher, uint256 pokemonId, uint256 nftTokenId)'
@@ -541,7 +543,8 @@ export function useTransactionHistory(
               pokemonId: BigInt(args.pokemonId?.toString() ?? '0'),
               ballType,
               ballName: getBallConfig(ballType as 0 | 1 | 2 | 3)?.name ?? 'Unknown Ball',
-              requestId: BigInt(args.requestId?.toString() ?? '0'),
+              // sequenceNumber is the Pyth Entropy sequence number (v1.6.0+)
+              requestId: BigInt(args.sequenceNumber?.toString() ?? '0'),
             } as ThrowTransaction);
             break;
           }

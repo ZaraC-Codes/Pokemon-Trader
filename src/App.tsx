@@ -15,7 +15,7 @@ import { CatchWinModal } from './components/CatchWinModal';
 import { CatchResultModal, type CatchResultState } from './components/CatchResultModal';
 import { AdminDevTools } from './components/AdminDevTools';
 import { HelpModal } from './components/HelpModal';
-import { useCaughtPokemonEvents, useFailedCatchEvents, type BallType } from './hooks/pokeballGame';
+import { useCaughtPokemonEvents, useFailedCatchEvents, useBallPurchasedEvents, type BallType } from './hooks/pokeballGame';
 import { useActiveWeb3React } from './hooks/useActiveWeb3React';
 import { contractService } from './services/contractService';
 import type { TradeListing } from './services/contractService';
@@ -42,7 +42,29 @@ interface ToastMessage {
   type: 'warning' | 'error' | 'success';
 }
 
-const queryClient = new QueryClient();
+// Configure QueryClient with sensible retry and timeout settings
+// to prevent RPC request spam when the proxy is slow or overwhelmed
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Reduce retries to prevent request spam on RPC timeouts
+      retry: 2, // Default is 3, reduce to 2
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff: 1s, 2s, 4s... max 30s
+      // Increase stale time to reduce refetch frequency
+      staleTime: 30_000, // 30 seconds (default is 0)
+      // Prevent refetching on window focus during active session (reduces RPC spam)
+      refetchOnWindowFocus: false,
+      // Don't refetch on reconnect (wagmi handles reconnection)
+      refetchOnReconnect: false,
+      // Network mode: always attempt even if offline
+      networkMode: 'always',
+    },
+    mutations: {
+      // Mutations (writes) shouldn't retry automatically
+      retry: false,
+    },
+  },
+});
 
 // Expose test functions to window for debugging
 declare global {
@@ -81,6 +103,7 @@ function AppContent() {
   // Track which events we've already processed to avoid duplicates
   const processedCatchEventsRef = useRef<Set<string>>(new Set());
   const processedFailEventsRef = useRef<Set<string>>(new Set());
+  const processedPurchaseEventsRef = useRef<Set<string>>(new Set());
 
   // Ref for triggering visual throw animation in Phaser
   const visualThrowRef = useRef<((pokemonId: bigint, ballType: BallType) => void) | null>(null);
@@ -104,6 +127,9 @@ function AppContent() {
   // Listen for FailedCatch events
   const { events: failedEvents } = useFailedCatchEvents();
 
+  // Listen for BallPurchased events (for instant inventory update)
+  const { events: purchaseEvents } = useBallPurchasedEvents();
+
   // Handle caught Pokemon events
   useEffect(() => {
     if (caughtEvents.length === 0) return;
@@ -119,10 +145,11 @@ function AppContent() {
     if (account && latestEvent.args.catcher.toLowerCase() === account.toLowerCase()) {
       console.log('[App] CaughtPokemon event for current user:', latestEvent.args);
 
-      // Invalidate ball inventory query to trigger instant refetch
-      // Uses wagmi's query key pattern for readContract
-      console.log('[App] Invalidating ball inventory query...');
-      queryClient.invalidateQueries({ queryKey: ['readContract'] });
+      // Invalidate ALL queries to force refetch of ball inventory
+      // The specific query key for wagmi's useReadContract is complex and dynamic
+      // So we invalidate everything to ensure inventory updates immediately
+      console.log('[App] CaughtPokemon - Invalidating ALL queries for instant inventory refresh');
+      queryClient.invalidateQueries();
 
       // Notify Phaser to reset CatchMechanicsManager state
       if (catchResultRef.current) {
@@ -159,10 +186,11 @@ function AppContent() {
     if (account && latestEvent.args.thrower.toLowerCase() === account.toLowerCase()) {
       console.log('[App] FailedCatch event for current user:', latestEvent.args);
 
-      // Invalidate ball inventory query to trigger instant refetch
-      // Uses wagmi's query key pattern for readContract
-      console.log('[App] Invalidating ball inventory query...');
-      queryClient.invalidateQueries({ queryKey: ['readContract'] });
+      // Invalidate ALL queries to force refetch of ball inventory
+      // The specific query key for wagmi's useReadContract is complex and dynamic
+      // So we invalidate everything to ensure inventory updates immediately
+      console.log('[App] FailedCatch - Invalidating ALL queries for instant inventory refresh');
+      queryClient.invalidateQueries();
 
       // Notify Phaser to reset CatchMechanicsManager state
       if (catchResultRef.current) {
@@ -186,6 +214,34 @@ function AppContent() {
       });
     }
   }, [failedEvents, account, queryClient]);
+
+  // Handle ball purchase events - update inventory instantly
+  useEffect(() => {
+    if (purchaseEvents.length === 0) return;
+
+    const latestEvent = purchaseEvents[purchaseEvents.length - 1];
+    const eventKey = `${latestEvent.transactionHash}-${latestEvent.logIndex}`;
+
+    // Skip if we've already processed this event
+    if (processedPurchaseEventsRef.current.has(eventKey)) return;
+    processedPurchaseEventsRef.current.add(eventKey);
+
+    // Only update for current user's purchases
+    if (account && latestEvent.args.buyer.toLowerCase() === account.toLowerCase()) {
+      console.log('[App] BallPurchased event for current user:', latestEvent.args);
+
+      // Invalidate ALL queries to force refetch of ball inventory
+      // This ensures the shop and HUD show updated ball counts immediately
+      console.log('[App] BallPurchased - Invalidating ALL queries for instant inventory refresh');
+      queryClient.invalidateQueries();
+
+      // Show a success toast
+      const ballNames = ['Poké Ball', 'Great Ball', 'Ultra Ball', 'Master Ball'];
+      const ballName = ballNames[Number(latestEvent.args.ballType)] || 'Ball';
+      const quantity = Number(latestEvent.args.quantity);
+      addToast(`Purchased ${quantity}x ${ballName}!`, 'success');
+    }
+  }, [purchaseEvents, account, queryClient, addToast]);
 
   useEffect(() => {
     // Expose test functions to window for browser console testing

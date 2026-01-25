@@ -587,6 +587,33 @@ npm run dev
 - Both must use the same env var name (`VITE_POKEBALL_GAME_ADDRESS`) and ABI version
 - Fix: Ensure both configs import the same ABI (currently V5) and read the same env var
 
+**Throws disappear from Transaction History after page refresh:**
+- Cause: Event ABI type mismatch in `useTransactionHistory.ts`
+- The `ThrowAttempted` event uses `uint64 sequenceNumber` (Pyth Entropy v1.6.0+)
+- The hook was incorrectly using `uint256 requestId` which caused event decoding to fail
+- Symptoms: Throws appear in real-time (via watchers) but disappear after refresh
+- Fix: Updated EVENT_ABIS to use correct signature:
+  - `event ThrowAttempted(address indexed thrower, uint256 pokemonId, uint8 ballTier, uint64 sequenceNumber)`
+- Also updated parsing code to use `args.sequenceNumber` instead of `args.requestId`
+
+**Ball inventory not updating after purchase (shop/HUD shows old counts):**
+- Cause: Missing `BallPurchased` event watcher in App.tsx
+- Only `CaughtPokemon` and `FailedCatch` events were being watched for cache invalidation
+- Symptoms: Purchase succeeds but ball counts don't update until page refresh
+- Fix: Added `useBallPurchasedEvents()` hook and event handler in App.tsx
+- Now invalidates all queries on purchase and shows success toast with ball name/quantity
+
+**RPC request spam causing "net::ERR_INSUFFICIENT_RESOURCES" errors:**
+- Cause 1: React Query default retry behavior (3 retries) caused request spam on RPC timeouts
+- Cause 2: No guard preventing duplicate throw attempts from rapid clicks
+- Cause 3: Throw fee polling too aggressive (refetchInterval was active)
+- Symptoms: Console shows rapid error logs, wallet never opens, localhost:5173/api/rpc errors
+- Fixes applied:
+  - QueryClient configured with reduced retries (2), exponential backoff, 30s staleTime
+  - Disabled `refetchOnWindowFocus` and `refetchOnReconnect` to reduce RPC calls
+  - `useThrowBall` now has `isThrowInProgress` guard flag to prevent duplicate throws
+  - `useThrowFee` polling reduced: staleTime 60s, refetchInterval disabled, retry 1
+
 **Verify 3%/97% revenue split is working correctly:**
 - Run: `node scripts/verify_revenue_flow.cjs` to check on-chain balances
 - Compares `APESwappedToUSDC` events against `accumulatedUSDCFees` and SlabNFTManager balance

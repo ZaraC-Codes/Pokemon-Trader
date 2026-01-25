@@ -145,6 +145,10 @@ export function useThrowBall(): UseThrowBallReturn {
   // Local error state for fee/gas estimation failures (blocks wallet popup)
   const [localError, setLocalError] = useState<Error | undefined>(undefined);
 
+  // Guard flag to prevent duplicate throw attempts while one is in progress
+  // This prevents RPC spam from multiple rapid clicks
+  const [isThrowInProgress, setIsThrowInProgress] = useState(false);
+
   // Fetch the current throw fee from contract (v1.6.0 - Pyth Entropy)
   const {
     data: throwFeeRaw,
@@ -157,7 +161,10 @@ export function useThrowBall(): UseThrowBallReturn {
     chainId: POKEBALL_GAME_CHAIN_ID,
     query: {
       enabled: isConfigured,
-      staleTime: 30_000, // Refresh every 30 seconds
+      staleTime: 60_000, // Consider fresh for 60 seconds (increased from 30)
+      refetchInterval: false, // Disable auto-polling to prevent RPC spam
+      retry: 1, // Only 1 retry on failure
+      retryDelay: 2000, // 2 second delay before retry
     },
   });
 
@@ -240,6 +247,16 @@ export function useThrowBall(): UseThrowBallReturn {
   // FAIL-SAFE: Blocks transaction if fee unavailable or gas estimation fails
   const write = useCallback(
     async (pokemonSlot: number, ballType: BallType): Promise<boolean> => {
+      // GUARD: Prevent duplicate throw attempts while one is in progress
+      // This prevents RPC spam from rapid clicks or retry loops
+      if (isThrowInProgress) {
+        console.warn('[useThrowBall] BLOCKED: Throw already in progress, ignoring duplicate request');
+        return false;
+      }
+
+      // Set guard flag immediately
+      setIsThrowInProgress(true);
+
       // Clear any previous local error
       setLocalError(undefined);
 
@@ -248,6 +265,7 @@ export function useThrowBall(): UseThrowBallReturn {
         const err = new Error('[useThrowBall] Contract address not configured');
         console.error(err.message);
         setLocalError(err);
+        setIsThrowInProgress(false); // Reset guard
         return false;
       }
 
@@ -256,6 +274,7 @@ export function useThrowBall(): UseThrowBallReturn {
         const err = new Error(`[useThrowBall] Invalid pokemon slot (must be 0-${MAX_ACTIVE_POKEMON - 1}): ${pokemonSlot}`);
         console.error(err.message);
         setLocalError(err);
+        setIsThrowInProgress(false); // Reset guard
         return false;
       }
 
@@ -276,6 +295,7 @@ export function useThrowBall(): UseThrowBallReturn {
           'Please check your connection and try again.'
         );
         setLocalError(err);
+        setIsThrowInProgress(false); // Reset guard
         return false;
       }
 
@@ -333,6 +353,7 @@ export function useThrowBall(): UseThrowBallReturn {
 
         const err = new Error(userMessage);
         setLocalError(err);
+        setIsThrowInProgress(false); // Reset guard
         return false;
       }
 
@@ -355,21 +376,37 @@ export function useThrowBall(): UseThrowBallReturn {
           value: feeToSend, // v1.6.0: Include Entropy fee
         });
         console.log('[useThrowBall] writeContract() called successfully');
+        // Note: Guard will be reset by the effect that watches isWritePending
       } catch (writeErr) {
         console.error('[useThrowBall] writeContract() threw:', writeErr);
+        setIsThrowInProgress(false); // Reset guard on immediate error
         throw writeErr;
       }
 
       return true;
     },
-    [writeContract, throwFee, isFeeLoading, feeReadError, publicClient, userAddress]
+    [writeContract, throwFee, isFeeLoading, feeReadError, publicClient, userAddress, isThrowInProgress]
   );
 
-  // Reset function - also clears local error state
+  // Reset guard flag when transaction completes (success or error)
+  useEffect(() => {
+    // Reset when writeContract finishes (isPending goes from true to false)
+    // or when a write error occurs
+    if (!isWritePending && isThrowInProgress) {
+      // Small delay to ensure state is consistent
+      const timer = setTimeout(() => {
+        setIsThrowInProgress(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isWritePending, isThrowInProgress, writeError]);
+
+  // Reset function - also clears local error state and guard flag
   const reset = useCallback(() => {
     setCurrentHash(undefined);
     setRequestId(undefined);
     setLocalError(undefined);
+    setIsThrowInProgress(false); // Reset guard
     resetWrite();
   }, [resetWrite]);
 

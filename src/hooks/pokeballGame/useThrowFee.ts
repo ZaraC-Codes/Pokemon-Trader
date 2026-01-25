@@ -94,8 +94,11 @@ export function useThrowFee(): UseThrowFeeReturn {
     chainId: POKEBALL_GAME_CHAIN_ID,
     query: {
       enabled: isConfigured,
-      staleTime: 30_000, // Refresh every 30 seconds
-      refetchInterval: 60_000, // Auto-refresh every minute
+      staleTime: 60_000, // Consider fresh for 60 seconds (was 30)
+      refetchInterval: false, // DISABLE auto-polling - fee rarely changes (was 60_000)
+      // Users can manually refresh or it will refetch when they open the catch modal
+      retry: 1, // Only 1 retry on failure to prevent spam
+      retryDelay: 2000, // 2 second delay before retry
     },
   });
 
