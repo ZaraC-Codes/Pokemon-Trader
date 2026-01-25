@@ -26,7 +26,13 @@
       "Bash(node -e:*)",
       "Bash(npm run dev:*)",
       "Bash(timeout:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(node scripts/withdraw_test_funds.cjs:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(ping:*)",
+      "Bash(npx kill-port:*)"
     ]
   }
 }
