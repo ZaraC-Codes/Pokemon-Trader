@@ -1,3 +1,6 @@
+/* Import touchscreen/square screen responsive styles */
+@import './styles/touchscreen.css';
+
 :root {
   font-family: 'Courier New', monospace;
   line-height: 1.5;

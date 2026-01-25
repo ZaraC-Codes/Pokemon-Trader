@@ -149,6 +149,17 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   └── abis/                    # Contract ABIs (erc721M.ts)
 │   │
 │   ├── utils/                   # Utility functions
+│   │   └── walletDetection.ts       # dGen1/Glyph wallet detection helpers
+│   │
+│   ├── connectors/              # Custom Wagmi wallet connectors
+│   │   ├── index.ts                 # Barrel export
+│   │   ├── ethereumPhoneConnector.ts # dGen1/ethOS wallet connector
+│   │   ├── glyphConnector.ts        # Glyph wallet connector
+│   │   └── customWallets.ts         # RainbowKit wallet definitions
+│   │
+│   ├── styles/                  # CSS stylesheets
+│   │   └── touchscreen.css          # Touch/square-screen responsive styles
+│   │
 │   └── utilities/               # Common helpers
 │
 ├── contracts/               # Smart contract files
@@ -651,6 +662,81 @@ Update `src/services/config.ts` or add to `src/config/abis/`
 3. Create service functions in `src/services/contractService.ts`
 
 ## New Features
+
+### Custom Wallet Support (dGen1 & Glyph)
+Custom Wagmi connectors for EthereumPhone dGen1 and Glyph wallets.
+
+**Location:** `src/connectors/`
+
+**Wallet Picker Position:** Custom wallets appear at **TOP** of RainbowKit modal in "ApeChain Wallets" group, before MetaMask and other standard wallets.
+
+**Supported Wallets:**
+1. **Glyph Wallet** - Yuga Labs' wallet for ApeChain (listed first)
+   - Social login (X, email, Apple ID)
+   - No KYC for purchases ≤$500
+   - Multi-chain swaps
+   - Works via SDK (`@use-glyph/sdk-react`)
+
+2. **dGen1 Wallet** - EthereumPhone device running ethOS
+   - ERC-4337 Account Abstraction
+   - Square screen (1:1) optimized
+   - Touchscreen-only interface
+   - Auto-detected on ethOS devices
+
+**Files:**
+| File | Purpose |
+|------|---------|
+| `ethereumPhoneConnector.ts` | Wagmi connector for dGen1 |
+| `glyphConnector.ts` | Wagmi connector for Glyph (with SDK fallback) |
+| `customWallets.ts` | RainbowKit wallet factory functions |
+| `walletDetection.ts` | Detection utilities for both wallets |
+| `touchscreen.css` | Touch-friendly responsive styles |
+
+**RainbowKit Integration:**
+Uses `connectorsForWallets` API (not `getDefaultConfig`) to ensure custom wallets appear at TOP:
+
+```typescript
+// src/services/apechainConfig.ts
+import { connectorsForWallets } from '@rainbow-me/rainbowkit';
+import { dGen1Wallet, glyphWallet } from '../connectors/customWallets';
+
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: 'ApeChain Wallets',
+      wallets: [glyphWallet, dGen1Wallet],  // Factory functions
+    },
+    {
+      groupName: 'Popular Wallets',
+      wallets: [metaMaskWallet, rainbowWallet, ...],
+    },
+  ],
+  { appName: 'Pokemon Trader', projectId: WALLETCONNECT_PROJECT_ID }
+);
+
+export const config = createConfig({ connectors, chains: [apeChainMainnet], ... });
+```
+
+**Environment Variables:**
+```env
+# ERC-4337 bundler for dGen1 (optional)
+VITE_BUNDLER_RPC_URL=https://api.pimlico.io/v2/33139/rpc
+
+# Glyph API key if required (optional)
+VITE_GLYPH_API_KEY=
+```
+
+**Detection Methods:**
+- dGen1: `window.ethereum.isEthereumPhone` or `window.__ETHOS_WALLET__`
+- Glyph: SDK-based (always available via connector)
+
+**Touchscreen Optimizations:**
+- Minimum 44px touch targets
+- No hover-only interactions
+- Active/pressed states instead of hover
+- Square screen layout (300x300px viewport)
+
+**Documentation:** See `docs/WALLET_INTEGRATION.md` for full setup and troubleshooting guide.
 
 ### FundingWidget (Bridge/Swap/Buy)
 Comprehensive wallet funding widget using ThirdWeb Universal Bridge:

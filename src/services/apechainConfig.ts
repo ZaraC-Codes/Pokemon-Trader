@@ -1,9 +1,23 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { http } from 'wagmi';
+import { connectorsForWallets } from '@rainbow-me/rainbowkit';
+import {
+  metaMaskWallet,
+  rainbowWallet,
+  coinbaseWallet,
+  walletConnectWallet,
+  injectedWallet,
+} from '@rainbow-me/rainbowkit/wallets';
+import { createConfig, http } from 'wagmi';
 import { defineChain } from 'viem';
+import { dGen1Wallet, glyphWallet } from '../connectors/customWallets';
+import { logWalletDetectionStatus } from '../utils/walletDetection';
 
 // Helper to check if we're in development mode
 const isDev = typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV;
+
+// Log wallet detection status on module load (for debugging)
+if (typeof window !== 'undefined') {
+  logWalletDetectionStatus();
+}
 
 // ApeChain Mainnet configuration
 // According to https://docs.apechain.com/contracts/Mainnet/contract-information
@@ -53,17 +67,60 @@ export const apeChainMainnet = defineChain({
   },
 } as const);
 
-export const config = getDefaultConfig({
-  appName: 'Pokemon Trader',
-  projectId: '3508d227dfa70cee7f6b68f4e1da9170',
+/**
+ * WalletConnect Project ID for RainbowKit.
+ * Get yours at: https://cloud.walletconnect.com/
+ */
+const WALLETCONNECT_PROJECT_ID = '3508d227dfa70cee7f6b68f4e1da9170';
+
+/**
+ * Create connectors with custom wallets at TOP of the wallet picker.
+ *
+ * Custom Wallets (appear FIRST in the wallet list):
+ * 1. Glyph Wallet - Yuga Labs' wallet for ApeChain (social login)
+ * 2. dGen1 Wallet - For EthereumPhone devices running ethOS
+ *
+ * Plus popular wallets (MetaMask, Rainbow, etc.)
+ */
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: 'ApeChain Wallets',
+      wallets: [glyphWallet, dGen1Wallet],
+    },
+    {
+      groupName: 'Popular Wallets',
+      wallets: [
+        metaMaskWallet,
+        rainbowWallet,
+        coinbaseWallet,
+        walletConnectWallet,
+        injectedWallet,
+      ],
+    },
+  ],
+  {
+    appName: 'Pokemon Trader',
+    projectId: WALLETCONNECT_PROJECT_ID,
+  }
+);
+
+/**
+ * Wagmi + RainbowKit configuration with custom wallet connectors.
+ *
+ * This uses createConfig (instead of getDefaultConfig) to support
+ * custom wallets appearing at the TOP of the wallet picker.
+ */
+export const config = createConfig({
+  connectors,
   chains: [apeChainMainnet],
-  ssr: false,
   transports: {
-    [apeChainMainnet.id]: http(isDev 
+    [apeChainMainnet.id]: http(isDev
       ? 'http://localhost:5173/api/rpc'  // Proxy through Vite dev server in development
       : 'https://apechain-mainnet.g.alchemy.com/v2/U6nPHGu_q380fQMfQRGcX'  // Direct URL in production
     ),
   },
+  ssr: false,
 });
 
 // Alchemy API key for NFT metadata (using the same key as RPC)
