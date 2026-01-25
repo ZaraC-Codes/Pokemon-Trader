@@ -1,103 +1,317 @@
-# Pokemon Trader - ApeChain Web3 Game
+# Pokemon Trader – Slab Cash Gachapon Challenge Entry
 
-A 2D pixel art game on ApeChain where users explore a map, see OTC marketplace trade listings as icons, and walk through a gorilla-shaped garden. Built with React, Phaser.js, and Rainbow wallet integration.
+Pokemon Trader is a 2D pixel-art, Pokemon-style game on **ApeChain** where players buy Poke Balls with APE or USDC.e, explore the map, and attempt to catch Pokemon for a chance to win real **Pokemon card NFTs** from the Slab collection.
+
+---
+
+## What's New
+
+- **dGen1/EthereumPhone Support** – First-class wallet integration for ethOS devices with ERC-4337 Account Abstraction and touch-optimized UI for 2.5"–3" square screens
+- **Glyph Wallet Support** – Fast onboarding (<75 seconds) and seamless multi-chain swaps, optimized for ApeChain
+- **RainbowKit Unified Wallet Picker** – 50+ wallet options with dGen1 and Glyph prominently featured at the top
+- **Random NFT Selection** – Pyth Entropy now determines both catch success AND which card you win (v1.7.0)
+- **Responsive Design** – Full support for compact 240px–360px viewports
+
+---
 
 ## Features
 
-- 🎮 Pokemon-style 2D pixel art gameplay
-- 🌐 Web3 integration with Rainbow wallet on ApeChain
-- 💱 Real-time OTC marketplace listings displayed as trade icons
-- 🦍 Gorilla-shaped garden area based on the mask PNG
-- 🎨 Pixel-perfect rendering matching GameBoy aesthetic
-- 🔄 Auto-refreshing trade listings every 30 seconds
+- 🎮 **Pixel Art Pokemon Game** – Explore a 2D world, find wild Pokemon, and throw balls to catch them
+- 🎴 **Win Real NFTs** – Successful catches award Pokemon card NFTs from the Slab collection
+- 💳 **Multi-Wallet Support** – Connect via RainbowKit with 50+ options including MetaMask, Rainbow, and WalletConnect
+- 📱 **dGen1/EthereumPhone** – Native support for ethOS devices with ERC-4337 and compact touchscreen UI
+- 🎯 **Glyph Wallet** – ApeChain-optimized wallet with fast onboarding and built-in swaps
+- 🌉 **Cross-Chain Funding** – Buy APE or USDC.e from any chain via Thirdweb Universal Bridge
+- 🎲 **Provably Fair** – Pyth Entropy provides verifiable randomness for catches and NFT selection
+- 🚴 **Bike Rental** – 2x movement speed boost for faster exploration
 
-## Setup Instructions
+---
+
+## Challenge Context
+
+This project is a custom implementation of the **Pokemon Trader** challenge app created by @simplefarmer69. The original challenge brief and baseline app are documented in `README_CHALLENGE.md`.
+
+I implemented the Pokéball catch game mechanics, UI/UX polish, and on-chain integrations as my submission to this challenge, and this repo represents my contribution on top of the original work.
+
+### Challenge Result
+
+This implementation was selected as the **winner** of the Pixelverse / Slab.cash Pokéball game challenge.
+
+---
+
+## How to Run
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
+- Node.js 18+
 - npm or yarn
-- A WalletConnect Project ID (for RainbowKit)
+- A Web3 wallet connected to **ApeChain Mainnet (Chain ID 33139)**:
+  - Desktop: MetaMask, Rainbow, WalletConnect, Coinbase, Ledger, and 50+ more via RainbowKit
+  - Mobile: **dGen1/EthereumPhone** (ethOS), **Glyph Wallet**, or any WalletConnect-compatible wallet
 
-### Installation
+### Environment setup
 
-1. Install dependencies:
-```bash
+1. Copy the example file:
+
+bash
+cp .env.example .env
+Open .env and fill in any optional keys (for example VITE_THIRDWEB_CLIENT_ID or your own Alchemy key).
+
+text
+
+On Windows PowerShell you can instead write:
+
+bash
+copy .env.example .env
+
+### Setup
+
+bash
+git clone <your-fork-url>
+cd Pokemon-Trader
 npm install
-```
+The app is pre-configured with an Alchemy API key for ApeChain, so a .env file is optional.
+To override the key or configure wallet integrations, create .env and set:
 
-2. Configure contract addresses:
-   - Open `src/services/apechainConfig.ts`
-   - Replace `CONTRACT_ADDRESSES.OTC_MARKETPLACE` with your verified OTC marketplace contract address
-   - Replace `CONTRACT_ADDRESSES.NFT_COLLECTION` with your NFT collection address
-   - Update the contract ABI in `src/services/contractService.ts` to match your contract's interface
-
-3. Configure WalletConnect:
-   - Get a Project ID from [WalletConnect Cloud](https://cloud.walletconnect.com)
-   - Replace `YOUR_PROJECT_ID` in `src/services/apechainConfig.ts` with your Project ID
-
-4. Start the development server:
 ```bash
+# Alchemy (optional override)
+VITE_ALCHEMY_API_KEY=your_api_key_here
+
+# Wallet Integration (optional)
+VITE_BUNDLER_RPC_URL=https://your-bundler-endpoint  # For dGen1 ERC-4337 Account Abstraction
+VITE_GLYPH_API_KEY=<api-key>                         # For Glyph Wallet (if required)
+
+# ThirdWeb (for crypto checkout)
+VITE_THIRDWEB_CLIENT_ID=your_client_id
+```
+
+### Wallet Configuration
+
+The app supports multiple wallet options out of the box:
+
+1. **Desktop Wallets** (MetaMask, Rainbow, WalletConnect, etc.)
+   - Click "Connect Wallet" and select from the RainbowKit modal
+
+2. **dGen1/EthereumPhone** (ethOS Android device)
+   - Appears at the top of the wallet picker on compatible devices
+   - Supports ERC-4337 Account Abstraction for gasless transactions
+   - Requires `VITE_BUNDLER_RPC_URL` for transaction bundling
+   - Gracefully falls back to standard wallets on desktop
+
+3. **Glyph Wallet** (ApeChain-optimized)
+   - Appears at the top of the wallet picker
+   - Fast onboarding (<75 seconds)
+   - Seamless multi-chain swaps built-in
+
+See `docs/WALLET_INTEGRATION.md` for detailed setup instructions.
+Development
+bash
 npm run dev
-```
+The game will be available at:
 
-5. Open your browser and navigate to the URL shown in the terminal (usually `http://localhost:5173`)
+http://localhost:5173 (dev server port is locked to 5173)
 
-## Project Structure
+Production Build
+bash
+npm run build
+This generates an optimized build in the dist folder, which can be deployed to any static host (Vercel, Netlify, GitHub Pages, etc.).
 
-```
-src/
-├── components/          # React components
-│   ├── GameCanvas.tsx   # Phaser game wrapper
-│   ├── WalletConnector.tsx
-│   └── TradeModal.tsx   # Trade listing detail modal
-├── game/                # Phaser game code
-│   ├── scenes/          # Game scenes
-│   ├── entities/        # Game entities (Player, TradeIcon)
-│   ├── managers/        # Game managers (Map, TradeIcon)
-│   └── config/          # Game configuration
-├── services/            # Web3 services
-│   ├── apechainConfig.ts
-│   └── contractService.ts
-└── utils/               # Utility functions
-```
+How to Play
+Gotta Catch ’Em All!
 
-## Configuration
+Buy balls in the shop
 
-### Contract Configuration
+Pay with APE or USDC.e (APE is auto‑swapped to USDC.e in the contract).
 
-The contract service expects the OTC marketplace contract to have these functions:
-- `getAllListings()` - Returns all listings
-- `getListingsByCollection(address nftContract)` - Returns listings filtered by NFT collection
+Higher tier balls (Great, Ultra, Master) have better catch rates than regular Poke Balls.
 
-Update the ABI in `src/services/contractService.ts` to match your contract's exact interface.
+Explore the map
 
-### ApeChain Network
+Use the keyboard to move around the pixel-art world.
 
-The project is configured for ApeChain Mainnet. The network configuration is in `src/services/apechainConfig.ts`.
+Look for wild Pokemon spawns scattered across the map.
 
-## Game Controls
+Get close and throw
 
-- **Arrow Keys** or **WASD**: Move character
-- **Click on Trade Icons**: View trade listing details
+Click a nearby Pokemon to open the Throw modal.
 
-## Future Enhancements
+Choose a ball type and throw.
 
-- Shop area with trading interface
-- GameBoy link cable visualization for trades
-- Button system for map navigation
-- Sound effects and background music
-- Replace programmatic sprites with custom pixel art assets
+Each Pokemon relocates after 3 failed attempts, so you have up to three chances.
 
-## Development
+Win a Pokemon NFT
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
+On a successful catch, the PokeballGame contract uses Pyth Entropy randomness to determine both the catch outcome and which NFT you receive.
 
-## Notes
+SlabNFTManager holds a pool of Pokemon card NFTs. When you win, a random index is selected from that pool using Pyth Entropy, so neither players nor on‑chain observers can predict which card comes next.
 
-- The gorilla garden shape is currently approximated programmatically. For a more accurate shape, process the `Mask group(1).png` image and extract the boundary coordinates.
-- Sprites are currently generated programmatically. Replace with custom pixel art sprite sheets for better visuals.
-- Trade listings refresh automatically every 30 seconds.
+The platform covers Entropy fees from a small APE buffer, so players only pay ball prices.
+
+The NFT is transferred to your wallet and appears both:
+
+In your in‑game inventory and win modals (via useSlabNFTMetadata).
+
+In external explorers/marketplaces like OpenSea and Magic Eden.
+
+An in‑game Help modal (accessible via a “?” button) summarizes these steps so new players can quickly understand the loop.
+
+Architecture Overview
+Smart Contracts (ApeChain Mainnet)
+PokeballGame v1.7.0 (proxy)
+
+Unified APE/USDC.e payments; APE is auto‑swapped to USDC.e via Camelot DEX.
+
+Uses Pyth Entropy for verifiable randomness instead of POP VRNG.
+
+Handles ball purchases, throwBall, randomness callbacks, and NFT award logic.
+
+Routes ~96.5% of spend to SlabNFTManager (NFT pool) and 3% to the treasury as fees, in USDC.e. A small APE buffer (~0.5%) is retained to fund Entropy fees and SlabMachine pull gas, so players pay only ball prices.
+
+SlabNFTManager v2.3.0 (proxy)
+
+Holds USDC.e revenue and a pool of Pokemon card NFTs. Auto‑purchases new NFTs from SlabMachine when the balance reaches the pull price (51 USDC.e).
+
+When a catch succeeds, Pyth Entropy is used to select a random index from the NFT pool—no deterministic "next in array" selection. This ensures unpredictability for players and on‑chain observers.
+
+Tracks NFT inventory, awards NFTs to winners, and includes recovery utilities for NFTs received via transferFrom.
+
+Slab NFT Pokemon Cards
+
+Existing NFT collection contract that stores all Pokemon card NFTs used as gachapon prizes.
+
+Frontend
+
+- **React + TypeScript + Vite** for UI and build tooling
+- **Phaser 3** for the 2D pixel-art game world (movement, Pokemon entities, animations)
+- **Wagmi + Viem + RainbowKit** for wallet connection, contract calls, and event subscriptions
+- **Custom Wagmi connectors** for dGen1/EthereumPhone and Glyph Wallet (see `docs/WALLET_INTEGRATION.md`)
+- **Thirdweb Checkout / Universal Bridge** for multi-chain APE/USDC.e funding
+- **Alchemy NFT API** for resolving NFT metadata and images
+
+For a detailed breakdown of files, hooks, contracts, and troubleshooting notes, see `CLAUDE.md`.
+
+Mapping to the Challenge Checklist
+This section shows how this implementation satisfies the Testing Checklist and core requirements described in README_CHALLENGE.md.
+
+Deposit functionality works with APE
+
+APE payments route through PokeballGame v1.7.0, which auto‑swaps APE to USDC.e and records the deposit for RNG and revenue accounting.
+
+Deposit functionality works with USDC.e
+
+Direct USDC.e payments are supported and treated identically once inside the contract.
+
+Probability calculation and randomness
+
+throwBall uses Pyth Entropy for randomness; catch probabilities are configured per ball type and used to decide whether a Pokemon is caught.
+
+Spin mechanics / gachapon equivalent
+
+Instead of a GUI “spin”, the throw and catch flow serves as the gachapon spin, with the same underlying randomness and payout logic.
+
+Random number generation is verifiable and fair
+
+Pyth Entropy provides verifiable randomness for each throw, replacing earlier POP VRNG assumptions from the original challenge spec.
+
+Winners receive NFT cards; losers don’t
+
+On CaughtPokemon events, SlabNFTManager awards an NFT to the player; on FailedCatch, no NFT is transferred.
+
+Owner and treasury wallets editable
+
+Contracts expose setOwnerWallet / setTreasuryWallet style functions so the owner can update these addresses with appropriate access control.
+
+Thirdweb Checkout widget integrates properly
+
+The Poke Ball Shop includes a “NEED CRYPTO?” section with Thirdweb Checkout, allowing cross‑chain funding into APE or USDC.e on ApeChain.
+
+Multi-chain support works
+
+Thirdweb Universal Bridge supports deposits from many chains into ApeChain, satisfying the multi‑chain access requirement.
+
+Revenue generation from losing spins
+
+All spend (whether the player wins or loses) is converted into USDC.e, with 97% routed to SlabNFTManager (NFT pool) and 3% to treasury.
+
+Maximum deposit limit (49.9 USDC.e) enforced
+
+The shop enforces a $49.90 per transaction cap, disabling purchases that would exceed it and matching the challenge’s maximum deposit requirement.
+
+RTP ~97%
+
+The revenue-split and probability configuration are designed so that returns approximate the 97% RTP target described in the challenge spec.
+
+NFT API and inventory terminal
+
+The inventory terminal uses the Alchemy NFT API and on-chain reads to show wallet NFTs, including the Pokemon cards won in-game.
+
+NFT transfers (single / bulk) work
+
+Existing bulk transfer tooling from the base project remains functional; this entry preserves those flows.
+
+Volume control and terminal overlays
+
+Audio controls and the inventory/terminal overlays are implemented so they do not reset or interfere with the core game loop.
+
+### Owner / Maintenance Scripts
+
+For contract revenue verification and withdraw flows (e.g. `scripts/verifyrevenueflow.cjs`, `scripts/withdrawtestfunds.cjs`), see `CLAUDE.md` under "New Features – SlabNFTManager Contract v2.2.0" and "Development Notes – Revenue & Withdraw Scripts."
+
+---
+
+## Device & Platform Support
+
+### Browsers
+- Chrome/Chromium (Recommended)
+- Safari (macOS & iOS)
+- Firefox
+- Edge
+
+### Wallets
+- **Desktop:** MetaMask, Rainbow, WalletConnect, Ledger, Coinbase, and 50+ more
+- **Mobile:** Glyph, dGen1/EthereumPhone, and WalletConnect-compatible wallets
+- **Hardware:** Ledger, Trezor (via WalletConnect)
+
+### Devices
+- Desktop (Windows, macOS, Linux) ✅
+- Mobile (iPhone, Android) ✅
+- **dGen1/EthereumPhone** (ethOS, 2.5"–3" square touchscreen) ✅
+- Tablet ✅
+
+### Screen Sizes
+- Desktop: 1024px+ ✅
+- Mobile: 320px+ ✅
+- **Compact: 240px–360px** ✅ (dGen1 optimized)
+
+---
+
+## Wallet Documentation
+
+- [RainbowKit Documentation](https://www.rainbowkit.com)
+- [Wagmi Documentation](https://wagmi.sh)
+- [dGen1/EthereumPhone SDK](https://github.com/EthereumPhone/WalletSDK)
+- [Glyph Wallet Documentation](https://docs.useglyph.io)
+- [ERC-4337 Account Abstraction](https://eips.ethereum.org/EIPS/eip-4337)
+- See `docs/WALLET_INTEGRATION.md` for the detailed integration guide
+
+---
+
+### License
+
+This repository is a public fork of the original Pokemon Trader challenge app, which did not declare a formal license in its root.
+
+- Core game code, art, and original docs are authored by the upstream Pokemon Trader / Pixelverse / Slab.cash team.
+- My contributions (Pokéball catch game, UI/UX changes, and integration work) are shared for learning and portfolio purposes only and should be treated as extensions to that upstream codebase.
+
+For any commercial or production use, please coordinate with the original project owners regarding licensing.
+
+### Contributing
+
+This branch is submitted as part of the Slab Cash Gachapon Challenge.
+External contributions are not expected during the judging period, but forks are welcome for experimentation or further development.
+
+For maintainers or reviewers, the best starting points are:
+
+README_CHALLENGE.md – original challenge description and checklist.
+
+CLAUDE.md – full technical log, contract versions, debugging history, and agent-oriented documentation for this implementation.

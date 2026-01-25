@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "Bash(npx hardhat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\ndocs: update CLAUDE.md with PokeballGame contract documentation\n\n- Add Smart Contracts section to tech stack \\(Hardhat, OpenZeppelin, Solidity\\)\n- Add Hardhat compile/test/deploy commands to Quick Start\n- Update project structure with contracts/abi/, contracts/deployment/\n- Add PokeballGame.sol and hardhat.config.cjs to key files\n- Document PokeballGame contract features, ball system, functions, and events\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add SlabNFTManager contract and wire to PokeballGame v1.1.0\n\nSlabNFTManager Contract:\n- UUPS upgradeable proxy pattern for NFT inventory management\n- Auto-purchase NFTs from SlabMachine when USDC.e >= $51 threshold\n- Max 10 NFTs in inventory with FIFO award system\n- ERC721Receiver for receiving NFTs from SlabMachine\n- Owner functions: pause/unpause, emergency withdraw, set addresses\n\nPokeballGame v1.1.0 Updates:\n- Integrated ISlabNFTManager interface for NFT delegation\n- Revenue flow: 97% to SlabNFTManager via depositRevenue\\(\\)\n- Catch rewards: awardNFTToWinner\\(\\) called on successful catch\n- Removed internal NFT inventory \\(now managed by SlabNFTManager\\)\n- Added setSlabNFTManager\\(\\) setter and RevenueSentToManager event\n\nFiles Added:\n- contracts/SlabNFTManager.sol\n- contracts/abi/abi_SlabNFTManager.json\n- contracts/deployment/deploy_SlabNFTManager.js\n\nFiles Updated:\n- contracts/PokeballGame.sol \\(v1.1.0\\)\n- contracts/abi/abi_PokeballGame.json \\(v1.1.0\\)\n- contracts/deployment/deploy_PokeballGame.js \\(v1.1.0\\)\n- CLAUDE.md \\(added SlabNFTManager documentation\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add UUPS proxy deployment and upgrade infrastructure\n\nDeployment Scripts:\n- contracts/deployment/deployProxies.js - Unified deployment for both\n  PokeballGame and SlabNFTManager proxies with automatic cross-linking\n- contracts/deployment/upgrade_PokeballGame.js - Example upgrade script\n  demonstrating UUPS upgrade process with state verification\n\nDocumentation:\n- docs/UUPS_UPGRADE_GUIDE.md - Comprehensive upgrade guide covering:\n  - UUPS architecture explanation\n  - Who can upgrade \\(owner only via _authorizeUpgrade\\)\n  - Step-by-step upgrade process\n  - Storage compatibility rules\n  - Storage gap pattern\n  - Emergency procedures\n  - Security considerations\n\nCLAUDE.md Updates:\n- Added deployProxies.js and upgrade script to project structure\n- Added UUPS_UPGRADE_GUIDE.md to docs section\n- Added UUPS Proxy Pattern section explaining upgrade mechanics\n- Updated key files table with new deployment scripts\n\nNo ProxyAdmin contract needed - UUPS embeds upgrade logic in implementation\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npx tsc:*)",
+      "Bash(npm run lint)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run build:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add PokemonSpawnManager and Pokemon entity for PokeballGame\n\n- Add PokemonSpawnManager to track up to 3 active Pokemon spawns\n- Implement contract sync methods for Web3 event handling:\n  - syncFromContract, onSpawnAdded, onPokemonRelocated\n  - onCaughtPokemon, onFailedCatch\n- Add query methods: getSpawnAt, getAllSpawns, getPokemonInCatchRange\n- Emit Phaser events for React UI layer integration\n- Add Pokemon entity stub with spawn/despawn/relocation animations\n- Wire PokemonSpawnManager into GameScene\n- Update CLAUDE.md with frontend manager documentation\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(git commit:*)",
+      "Bash(timeout 5 npm run dev:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm ls:*)",
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(test:*)",
+      "Bash(node -e:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(python3:*)",
+      "Bash(node scripts/withdraw_test_funds.cjs:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(ping:*)",
+      "Bash(npx kill-port:*)"
+    ]
+  }
+}

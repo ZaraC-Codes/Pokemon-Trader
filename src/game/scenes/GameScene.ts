@@ -3,6 +3,8 @@ import { Player } from '../entities/Player';
 import { MapManager } from '../managers/MapManager';
 import { TradeIconManager } from '../managers/TradeIconManager';
 import { NPCManager } from '../managers/NPCManager';
+import { PokemonSpawnManager } from '../managers/PokemonSpawnManager';
+import { CatchMechanicsManager } from '../managers/CatchMechanicsManager';
 import { House } from '../entities/House';
 import { Building, type BuildingType } from '../entities/Building';
 import { Tree } from '../entities/Tree';
@@ -26,6 +28,9 @@ export class GameScene extends Scene {
   private mapManager?: MapManager;
   private tradeIconManager?: TradeIconManager;
   private npcManager?: NPCManager;
+  /** Exposed for React/Web3 sync - use getPokemonSpawnManager() for safe access */
+  public pokemonSpawnManager?: PokemonSpawnManager;
+  private catchMechanicsManager?: CatchMechanicsManager;
   private backgroundMusic?: ChiptuneMusic;
   private mp3Music?: MP3Music;
   private houses: House[] = [];
@@ -39,6 +44,22 @@ export class GameScene extends Scene {
 
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  /**
+   * Safe accessor for PokemonSpawnManager.
+   * Returns undefined if scene hasn't finished create() yet.
+   */
+  getPokemonSpawnManager(): PokemonSpawnManager | undefined {
+    return this.pokemonSpawnManager;
+  }
+
+  /**
+   * Safe accessor for CatchMechanicsManager.
+   * Returns undefined if scene hasn't finished create() yet.
+   */
+  getCatchMechanicsManager(): CatchMechanicsManager | undefined {
+    return this.catchMechanicsManager;
   }
 
   preload(): void {
@@ -735,9 +756,90 @@ export class GameScene extends Scene {
     
     bikeGraphics.generateTexture('bicycle', 16, 16);
     bikeGraphics.destroy();
-    
+
     const bikeTexture = this.textures.get('bicycle');
     bikeTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    // Pokemon placeholder sprite (16x16 wild Pokemon silhouette)
+    // This is intentionally semi-transparent so the grass rustle effect is the main visual
+    const pokemonGraphics = this.make.graphics({ x: 0, y: 0 });
+    // Create a simple Pokemon-like shape (barely visible, grass is the main indicator)
+    pokemonGraphics.fillStyle(0x88cc44, 0.3); // Very transparent grass-green
+    pokemonGraphics.fillCircle(8, 10, 6);
+    pokemonGraphics.generateTexture('pokemon-placeholder', 16, 16);
+    pokemonGraphics.destroy();
+
+    const pokemonTexture = this.textures.get('pokemon-placeholder');
+    pokemonTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    // Grass rustle sprite sheet (4 frames for animation)
+    // 16x16 pixels per frame, arranged horizontally: total 64x16
+    const grassRustleGraphics = this.make.graphics({ x: 0, y: 0 });
+    for (let frame = 0; frame < 4; frame++) {
+      const offsetX = frame * 16;
+
+      // Animation phase determines blade positions and kicked-up particles
+      const phase = frame / 4; // 0, 0.25, 0.5, 0.75
+      const sway = Math.sin(phase * Math.PI * 2) * 1.5;
+      const kickHeight = Math.abs(Math.sin(phase * Math.PI * 2)) * 2;
+
+      // Ground-level grass base (darker)
+      grassRustleGraphics.fillStyle(0x558822, 1);
+      grassRustleGraphics.fillRect(offsetX + 2, 13, 12, 3);
+
+      // Main rustling grass blades (3 blades for compact effect)
+      const bladeColors = [0x55aa22, 0x77cc44, 0x55aa22];
+      const bladePositions = [2, 7, 11];
+
+      for (let b = 0; b < 3; b++) {
+        const baseX = offsetX + bladePositions[b];
+        const bladeSway = sway * (b % 2 === 0 ? 1 : -1) * 0.7;
+        const bladeHeight = 6 + (b === 1 ? 2 : 0); // Center blade taller
+
+        grassRustleGraphics.fillStyle(bladeColors[b], 1);
+        grassRustleGraphics.fillTriangle(
+          baseX + bladeSway, 14,                    // Base left
+          baseX + 1.5 + bladeSway, 14 - bladeHeight - kickHeight * 0.5, // Tip
+          baseX + 3 + bladeSway, 14                 // Base right
+        );
+      }
+
+      // Kicked-up grass particles floating upward (frame-dependent positions)
+      const particleColor = 0x88dd55;
+      grassRustleGraphics.fillStyle(particleColor, 0.9);
+
+      // Particle 1 - left side, rises and falls
+      const p1Y = 10 - kickHeight - (frame === 1 ? 2 : frame === 2 ? 3 : frame === 3 ? 1 : 0);
+      grassRustleGraphics.fillRect(offsetX + 2 + sway, p1Y, 1, 2);
+
+      // Particle 2 - right side, opposite phase
+      const p2Y = 9 - kickHeight * 0.8 - (frame === 0 ? 1 : frame === 1 ? 2 : frame === 2 ? 2 : 0);
+      grassRustleGraphics.fillRect(offsetX + 12 - sway, p2Y, 1, 2);
+
+      // Particle 3 - center, highest kick
+      const p3Y = 6 - kickHeight * 1.2 - (frame === 2 ? 3 : frame === 3 ? 2 : frame === 0 ? 1 : 2);
+      grassRustleGraphics.fillStyle(0x99ee66, 0.8);
+      grassRustleGraphics.fillRect(offsetX + 7 + sway * 0.5, p3Y, 1, 1);
+
+      // Small dust/debris particles
+      grassRustleGraphics.fillStyle(0xccdd99, 0.6);
+      if (frame === 1 || frame === 3) {
+        grassRustleGraphics.fillCircle(offsetX + 5 - sway, 7 - kickHeight, 0.5);
+        grassRustleGraphics.fillCircle(offsetX + 11 + sway, 8 - kickHeight * 0.5, 0.5);
+      }
+    }
+    grassRustleGraphics.generateTexture('grass-rustle', 64, 16);
+    grassRustleGraphics.destroy();
+
+    const grassRustleTexture = this.textures.get('grass-rustle');
+    grassRustleTexture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    // Create a grass particle texture for additional effects
+    const grassParticleGraphics = this.make.graphics({ x: 0, y: 0 });
+    grassParticleGraphics.fillStyle(0x77cc44, 1);
+    grassParticleGraphics.fillTriangle(0, 4, 1, 0, 2, 4); // Small grass blade shape
+    grassParticleGraphics.generateTexture('grass-particle', 4, 6);
+    grassParticleGraphics.destroy();
   }
 
   private createTileSprites(): void {
@@ -909,6 +1011,35 @@ export class GameScene extends Scene {
 
     // Initialize NPC manager
     this.npcManager = new NPCManager(this, this.mapManager);
+
+    // Create grass-rustle animation (4 frames)
+    // First, add frames to the grass-rustle texture manually
+    const grassRustleTexture = this.textures.get('grass-rustle');
+    if (grassRustleTexture) {
+      // Add 4 frames (16x16 each) to the texture
+      for (let i = 0; i < 4; i++) {
+        grassRustleTexture.add(i, 0, i * 16, 0, 16, 16);
+      }
+      // Create the animation with slightly faster framerate for more dynamic movement
+      this.anims.create({
+        key: 'grass-rustle-anim',
+        frames: this.anims.generateFrameNumbers('grass-rustle', { start: 0, end: 3 }),
+        frameRate: 10, // Faster for more energetic rustling
+        repeat: -1,
+      });
+      console.log('[GameScene] Grass rustle animation created (16x16 frames)');
+    } else {
+      console.warn('[GameScene] grass-rustle texture not found');
+    }
+
+    // Initialize Pokemon spawn manager (for PokeballGame integration)
+    this.pokemonSpawnManager = new PokemonSpawnManager(this);
+
+    // Initialize catch mechanics manager (for Pokemon catching flow)
+    this.catchMechanicsManager = new CatchMechanicsManager(this, this.pokemonSpawnManager);
+
+    // Set up Pokemon click handler
+    this.setupPokemonClickHandler();
     // Spawn NPCs with listings (async)
     this.time.delayedCall(2000, async () => {
       if (this.npcManager && this.loadingSubtext) {
@@ -1036,6 +1167,38 @@ export class GameScene extends Scene {
     const ownerX = shopX; // Center of shop (where door is)
     const ownerY = shopY + TILE_SIZE * 1.5; // Just in front of the shop
     this.bikeShopOwner = new BikeShopOwner(this, ownerX, ownerY);
+  }
+
+  /**
+   * Set up click handler for Pokemon sprites.
+   * When player clicks near a Pokemon, attempts to initiate catch flow.
+   */
+  private setupPokemonClickHandler(): void {
+    // Listen for pointer clicks on the game world
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.pokemonSpawnManager || !this.catchMechanicsManager) return;
+
+      // Convert screen coordinates to world coordinates
+      const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+
+      // Check if click is near a Pokemon spawn
+      const spawn = this.pokemonSpawnManager.getSpawnAt(worldPoint.x, worldPoint.y);
+
+      if (spawn) {
+        console.log('[GameScene] Pokemon clicked:', spawn.id.toString());
+        this.catchMechanicsManager.onPokemonClicked(spawn.id);
+      }
+    });
+
+    // Listen for pokemon-clicked events (emitted by Pokemon entities directly)
+    this.events.on('pokemon-clicked', (data: { pokemonId: bigint }) => {
+      if (this.catchMechanicsManager) {
+        console.log('[GameScene] Pokemon entity clicked:', data.pokemonId.toString());
+        this.catchMechanicsManager.onPokemonClicked(data.pokemonId);
+      }
+    });
+
+    console.log('[GameScene] Pokemon click handler set up');
   }
 
   private setupNPCInteractions(): void {
@@ -1865,9 +2028,14 @@ export class GameScene extends Scene {
     if (!this.areNPCsLoaded) {
       return;
     }
-    
+
     if (this.player) {
       this.player.update();
+
+      // Update catch mechanics manager with player position
+      if (this.catchMechanicsManager) {
+        this.catchMechanicsManager.setPlayerPosition(this.player.x, this.player.y);
+      }
     }
     if (this.tradeIconManager) {
       this.tradeIconManager.update();
@@ -1892,6 +2060,11 @@ export class GameScene extends Scene {
     }
     if (this.npcManager) {
       this.npcManager.clearNPCs();
+    }
+    // Clean up catch mechanics manager
+    if (this.catchMechanicsManager) {
+      this.catchMechanicsManager.destroy();
+      this.catchMechanicsManager = undefined;
     }
     // Clean up background music
     if (this.backgroundMusic) {

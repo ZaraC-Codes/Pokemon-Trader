@@ -1,0 +1,68 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISlabMachine",
+  "sourceName": "contracts/SlabNFTManagerV2.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "machineConfig",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "maxPulls",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "buybackExpiry",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "buybackPercentage",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minBuybackValue",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "usdcPullPrice",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        }
+      ],
+      "name": "pull",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "requestId_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

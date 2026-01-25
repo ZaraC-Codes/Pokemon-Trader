@@ -29,6 +29,7 @@ npm install
 ```
 
 This will install all required dependencies including:
+
 - React & TypeScript
 - Phaser.js (game engine)
 - Wagmi & RainbowKit (Web3 wallet integration)
@@ -129,22 +130,27 @@ Create an on-screen terminal or experience within the pixelverse that allows use
 #### Smart Contract Requirements
 
 1. **Deposit Function**
+
    - Accept APE or USDC.e
    - Validate deposit amount (must be < 50 USDC.e)
    - Calculate win probability based on deposit amount
    - Store deposit information
 
 2. **Spin/Gacha Function**
+
    - Execute random number generation using **POP VRNG** (Verifiable Random Number Generator) to ensure fairness
    - Determine win/loss based on probability
    - Handle both winning and losing outcomes
 
 3. **Payout Function**
+
    - Transfer Pokemon card NFT to winner's wallet
+   - NFT selection uses verifiable randomness (Pyth Entropy) to pick a random card from the pool
    - Handle NFT transfer from contract to user
    - Emit events for tracking
 
 4. **Owner Configuration**
+
    - Owner wallet should be updatable (only by current owner)
 
 5. **Revenue Generation**
@@ -157,6 +163,7 @@ Create an on-screen terminal or experience within the pixelverse that allows use
 #### Frontend Integration
 
 1. **Terminal/UI Experience**
+
    - Create an in-game terminal or modal interface
    - Display deposit options (APE or USDC.e)
    - Show current win probability based on deposit amount
@@ -164,6 +171,7 @@ Create an on-screen terminal or experience within the pixelverse that allows use
    - Show NFT rewards when won
 
 2. **Thirdweb Checkout Widget**
+
    - Integrate Thirdweb Checkout for multi-chain support
    - Allow users to purchase tokens on any chain
    - Bridge/swap functionality if needed
@@ -184,7 +192,7 @@ contract PixelverseGachapon {
     address public owner;
     address public depositWallet;
     uint256 public constant MAX_DEPOSIT = 49900000; // 49.9 USDC.e (6 decimals)
-    
+
     struct Spin {
         address player;
         uint256 deposit;
@@ -192,14 +200,14 @@ contract PixelverseGachapon {
         bool won;
         uint256 tokenId; // if won
     }
-    
+
     function deposit(uint256 amount, bool useUSDC) external;
     function spin() external;
     function setDepositWallet(address newWallet) external; // owner only
     function setOwner(address newOwner) external; // owner only
     function withdrawRevenue() external; // owner only
 }
-``` 
+```
 
 #### RTP (Return to Player)
 
@@ -208,16 +216,27 @@ contract PixelverseGachapon {
 - Implemented through:
   - Win probability scaling
   - NFT value distribution
-  - Fair random number generation using **POP VRNG** to ensure verifiable fairness
+  - Fair random number generation using **Pyth Entropy** to ensure verifiable fairness
+
+#### Randomness Coverage (Implementation Note)
+
+The game uses verifiable randomness (Pyth Entropy) for two decisions:
+
+1. **Catch success/failure** – determines whether a throw wins.
+2. **NFT selection** – when a player wins, a random index is selected from the SlabNFTManager pool, so the card awarded is unpredictable.
+
+The 97% RTP target is still respected. Approximately 3% goes to the treasury, ~96.5% funds the NFT pool (USDC.e used to purchase cards), and a sub‑percent slice (~0.5%) is held in APE to cover Entropy gas and SlabMachine pull costs. This APE buffer is platform‑controlled and not withdrawable as player rewards; it exists solely to guarantee randomness and future NFT pulls without charging players extra fees.
 
 ### Integration Points
 
 1. **Slab Cash Integration**
+
    - Connect to Slab Cash gachapon system
    - Verify card availability
    - Handle card distribution
 
 2. **NFT Contract Integration**
+
    - Pokemon Cards NFT Collection: Find using Magic Eden (SLAB collection)
    - Current contract address: `0x8a981c2cfdd7fbc65395dd2c02ead94e9a2f65a7` (may need updating)
    - Transfer winning cards to users
@@ -225,6 +244,7 @@ contract PixelverseGachapon {
    - Use Alchemy NFT API for reliable NFT data fetching
 
 3. **Token Contracts**
+
    - USDC.e on ApeChain
    - APE token on ApeChain
    - Handle approvals and transfers
@@ -296,7 +316,7 @@ When implementing the challenge:
 - **NFT Trading**: Trade Pokemon Cards NFTs on ApeChain via OTC marketplace
 - **Wallet Integration**: Connect wallet using RainbowKit (supports MetaMask, WalletConnect, and more)
 - **Background Music**: Mo Bamba 8-bit remix with on-screen volume control
-- **Inventory Terminal**: 
+- **Inventory Terminal**:
   - View all ApeChain NFTs owned by connected wallet
   - Terminal-style UI matching the game's pixel art aesthetic
   - Bulk NFT transfers (send multiple NFTs at once)
@@ -340,13 +360,16 @@ When implementing the challenge:
 
 ## 📄 License
 
-[Specify your license here]
+The original Pokemon Trader challenge repository did not specify an explicit license.  
+Please refer to the upstream repository or contact the project owner (@simplefarmer69) for definitive licensing terms.
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contributions
 
-[Add contribution guidelines if this is an open-source project]
+This repository is an extension of the original **Pokemon Trader – Pixelverse Gachapon Experience** challenge application.
+
+Additional gameplay, UI, and smart contract features were implemented by @ZaraC-Codes as part of the Pixelverse / Slab.cash Pokéball catch game challenge.
 
 ---
 

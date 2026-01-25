@@ -1,3 +1,6 @@
+/* Import touchscreen/square screen responsive styles */
+@import './styles/touchscreen.css';
+
 :root {
   font-family: 'Courier New', monospace;
   line-height: 1.5;
@@ -13,6 +16,27 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ============================================================
+ * GLOBAL SCROLLBAR HIDING
+ * Hide scrollbars visually while keeping scroll functionality.
+ * Applies to body, html, and all scrollable elements.
+ * ============================================================ */
+
+/* Firefox */
+* {
+  scrollbar-width: none;
+}
+
+/* Legacy Edge/IE */
+* {
+  -ms-overflow-style: none;
+}
+
+/* Chrome, Edge, Safari */
+*::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   margin: 0;
   display: flex;
@@ -22,6 +46,11 @@ body {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+  overflow: auto;
+}
+
+html {
+  overflow: auto;
 }
 
 #root {
@@ -29,4 +58,5 @@ body {
   height: 100vh;
   margin: 0;
   padding: 0;
+  overflow: auto;
 }
