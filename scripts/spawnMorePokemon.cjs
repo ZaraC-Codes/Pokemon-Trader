@@ -72,7 +72,9 @@ async function main() {
   const network = await ethers.provider.getNetwork();
   console.log("  Chain ID:      ", network.chainId.toString());
 
-  if (network.chainId !== BigInt(33139)) {
+  // Handle both ethers v5 (number) and v6 (bigint) chain ID formats
+  const chainId = Number(network.chainId);
+  if (chainId !== 33139) {
     console.error("\n❌ ERROR: Wrong network! Expected ApeChain (33139)");
     console.error("   Run with: --network apechain");
     process.exit(1);
@@ -87,7 +89,9 @@ async function main() {
   console.log("  Signer:        ", signer.address);
 
   const balance = await ethers.provider.getBalance(signer.address);
-  const balanceEth = ethers.formatEther(balance);
+  // ethers v6 uses ethers.formatEther, v5 uses ethers.utils.formatEther
+  const formatEther = ethers.formatEther || ethers.utils.formatEther;
+  const balanceEth = formatEther(balance);
   console.log("  Balance:       ", balanceEth, "APE");
 
   if (parseFloat(balanceEth) < 0.05) {

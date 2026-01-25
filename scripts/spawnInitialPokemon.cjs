@@ -54,7 +54,9 @@ async function main() {
   console.log("Signer address:", signer.address);
 
   const balance = await ethers.provider.getBalance(signer.address);
-  console.log("Signer balance:", ethers.formatEther(balance), "APE\n");
+  // ethers v6 uses ethers.formatEther, v5 uses ethers.utils.formatEther
+  const formatEther = ethers.formatEther || ethers.utils.formatEther;
+  console.log("Signer balance:", formatEther(balance), "APE\n");
 
   // Connect to contract
   const pokeballGame = new ethers.Contract(
