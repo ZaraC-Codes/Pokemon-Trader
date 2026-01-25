@@ -192,6 +192,7 @@ const styles = {
   ballColorDot: {
     width: '20px',
     height: '20px',
+    borderRadius: '50%',
     border: '2px solid #fff',
     flexShrink: 0,
   },
