@@ -9,11 +9,17 @@
  *
  * Actions:
  *   status    - Show current balances (default)
- *   ape       - Withdraw accumulated APE fees from PokeballGame
- *   allape    - Emergency withdraw ALL APE from PokeballGame
- *   usdc      - Withdraw accumulated USDC.e fees from PokeballGame
- *   revenue   - Withdraw ALL USDC.e from SlabNFTManager (keeps NFTs)
- *   revenue:X - Withdraw specific amount X from SlabNFTManager (e.g., revenue:0.10)
+ *   ape       - Withdraw accumulated APE platform fees from PokeballGame (3% of legacy v1.4.x APE payments)
+ *   allape    - ⚠️ EMERGENCY ONLY - Withdraw ALL APE from PokeballGame (may include pending refunds)
+ *   usdc      - Withdraw accumulated USDC.e platform fees from PokeballGame (3% of all payments)
+ *   revenue   - Withdraw ALL USDC.e from SlabNFTManager (97% player pool, keeps NFTs)
+ *   revenue:X - Withdraw specific amount X from SlabNFTManager (e.g., revenue:10.50)
+ *
+ * Notes on APE in PokeballGame:
+ *   - Since v1.6.0, players pay Pyth Entropy fees (~0.073 APE) directly via msg.value
+ *   - The contract does NOT maintain an APE buffer for entropy fees
+ *   - Any APE in the contract is from: (1) legacy v1.4.x platform fees, (2) failed refunds
+ *   - The 'allape' command should only be used in emergencies as it drains everything
  *
  * Requirements:
  *   - Must be called from the owner wallet
@@ -91,20 +97,27 @@ async function getStatus(provider, signerAddress) {
 
   console.log("\n--- PokeballGame ---");
   console.log(
-    `  APE Balance:           ${ethers.utils.formatEther(pokeballAPEBalance)} APE`,
+    `  Total APE Balance:     ${ethers.utils.formatEther(pokeballAPEBalance)} APE`,
   );
   console.log(
-    `  Accumulated APE Fees:  ${ethers.utils.formatEther(accumulatedAPEFees)} APE`,
+    `  ├─ Platform Fees:      ${ethers.utils.formatEther(accumulatedAPEFees)} APE (3% of legacy v1.4.x APE payments)`,
   );
+  const unaccountedAPE = pokeballAPEBalance - accumulatedAPEFees;
+  if (unaccountedAPE > 0n) {
+    console.log(
+      `  └─ Other (refunds):    ${ethers.utils.formatEther(unaccountedAPE)} APE`,
+    );
+  }
   console.log(
-    `  Accumulated USDC Fees: $${Number(accumulatedUSDCFees) / 1e6} USDC.e`,
+    `  USDC.e Platform Fees:  $${Number(accumulatedUSDCFees) / 1e6} USDC.e (3% of all payments)`,
   );
 
-  console.log("\n--- SlabNFTManager ---");
+  console.log("\n--- SlabNFTManager (97% Player Pool) ---");
   console.log(
     `  USDC.e Balance:        $${Number(slabUSDCBalance) / 1e6} USDC.e`,
   );
   console.log(`  NFT Inventory:         ${inventoryCount} NFTs`);
+  console.log(`  Auto-Purchase Status:  ${Number(slabUSDCBalance) >= 51_000_000 ? '✓ Ready (>=$51)' : `$${(51 - Number(slabUSDCBalance) / 1e6).toFixed(2)} more needed`}`);
 
   console.log("\n--- Treasury Wallet ---");
   console.log(`  Address:               ${treasuryWallet}`);
@@ -124,19 +137,15 @@ async function getStatus(provider, signerAddress) {
 
   // Summary
   console.log("\n=== WITHDRAWAL OPTIONS ===\n");
+  console.log("Platform Fees (3%):");
   if (accumulatedAPEFees > 0n) {
     console.log(
       `  node scripts/withdraw_test_funds.cjs ape       # Withdraw ${ethers.utils.formatEther(
         accumulatedAPEFees,
       )} APE fees`,
     );
-  }
-  if (pokeballAPEBalance > 0n) {
-    console.log(
-      `  node scripts/withdraw_test_funds.cjs allape    # Emergency withdraw ${ethers.utils.formatEther(
-        pokeballAPEBalance,
-      )} APE`,
-    );
+  } else {
+    console.log(`  ape       - No APE platform fees to withdraw`);
   }
   if (accumulatedUSDCFees > 0n) {
     console.log(
@@ -144,12 +153,27 @@ async function getStatus(provider, signerAddress) {
         Number(accumulatedUSDCFees) / 1e6
       } USDC.e fees`,
     );
+  } else {
+    console.log(`  usdc      - No USDC.e platform fees to withdraw`);
   }
+
+  console.log("\nPlayer Pool (97%):");
   if (slabUSDCBalance > 0n) {
     console.log(
       `  node scripts/withdraw_test_funds.cjs revenue   # Withdraw $${
         Number(slabUSDCBalance) / 1e6
       } USDC.e from SlabNFTManager`,
+    );
+  } else {
+    console.log(`  revenue   - No revenue to withdraw from SlabNFTManager`);
+  }
+
+  if (pokeballAPEBalance > 0n) {
+    console.log("\n⚠️  Emergency Only:");
+    console.log(
+      `  node scripts/withdraw_test_funds.cjs allape    # Drain ALL ${ethers.utils.formatEther(
+        pokeballAPEBalance,
+      )} APE (use with caution!)`,
     );
   }
 }
@@ -181,7 +205,9 @@ async function withdrawAPEFees(signer) {
 }
 
 async function withdrawAllAPE(signer, provider) {
-  console.log("\n=== EMERGENCY WITHDRAW ALL APE ===\n");
+  console.log("\n=== ⚠️  EMERGENCY WITHDRAW ALL APE ⚠️  ===\n");
+  console.log("WARNING: This withdraws ALL APE from the contract.");
+  console.log("         Use 'ape' command for normal platform fee withdrawal.\n");
 
   const pokeballGame = new ethers.Contract(
     POKEBALL_GAME_PROXY,
@@ -195,7 +221,7 @@ async function withdrawAllAPE(signer, provider) {
     return;
   }
 
-  console.log(`Withdrawing ALL ${ethers.utils.formatEther(balance)} APE...`);
+  console.log(`⚠️  Withdrawing ALL ${ethers.utils.formatEther(balance)} APE...`);
 
   const tx = await pokeballGame.withdrawAllAPE();
   console.log(`Transaction: ${tx.hash}`);
@@ -371,23 +397,26 @@ async function main() {
       } else {
         console.error(`Unknown action: ${action}`);
         console.log("\nUsage: node scripts/withdraw_test_funds.cjs [action]");
-        console.log("\nActions:");
-        console.log("  status    - Show current balances (default)");
+        console.log("\nPlatform Fees (3%):");
         console.log(
-          "  ape       - Withdraw accumulated APE fees from PokeballGame",
+          "  ape       - Withdraw APE platform fees from PokeballGame",
         );
         console.log(
-          "  allape    - Emergency withdraw ALL APE from PokeballGame",
+          "  usdc      - Withdraw USDC.e platform fees from PokeballGame",
         );
-        console.log(
-          "  usdc      - Withdraw accumulated USDC.e fees from PokeballGame",
-        );
+        console.log("\nPlayer Pool (97%):");
         console.log(
           "  revenue   - Withdraw ALL USDC.e from SlabNFTManager (keeps NFTs)",
         );
         console.log(
           "  revenue:X - Withdraw specific amount X from SlabNFTManager",
         );
+        console.log("\n⚠️  Emergency Only:");
+        console.log(
+          "  allape    - Drain ALL APE from PokeballGame (includes pending refunds!)",
+        );
+        console.log("\nOther:");
+        console.log("  status    - Show current balances (default)");
         process.exit(1);
       }
   }

@@ -1,11 +1,19 @@
 /**
- * Verify Fee/Revenue Distribution for PokeballGame v1.6.0
+ * Verify Fee/Revenue Distribution for PokeballGame v1.7.0
  *
  * This script checks:
  * 1. PokeballGame accumulated fees and balances
  * 2. SlabNFTManager revenue pool and NFT purchases
  * 3. Treasury wallet balances
  * 4. Recent purchase events and calculated splits
+ *
+ * Revenue Flow (v1.5.0+):
+ *   Ball purchases → 3% to accumulatedUSDCFees, 97% to SlabNFTManager
+ *
+ * Entropy Fees (v1.6.0+):
+ *   Players pay ~0.073 APE per throwBall() directly via msg.value
+ *   This goes to Pyth Entropy, NOT to the contract's fee pools
+ *   The contract does NOT hold an APE buffer for entropy fees
  */
 
 require('dotenv').config({ path: '.env.local' });
@@ -37,7 +45,7 @@ const ERC20_ABI = [
 
 async function main() {
   console.log('='.repeat(70));
-  console.log('FEE/REVENUE DISTRIBUTION VERIFICATION - PokeballGame v1.6.0');
+  console.log('FEE/REVENUE DISTRIBUTION VERIFICATION - PokeballGame v1.7.0');
   console.log('='.repeat(70));
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);

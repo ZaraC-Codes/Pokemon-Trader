@@ -6,14 +6,14 @@
   "contracts": {
     "pokeballGame": {
       "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
-      "implementation": "0x363f32ca7Cf83a215aDef4B139a47cAd323F1482",
-      "version": "1.6.0"
+      "implementation": "0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4",
+      "version": "1.7.0"
     },
     "camelotRouter": "0xC69Dc28924930583024E067b2B3d773018F4EB52",
     "slabNFTManager": {
       "proxy": "0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71",
-      "implementation": "0x05c0e3aD3DB67285b7CDaA396f3993A3130b6E25",
-      "version": "2.2.0"
+      "implementation": "0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13",
+      "version": "2.3.0"
     },
     "slabMachine": "0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466",
     "slabNFT": "0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7",
@@ -122,6 +122,35 @@
       "spawnPokemon() now requires msg.value to cover Entropy fee",
       "New getThrowFee() view function to query current fee",
       "entropyCallback() replaces randomNumberCallback() for VRNG results"
+    ]
+  },
+  "upgrade_slabNFTManager_v2_3_0": {
+    "timestamp": "2026-01-24T00:00:00.000Z",
+    "oldImplementation": "0x05c0e3aD3DB67285b7CDaA396f3993A3130b6E25",
+    "newImplementation": "0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "upgradeTxHash": "0xf953fb51a7d9a0305cb0bdcbb84095137f1a7217db2a157ae066235cbc3fb499",
+    "changes": [
+      "Added awardNFTToWinnerWithRandomness(winner, randomNumber) for random NFT selection",
+      "Uses (randomNumber >> 128) % inventorySize for unbiased index selection",
+      "O(1) removal via swap-and-pop pattern in _removeFromInventoryAtIndex()",
+      "New NFTAwardedWithRandomness event with selectedIndex and inventorySize",
+      "Backwards compatible: awardNFTToWinner() (FIFO) still works"
+    ]
+  },
+  "upgrade_v1_7_0": {
+    "timestamp": "2026-01-24T00:00:00.000Z",
+    "oldImplementation": "0x363f32ca7Cf83a215aDef4B139a47cAd323F1482",
+    "newImplementation": "0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "upgradeTxHash": "0xfa729e332edc5b6cf0841d871c2e1643094e0776ce7e6065de4ec61ca72627f4",
+    "initTxHash": "0x4c186bfa4b05b0d42b4a2020ff9223987193db110fb738a49c7e1e175005d4b9",
+    "changes": [
+      "Random NFT selection using Pyth Entropy random number",
+      "Calls SlabNFTManager.awardNFTToWinnerWithRandomness() instead of awardNFTToWinner()",
+      "Reuses same random number from catch determination (no extra Entropy fee)",
+      "Uses different entropy bits: low 128 bits for catch rate, high 128 bits for NFT index",
+      "Formula: (randomNumber >> 128) % inventorySize for unbiased selection"
     ]
   }
 }

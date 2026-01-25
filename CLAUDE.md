@@ -156,10 +156,13 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   ├── PokeballGameV2.sol       # Game contract v1.2.0 (20 Pokemon support)
 │   ├── PokeballGameV3.sol       # Game contract v1.3.0 (configurable pricing, $49.90 cap)
 │   ├── PokeballGameV5.sol       # Game contract v1.5.0 (unified payments, auto-swap)
+│   ├── PokeballGameV6.sol       # Game contract v1.6.0 (Pyth Entropy for randomness)
+│   ├── PokeballGameV7.sol       # Game contract v1.7.0 (random NFT selection)
 │   ├── SlabNFTManager.sol       # NFT inventory manager v1.0.0 (UUPS)
 │   ├── SlabNFTManagerV2.sol     # NFT manager v2.0.0 (max 20 NFTs)
 │   ├── SlabNFTManagerV2_1.sol   # NFT manager v2.1.0 (pull price fix)
 │   ├── SlabNFTManagerV2_2.sol   # NFT manager v2.2.0 (NFT recovery, transferFrom fix)
+│   ├── SlabNFTManagerV2_3.sol   # NFT manager v2.3.0 (random NFT selection)
 │   ├── interfaces/
 │   │   └── IPOPVRNG.sol         # POP VRNG interface (randomness)
 │   ├── abi/
@@ -167,8 +170,10 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── abi_PokeballGameV2.json  # PokeballGame ABI v1.2.0 (20 slots)
 │   │   ├── abi_PokeballGameV4.json  # PokeballGame ABI v1.4.x (native APE)
 │   │   ├── abi_PokeballGameV5.json  # PokeballGame ABI v1.5.0 (unified payments)
-│   │   ├── abi_PokeballGameV6.json  # PokeballGame ABI v1.6.0 (Pyth Entropy, **current**)
-│   │   └── abi_SlabNFTManager.json  # SlabNFTManager ABI
+│   │   ├── abi_PokeballGameV6.json  # PokeballGame ABI v1.6.0 (Pyth Entropy)
+│   │   ├── abi_PokeballGameV7.json  # PokeballGame ABI v1.7.0 (random NFT selection, **current**)
+│   │   ├── abi_SlabNFTManager.json  # SlabNFTManager ABI (legacy)
+│   │   └── abi_SlabNFTManagerV2.json  # SlabNFTManager ABI v2.x (**current**)
 │   ├── deployment/
 │   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
 │   │   ├── deploy_PokeballGame.js   # PokeballGame standalone deployment
@@ -181,7 +186,9 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── set_slabNFTManager.cjs       # Configure SlabNFTManager on PokeballGame
 │   │   ├── upgrade_SlabNFTManagerV2.cjs # Upgrade to v2.0.0 (max 20 NFTs)
 │   │   ├── upgrade_SlabNFTManagerV2_1.cjs # Upgrade to v2.1.0 (pull price fix)
-│   │   └── upgrade_SlabNFTManagerV2_2.cjs # Upgrade to v2.2.0 (NFT recovery)
+│   │   ├── upgrade_SlabNFTManagerV2_2.cjs # Upgrade to v2.2.0 (NFT recovery)
+│   │   ├── upgrade_SlabNFTManagerV2_3.cjs # Upgrade to v2.3.0 (random NFT selection)
+│   │   └── upgrade_PokeballGameV7.cjs     # Upgrade to v1.7.0 (random NFT selection)
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -199,8 +206,8 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 ├── scripts/                 # Hardhat scripts
 │   ├── spawnInitialPokemon.cjs  # Spawn 3 initial Pokemon (slots 0-2)
 │   ├── spawnMorePokemon.cjs     # Spawn Pokemon in slots 3-19 (v1.2.0)
-│   ├── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.6.0)
-│   ├── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.6.0)
+│   ├── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.7.0)
+│   ├── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.7.0)
 │   ├── update_ape_price.cjs     # Auto-update APE/USD price from CoinGecko
 │   └── debug/                   # Debug/inspection utilities (48 scripts)
 │       ├── check_*.cjs          # State inspection scripts
@@ -233,14 +240,18 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/PokeballGameV3.sol` | Game contract v1.3.0 (configurable pricing, $49.90 cap) |
 | `contracts/PokeballGameV4.sol` | Game contract v1.4.0 (native APE via msg.value) |
 | `contracts/PokeballGameV5.sol` | Game contract v1.5.0 (unified payments, auto-swap) |
+| `contracts/PokeballGameV6.sol` | Game contract v1.6.0 (Pyth Entropy for randomness) |
+| `contracts/PokeballGameV7.sol` | Game contract v1.7.0 (random NFT selection) |
 | `contracts/SlabNFTManager.sol` | NFT inventory manager v1.0.0 |
 | `contracts/SlabNFTManagerV2.sol` | NFT manager v2.0.0 (max 20 NFTs) |
+| `contracts/SlabNFTManagerV2_3.sol` | NFT manager v2.3.0 (random NFT selection) |
 | `contracts/abi/abi_PokeballGame.json` | PokeballGame ABI v1.1.0 (legacy, 3 slots) |
 | `contracts/abi/abi_PokeballGameV2.json` | PokeballGame ABI v1.2.0 (20 slots) |
 | `contracts/abi/abi_PokeballGameV4.json` | PokeballGame ABI v1.4.x (native APE) |
 | `contracts/abi/abi_PokeballGameV5.json` | PokeballGame ABI v1.5.0 (unified payments) |
-| `contracts/abi/abi_PokeballGameV6.json` | PokeballGame ABI v1.6.0 (Pyth Entropy, **current**) |
-| `contracts/abi/abi_SlabNFTManager.json` | SlabNFTManager ABI for frontend |
+| `contracts/abi/abi_PokeballGameV6.json` | PokeballGame ABI v1.6.0 (Pyth Entropy) |
+| `contracts/abi/abi_PokeballGameV7.json` | PokeballGame ABI v1.7.0 (random NFT selection, **current**) |
+| `contracts/abi/abi_SlabNFTManagerV2.json` | SlabNFTManager ABI v2.x (**current**) |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `contracts/deployment/upgrade_PokeballGameV2.cjs` | Upgrade to v1.2.0 (20 Pokemon) |
@@ -251,7 +262,7 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/deployment/upgrade_SlabNFTManagerV2.cjs` | Upgrade to v2.0.0 (max 20 NFTs) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
 | `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
-| `scripts/verify_revenue_flow.cjs` | Verify 3%/97% fee/revenue split on-chain (v1.6.0) |
+| `scripts/verify_revenue_flow.cjs` | Verify 3%/97% fee/revenue split on-chain (v1.7.0) |
 | `scripts/withdraw_test_funds.cjs` | Withdraw fees/revenue from contracts for testing |
 | `scripts/update_ape_price.cjs` | Hourly APE/USD price updater from CoinGecko |
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
@@ -288,12 +299,13 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
 | **WAPE (Wrapped APE)** | `0x48b62137EdfA95a428D35C09E44256a739F6B557` |
-| **PokeballGame Implementation (v1.6.0)** | `0x363f32ca7Cf83a215aDef4B139a47cAd323F1482` |
+| **PokeballGame Implementation (v1.7.0)** | `0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4` |
+| **SlabNFTManager Implementation (v2.3.0)** | `0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13` |
 | **Camelot Router (AMMv3)** | `0xC69Dc28924930583024E067b2B3d773018F4EB52` |
 | **Pyth Entropy** | `0x36825bf3Fbdf5a29E2d5148bfe7Dcf7B5639e320` |
 | **Pyth Entropy Provider** | `0x52DeaA1c84233F7bb8C8A45baeDE41091c616506` |
 
-**Note:** On ApeChain, APE is the native gas token. PokeballGame v1.6.0 uses **Pyth Entropy** for randomness (replaced POP VRNG which required whitelisting). Both APE and USDC.e result in USDC.e. APE is auto-swapped via Camelot DEX. 97% revenue goes to SlabNFTManager, 3% platform fees to treasury (in USDC.e). `throwBall()` requires ~0.073 APE for the Entropy fee.
+**Note:** On ApeChain, APE is the native gas token. PokeballGame v1.7.0 uses **Pyth Entropy** for randomness (replaced POP VRNG which required whitelisting). Both APE and USDC.e result in USDC.e. APE is auto-swapped via Camelot DEX. 97% revenue goes to SlabNFTManager, 3% platform fees to treasury (in USDC.e). `throwBall()` requires ~0.073 APE for the Entropy fee. **v1.7.0** adds random NFT selection - the same Entropy random number is reused for both catch determination and NFT index selection (no extra fee). Players pay Entropy fees directly via `msg.value`; the contract does NOT maintain an APE buffer.
 
 ### Multicall3 Configuration
 
@@ -1039,7 +1051,7 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.5.0)
+### PokeballGame Contract (v1.7.0)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
@@ -1053,11 +1065,13 @@ Pokemon catching mini-game with provably fair mechanics:
 | v1.4.1 | 20 | Fee calculation fix - no user markup | Superseded |
 | v1.4.2 | 20 | Division by zero fix in calculateAPEAmount() | Superseded |
 | v1.5.0 | 20 | Unified payments: APE auto-swap to USDC.e, 97% to SlabNFTManager | Superseded |
-| v1.6.0 | 20 | **Pyth Entropy for randomness (replaces POP VRNG, no whitelist needed)** | **Latest** |
+| v1.6.0 | 20 | Pyth Entropy for randomness (replaces POP VRNG, no whitelist needed) | Superseded |
+| v1.7.0 | 20 | **Random NFT selection using Pyth Entropy random number** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
-- Implementation (v1.6.0): `0x363f32ca7Cf83a215aDef4B139a47cAd323F1482` (deployed 2026-01-22)
+- Implementation (v1.7.0): `0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4` (deployed 2026-01-24)
+- Implementation (v1.6.0): `0x363f32ca7Cf83a215aDef4B139a47cAd323F1482` (superseded)
 - Implementation (v1.5.0): `0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E` (superseded)
 - Implementation (v1.4.2): `0x2cbF8E954D29E2e08E4E521ac031930543962F13` (superseded)
 - Implementation (v1.4.1): `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` (superseded)
@@ -1137,7 +1151,7 @@ To check current price: `await contract.apePriceUSD()` → returns 8-decimal val
 - **v1.4.0+:** APE payments use native APE via `msg.value` (like ETH on Ethereum)
 - **v1.4.1:** Users pay exact ball price - no fee markup (fees split internally)
 - USDC.e payments use ERC-20 `transferFrom` (requires approval)
-- POP VRNG integration for fair randomness
+- **v1.6.0:** Pyth Entropy integration for fair randomness (replaces POP VRNG)
 - 97% revenue sent to SlabNFTManager, 3% platform fee to treasury
 - Delegates NFT management to SlabNFTManager
 - Up to 20 active Pokemon spawns
@@ -1145,6 +1159,7 @@ To check current price: `await contract.apePriceUSD()` → returns 8-decimal val
 - **v1.3.0:** Configurable ball prices via `setBallPrice()`
 - **v1.3.0:** $49.90 max purchase cap per transaction (`MAX_PURCHASE_USD`)
 - **v1.3.0:** Optional revert if no NFT available on catch (`revertOnNoNFT`)
+- **v1.7.0:** Random NFT selection from inventory using Pyth Entropy (no extra fee)
 
 **Key Functions:**
 - `purchaseBalls(ballType, quantity, useAPE)` - Buy balls (if useAPE=true, send APE via msg.value)
@@ -1203,9 +1218,17 @@ To check current price: `await contract.apePriceUSD()` → returns 8-decimal val
 - `entropy()` - View Pyth Entropy contract address
 - `entropyProvider()` - View Pyth Entropy provider address
 
+**New Functions (v1.7.0 - Random NFT Selection):**
+- `initializeV170()` - Initialize v1.7.0 (marks as initialized, no parameters needed)
+- Uses `awardNFTToWinnerWithRandomness(winner, randomNumber)` instead of `awardNFTToWinner(winner)`
+- Reuses Pyth Entropy random number from catch determination for NFT selection
+- Uses different entropy bits: low 128 bits for catch rate, high 128 bits for NFT index
+- Formula: `(randomNumber >> 128) % inventorySize` for unbiased index selection
+
 **Internal Callback Handlers:**
 - `_handleSpawnCallback()` - Creates Pokemon at Entropy-determined position
-- `_handleThrowCallback()` - Determines catch success, handles NFT award
+- `_handleThrowCallback()` - Determines catch success, handles NFT award (v1.7.0: passes randomNumber to SlabNFTManager)
+- `_handleSuccessfulCatch()` - **v1.7.0** Now calls `awardNFTToWinnerWithRandomness()` for random NFT selection
 - `entropyCallback()` - **v1.6.0** Pyth Entropy calls back with randomness (internal)
 
 **Events for Frontend:**
@@ -1226,6 +1249,10 @@ To check current price: `await contract.apePriceUSD()` → returns 8-decimal val
 ```bash
 # Upgrade to v1.5.0 (Unified Payments + Auto-Swap)
 npx hardhat run contracts/deployment/upgrade_PokeballGameV5.cjs --network apechain
+
+# Upgrade to v1.7.0 (Random NFT Selection - requires SlabNFTManager v2.3.0 first!)
+npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_3.cjs --network apechain  # First
+npx hardhat run contracts/deployment/upgrade_PokeballGameV7.cjs --network apechain      # Second
 ```
 
 **v1.5.0 Payment Flow:**
@@ -1256,9 +1283,11 @@ await pokeballGame.setRevertOnNoNFT(true);
 - v1.2.0 deployed 2026-01-21 via `upgrade_PokeballGameV2.cjs`
 - v1.3.0 adds configurable pricing, $49.90 cap, enhanced events
 - v1.4.0 adds native APE payments via msg.value (no more ERC-20 approval for APE!)
+- v1.6.0 adds Pyth Entropy for randomness (replaces POP VRNG)
+- v1.7.0 adds random NFT selection using same Entropy random number from catch determination
 - See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for v1.2.0 upgrade guide
 
-### SlabNFTManager Contract (v2.2.0)
+### SlabNFTManager Contract (v2.3.0)
 NFT inventory management and auto-purchase from SlabMachine:
 
 **Versions:**
@@ -1267,11 +1296,13 @@ NFT inventory management and auto-purchase from SlabMachine:
 | v1.0.0 | 10 | Initial release | Superseded |
 | v2.0.0 | 20 | Max 20 NFTs, setOwnerWallet, enhanced events | Superseded |
 | v2.1.0 | 20 | Fixed SlabMachine pull price bug, emergency revenue withdrawal | Superseded |
-| v2.2.0 | 20 | **NFT recovery functions, transferFrom fix, pending request clearing** | **Latest** |
+| v2.2.0 | 20 | NFT recovery functions, transferFrom fix, pending request clearing | Superseded |
+| v2.3.0 | 20 | **Random NFT selection using Pyth Entropy, O(1) swap-and-pop** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71`
-- Implementation (v2.2.0): `0x05c0e3aD3DB67285b7CDaA396f3993A3130b6E25`
+- Implementation (v2.3.0): `0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13` (deployed 2026-01-24)
+- Implementation (v2.2.0): `0x05c0e3aD3DB67285b7CDaA396f3993A3130b6E25` (superseded)
 - Implementation (v2.1.0): `0xd12644fba183c4bea6f7d8b92c068640929631b6` (superseded)
 
 **Features:**
@@ -1310,6 +1341,12 @@ NFT inventory management and auto-purchase from SlabMachine:
 - `resetPendingRequestCount()` - Emergency reset pending count to zero (owner only)
 - `canAutoPurchase()` - View function for frontend diagnostics
 
+**New Functions (v2.3.0):**
+- `awardNFTToWinnerWithRandomness(winner, randomNumber)` - Award random NFT using Pyth Entropy randomness (PokeballGame only)
+- Uses `(randomNumber >> 128) % inventorySize` for independent random index selection
+- O(1) removal via `_removeFromInventoryAtIndex()` using swap-and-pop pattern
+- Backwards compatible: `awardNFTToWinner()` (FIFO) still works for legacy calls
+
 **v2.1.0 Bug Fix:**
 The `slabMachine.machineConfig().usdcPullPrice` returned `1` (stale/incorrect), but the actual SlabMachine charges $50 per pull. This caused "ERC20: transfer amount exceeds allowance" errors when auto-purchasing NFTs. Fixed by using a hardcoded `PULL_PRICE_USDC = $51` constant for approvals.
 
@@ -1336,6 +1373,7 @@ SlabMachine uses `transferFrom()` instead of `safeTransferFrom()` when transferr
 - `RevenueWithdrawn(recipient, amount, remainingBalance)` - **v2.1.0 new** - USDC.e revenue withdrawn
 - `NFTRecovered(tokenId, inventorySize)` - **v2.2.0 new** - Untracked NFT recovered to inventory
 - `PendingRequestCleared(requestId, remainingPending)` - **v2.2.0 new** - Pending request counter fixed
+- `NFTAwardedWithRandomness(winner, tokenId, selectedIndex, inventorySize, remainingInventory)` - **v2.3.0 new** - Random NFT awarded to winner
 
 **Upgrade Commands:**
 ```bash
@@ -1347,6 +1385,9 @@ npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_1.cjs --network ap
 
 # Upgrade to v2.2.0 (NFT recovery, transferFrom fix)
 npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_2.cjs --network apechain
+
+# Upgrade to v2.3.0 (random NFT selection)
+npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_3.cjs --network apechain
 ```
 
 **Contract Integration Flow:**
@@ -1371,9 +1412,11 @@ NFT now in inventory, ready to award
     ↓
 Player catches Pokemon → PokeballGame._handleSuccessfulCatch()
     ↓
-PokeballGame → SlabNFTManager.awardNFTToWinner(player)
+PokeballGame v1.7.0+ → SlabNFTManager.awardNFTToWinnerWithRandomness(player, randomNumber)
     ↓
-SlabNFTManager → Player (NFT transfer)
+SlabNFTManager v2.3.0 → Random index selection via (randomNumber >> 128) % inventorySize
+    ↓
+O(1) swap-and-pop removal → Random NFT transferred to Player
 ```
 
 **SlabMachine VRF Flow (Slab Reveal):**
@@ -1388,7 +1431,7 @@ The SlabMachine uses VRF (Pyth Entropy) for randomness. When `pull()` is called:
 - NFTs arrive without triggering inventory tracking
 - Must use `recoverUntrackedNFT()` to manually add to inventory
 
-### Test Fund Recycling (v2.1.0)
+### Test Fund Recycling (v2.1.0+)
 During testing and development, funds accumulate in the contracts. Use the `withdraw_test_funds.cjs` script to recycle these back to the treasury.
 
 **Script Location:** `scripts/withdraw_test_funds.cjs`
@@ -1397,34 +1440,43 @@ During testing and development, funds accumulate in the contracts. Use the `with
 | Command | Description | Contract Function |
 |---------|-------------|-------------------|
 | `status` | Show all balances (APE fees, USDC fees, SlabNFTManager revenue) | Read-only |
-| `revenue` | Withdraw ALL USDC.e from SlabNFTManager | `emergencyWithdrawAllRevenue()` |
+| `usdc` | Withdraw USDC.e platform fees from PokeballGame (3%) | `withdrawUSDCFees()` |
+| `ape` | Withdraw legacy APE platform fees from PokeballGame (v1.4.x) | `withdrawAPEFees()` |
+| `revenue` | Withdraw ALL USDC.e from SlabNFTManager (97% pool) | `emergencyWithdrawAllRevenue()` |
 | `revenue:X` | Withdraw X USDC.e from SlabNFTManager (e.g., `revenue:10` for $10) | `emergencyWithdrawRevenue(amount)` |
-| `usdc` | Withdraw USDC.e platform fees from PokeballGame | `withdrawUSDCFees()` |
-| `ape` | Withdraw APE platform fees from PokeballGame | `withdrawAPEFees()` |
-| `allape` | Withdraw ALL APE from PokeballGame (emergency) | `withdrawAllAPE()` |
+| `allape` | ⚠️ EMERGENCY - Withdraw ALL APE from PokeballGame | `withdrawAllAPE()` |
+
+**Important Notes on APE in PokeballGame (v1.6.0+):**
+- Players pay Pyth Entropy fees (~0.073 APE) directly via `msg.value` when calling `throwBall()`
+- The entropy fee goes directly to Pyth, NOT to the contract's fee pools
+- The contract does NOT maintain an APE buffer for entropy fees
+- Any APE in the contract is from: (1) legacy v1.4.x platform fees, (2) failed refunds
+- The `allape` command is marked EMERGENCY because it drains everything
 
 **Usage Examples:**
 ```bash
 # Check current balances
 node scripts/withdraw_test_funds.cjs status
 
-# Withdraw all SlabNFTManager revenue to treasury
-node scripts/withdraw_test_funds.cjs revenue
-
-# Withdraw exactly $25 USDC.e from SlabNFTManager
-node scripts/withdraw_test_funds.cjs revenue:25
-
-# Withdraw platform fees
+# Withdraw platform fees (3%)
 node scripts/withdraw_test_funds.cjs usdc
 node scripts/withdraw_test_funds.cjs ape
+
+# Withdraw player pool revenue (97%)
+node scripts/withdraw_test_funds.cjs revenue
+node scripts/withdraw_test_funds.cjs revenue:25
+
+# Emergency only - drains ALL APE
+node scripts/withdraw_test_funds.cjs allape
 ```
 
 **When to Use Each Command:**
 - `status` - Always run first to see what's available
+- `usdc` - Collect USDC.e platform fees (3% of all ball purchases)
+- `ape` - Collect legacy APE platform fees (should be 0 for v1.5.0+ purchases)
 - `revenue` - Recycle SlabNFTManager funds back to treasury for more testing
 - `revenue:X` - Partial withdrawal when you want to keep some balance in SlabNFTManager
-- `usdc` / `ape` - Collect accumulated platform fees (3% of all purchases)
-- `allape` - Emergency only, withdraws all APE including any stuck from failed swaps
+- `allape` - ⚠️ Emergency only, may include pending refunds or stuck funds
 
 **Requirements:**
 - Must run with owner wallet (`0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06`)
