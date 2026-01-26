@@ -648,13 +648,15 @@ npm run dev
 - If `feeError` is set, display it to user instead of attempting transaction
 
 **TransactionHistory shows empty, events not found:**
-- Cause 1: Wrong env var name - `VITE_POKEBALLGAME_ADDRESS` vs `VITE_POKEBALL_GAME_ADDRESS` (with underscore)
+- Cause 1: Wrong env var name - `.env` may have `VITE_POKE_BALLGAME_ADDRESS` (extra underscore) instead of `VITE_POKEBALL_GAME_ADDRESS`
 - Cause 2: Different config files using different ABI versions
 - There are TWO config files that must stay in sync:
   - `src/services/pokeballGameConfig.ts` - Used by useTransactionHistory, general services
   - `src/hooks/pokeballGame/pokeballGameConfig.ts` - Used by pokeball hooks
 - Both must use the same env var name (`VITE_POKEBALL_GAME_ADDRESS`) and ABI version
-- Fix: Ensure both configs import the same ABI (currently V5) and read the same env var
+- Fix: Ensure `.env` uses `VITE_POKEBALL_GAME_ADDRESS=0x...` (not `VITE_POKE_BALLGAME_ADDRESS`)
+- Fix: Ensure both configs import the same ABI (currently V8) and read the same env var
+- Debug: Check console for `[useTransactionHistory] Debug info:` - if `contractAddress: undefined`, the env var is wrong
 
 **Throws disappear from Transaction History after page refresh:**
 - Cause: Event ABI type mismatch in `useTransactionHistory.ts`

@@ -133,6 +133,9 @@ const STATS_STORAGE_KEY_PREFIX = 'pokemonTrader_txStats_';
 // This must match PRIMARY_RPC_URL in apechainConfig.ts
 const PUBLIC_RPC_URL = 'https://rpc.apechain.com/http';
 
+// Debug flag - set to true to enable verbose logging
+const DEBUG_TX_HISTORY = true;
+
 // How many blocks to search (~12 hours at 2s/block = 21,600 blocks)
 const DEFAULT_LOOKBACK_BLOCKS = BigInt(25000);
 
@@ -146,7 +149,8 @@ const BALL_PRICES_USDC: Record<number, bigint> = {
 
 // Event ABIs for parsing
 // IMPORTANT: These must match the actual contract event signatures exactly
-// ThrowAttempted uses uint64 sequenceNumber (not uint256 requestId)
+// ThrowAttempted uses uint64 sequenceNumber (not uint256 requestId) - v1.6.0+
+// GaslessThrowExecuted is emitted by throwBallFor() in v1.8.0
 const EVENT_ABIS = {
   BallPurchased: parseAbiItem(
     'event BallPurchased(address indexed buyer, uint8 ballType, uint256 quantity, bool usedAPE, uint256 totalAmount)'
@@ -159,6 +163,10 @@ const EVENT_ABIS = {
   ),
   FailedCatch: parseAbiItem(
     'event FailedCatch(address indexed thrower, uint256 pokemonId, uint8 attemptsRemaining)'
+  ),
+  // v1.8.0: Gasless throw event - emitted when relayer executes throwBallFor()
+  GaslessThrowExecuted: parseAbiItem(
+    'event GaslessThrowExecuted(address indexed player, address indexed relayer, uint256 pokemonId)'
   ),
 };
 
@@ -396,6 +404,20 @@ export function useTransactionHistory(
 
   const isConfigured = isPokeballGameConfigured() && !!playerAddress && !!wagmiClient;
 
+  // Debug logging on mount/config change
+  useEffect(() => {
+    if (DEBUG_TX_HISTORY) {
+      console.log('[useTransactionHistory] Debug info:', {
+        contractAddress,
+        playerAddress: playerAddress ? `${playerAddress.slice(0, 8)}...` : 'undefined',
+        isConfigured,
+        hasWagmiClient: !!wagmiClient,
+        rpcUrl: PUBLIC_RPC_URL,
+        pokeballGameConfigured: isPokeballGameConfigured(),
+      });
+    }
+  }, [contractAddress, playerAddress, isConfigured, wagmiClient]);
+
   // Reset and reload stats when playerAddress changes
   useEffect(() => {
     if (playerAddress) {
@@ -610,6 +632,10 @@ export function useTransactionHistory(
 
     (async () => {
       try {
+        if (DEBUG_TX_HISTORY) {
+          console.log('[useTransactionHistory] Starting initial fetch for address:', playerAddress);
+          console.log('[useTransactionHistory] Contract address:', contractAddress);
+        }
         const currentBlock = await publicRpcClient.getBlockNumber();
         console.log(`[useTransactionHistory] Current block: ${currentBlock}`);
 
