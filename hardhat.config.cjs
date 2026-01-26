@@ -14,6 +14,8 @@ require("./hardhat-tasks/withdrawApeReserve.cjs");
 require("./hardhat-tasks/withdrawUsdceReserve.cjs");
 require("./hardhat-tasks/withdrawTreasuryFunds.cjs");
 require("./hardhat-tasks/emergencyWithdraw.cjs");
+require("./hardhat-tasks/returnPokemonNft.cjs");
+require("./hardhat-tasks/returnPokemonBatch.cjs");
 
 // Load environment variables if available
 let deployerKey = [];
