@@ -114,6 +114,7 @@ The app supports multiple wallet options out of the box:
    - Appears at the top of the wallet picker on compatible devices
    - Supports ERC-4337 Account Abstraction
    - Some transaction types may have known issues (see `docs/WALLET_INTEGRATION.md`)
+   - **Note:** MetaMask and Glyph are the primary tested wallets; dGen1 in-browser transactions may not work reliably yet
 
 See `docs/WALLET_INTEGRATION.md` for detailed setup instructions.
 
@@ -175,7 +176,7 @@ An in-game Help modal (accessible via the "?" button) summarizes these steps.
 
 ### Smart Contracts (ApeChain Mainnet)
 
-**PokeballGame v1.9.0** (proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`)
+**[PokeballGame v1.9.0](https://apescan.io/address/0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f)** (proxy)
 
 - Unified APE/USDC.e payments; APE is auto-swapped to USDC.e via Camelot DEX
 - Uses **Pyth Entropy** for verifiable randomness (not POP VRNG)
@@ -185,7 +186,7 @@ An in-game Help modal (accessible via the "?" button) summarizes these steps.
 - **Spawn management** (v1.9.0): `repositionPokemon()`, `despawnPokemon()`, configurable `maxActivePokemon`
 - Revenue split: 96% NFT pool, 3% treasury, 0.5% PokeballGame APE reserve, 0.5% SlabNFTManager APE reserve
 
-**SlabNFTManager v2.4.0** (proxy: `0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71`)
+**[SlabNFTManager v2.4.0](https://apescan.io/address/0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71)** (proxy)
 
 - Holds USDC.e revenue and a pool of Pokemon card NFTs (max 20)
 - **Auto-purchase loop** (v2.4.0): Continues buying NFTs until inventory reaches 20 OR funds depleted
@@ -193,7 +194,7 @@ An in-game Help modal (accessible via the "?" button) summarizes these steps.
 - **APE reserves** for SlabMachine pull gas
 - Tracks NFT inventory, awards NFTs to winners, includes recovery utilities
 
-**Slab NFT Pokemon Cards** (`0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7`)
+**[Slab NFT Pokemon Cards](https://apescan.io/token/0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7)**
 
 - Existing NFT collection contract that stores all Pokemon card NFTs used as prizes
 
