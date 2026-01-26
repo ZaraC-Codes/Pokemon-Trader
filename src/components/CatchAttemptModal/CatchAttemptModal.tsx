@@ -639,6 +639,17 @@ export function CatchAttemptModal({
     setThrowingBallType(null);
   }, [reset]);
 
+  // Reset hook state when modal closes to prevent stuck states
+  // This ensures the next time the modal opens, useGaslessThrow is in 'idle' state
+  useEffect(() => {
+    if (!isOpen) {
+      // Modal is closing or closed - reset all throw state
+      console.log('[CatchAttemptModal] Modal closed, resetting useGaslessThrow hook state');
+      reset();
+      setThrowingBallType(null);
+    }
+  }, [isOpen, reset]);
+
   // Close modal after successful throw (let parent handle result)
   // The modal just handles the throw initiation, not the VRNG result
 

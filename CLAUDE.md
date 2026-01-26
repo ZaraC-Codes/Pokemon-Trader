@@ -759,6 +759,36 @@ npm run dev
   - `[CatchMechanicsManager] handleCatchResult:` - Manager processing result
   - `[CatchMechanicsManager] Force resetting to idle` - State machine reset
 
+**CatchAttemptModal stuck after gasless throw (v1.8.0):**
+- Cause: `useGaslessThrow` hook stays in `'pending'` status after throw is submitted to relayer
+- Symptom: Modal closes, but clicking another Pokemon does nothing or shows stale state
+- Root issue: The hook's `reset()` function was never called when modal closed
+- **Fix:** Added `useEffect` in `CatchAttemptModal.tsx` that calls `reset()` when `isOpen` becomes false:
+  ```typescript
+  useEffect(() => {
+    if (!isOpen) {
+      reset();
+      setThrowingBallType(null);
+    }
+  }, [isOpen, reset]);
+  ```
+- **Complete Flow (v1.8.0 gasless throws):**
+  1. User clicks "Throw" → `initiateThrow()` signs EIP-712 message and submits to relayer
+  2. If successful, modal closes via `onClose()` → `isOpen` becomes `false`
+  3. New effect triggers → `reset()` clears hook state to `'idle'`
+  4. When `CaughtPokemon`/`FailedCatch` event arrives:
+     - App.tsx calls `catchResultRef.current()` → Phaser resets `CatchMechanicsManager`
+     - App.tsx calls `setSelectedPokemon(null)` → modal stays closed
+     - Win/failure modal shows
+  5. User clicks another Pokemon → hook is in `'idle'` state → new throw works
+- Console logs to watch for:
+  - `[CatchAttemptModal] === GASLESS THROW INITIATED ===` - Throw started
+  - `[CatchAttemptModal] Closing modal after throw submitted...` - Modal closing
+  - `[CatchAttemptModal] Modal closed, resetting useGaslessThrow hook state` - Hook reset
+  - `[App] *** CaughtPokemon event for current user ***` - Event received
+  - `[App] catchResultRef.current() called successfully` - Phaser notified
+  - `[GameCanvas] Catch result received: CAUGHT/FAILED` - Phaser processing
+
 ## External Services
 
 - **Alchemy**: Primary RPC endpoint (wagmi client) and NFT API v3

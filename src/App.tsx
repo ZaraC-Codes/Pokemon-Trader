@@ -135,7 +135,7 @@ function AppContent() {
 
   // Handle caught Pokemon events
   useEffect(() => {
-    console.log('[App] CaughtPokemon effect triggered. Events count:', caughtEvents.length);
+    console.log('[App] CaughtPokemon effect triggered. Events count:', caughtEvents.length, 'selectedPokemon:', selectedPokemon ? 'OPEN' : 'closed');
     if (caughtEvents.length === 0) return;
 
     const latestEvent = caughtEvents[caughtEvents.length - 1];
@@ -161,7 +161,7 @@ function AppContent() {
     console.log('[App] CaughtPokemon - Is current user?', isCurrentUser, 'Account:', account?.slice(0, 10), 'Catcher:', latestEvent.args.catcher?.slice(0, 10));
 
     if (isCurrentUser) {
-      console.log('[App] CaughtPokemon event for current user:', latestEvent.args);
+      console.log('[App] *** CaughtPokemon event for current user ***', latestEvent.args);
 
       // Invalidate ALL queries to force refetch of ball inventory
       // The specific query key for wagmi's useReadContract is complex and dynamic
@@ -170,11 +170,16 @@ function AppContent() {
       queryClient.invalidateQueries();
 
       // Notify Phaser to reset CatchMechanicsManager state
+      console.log('[App] Calling catchResultRef.current(true, pokemonId) to notify Phaser...');
       if (catchResultRef.current) {
         catchResultRef.current(true, latestEvent.args.pokemonId);
+        console.log('[App] catchResultRef.current() called successfully');
+      } else {
+        console.warn('[App] catchResultRef.current is null - Phaser bridge not connected!');
       }
 
       // Close the catch attempt modal if open
+      console.log('[App] Closing CatchAttemptModal via setSelectedPokemon(null)...');
       setSelectedPokemon(null);
 
       // Show the win modal
@@ -223,7 +228,7 @@ function AppContent() {
     console.log('[App] FailedCatch - Is current user?', isCurrentUser, 'Account:', account?.slice(0, 10), 'Thrower:', latestEvent.args.thrower?.slice(0, 10));
 
     if (isCurrentUser) {
-      console.log('[App] FailedCatch event for current user:', latestEvent.args);
+      console.log('[App] *** FailedCatch event for current user ***', latestEvent.args);
 
       // Invalidate ALL queries to force refetch of ball inventory
       // The specific query key for wagmi's useReadContract is complex and dynamic
@@ -232,11 +237,16 @@ function AppContent() {
       queryClient.invalidateQueries();
 
       // Notify Phaser to reset CatchMechanicsManager state
+      console.log('[App] Calling catchResultRef.current(false, pokemonId) to notify Phaser...');
       if (catchResultRef.current) {
         catchResultRef.current(false, latestEvent.args.pokemonId);
+        console.log('[App] catchResultRef.current() called successfully');
+      } else {
+        console.warn('[App] catchResultRef.current is null - Phaser bridge not connected!');
       }
 
       // Close the catch attempt modal
+      console.log('[App] Closing CatchAttemptModal via setSelectedPokemon(null)...');
       setSelectedPokemon(null);
 
       // Show the failure modal
