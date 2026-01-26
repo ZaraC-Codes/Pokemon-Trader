@@ -710,11 +710,15 @@ function BallRow({
         </div>
       </div>
 
-      {/* Quantity input */}
+      {/* Quantity input - shows empty string when 0 for easier editing */}
       <input
         type="number"
         min="0"
-        value={quantity}
+        value={quantity === 0 ? '' : quantity}
+        onFocus={(e) => {
+          // Auto-select if value is 0 so user can just type new number
+          if (e.target.value === '0') e.target.select();
+        }}
         onChange={handleQuantityChange}
         disabled={isDisabled || isPending}
         style={{
