@@ -200,6 +200,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   ├── PokeballGameV6.sol       # Game contract v1.6.0 (Pyth Entropy for randomness)
 │   ├── PokeballGameV7.sol       # Game contract v1.7.0 (random NFT selection)
 │   ├── PokeballGameV8.sol       # Game contract v1.8.0 (gasless throws, APE reserves)
+│   ├── PokeballGameV9.sol       # Game contract v1.9.0 (spawn management, repositionPokemon)
 │   ├── SlabNFTManager.sol       # NFT inventory manager v1.0.0 (UUPS)
 │   ├── SlabNFTManagerV2.sol     # NFT manager v2.0.0 (max 20 NFTs)
 │   ├── SlabNFTManagerV2_1.sol   # NFT manager v2.1.0 (pull price fix)
@@ -215,7 +216,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   │   ├── abi_PokeballGameV5.json  # PokeballGame ABI v1.5.0 (unified payments)
 │   │   ├── abi_PokeballGameV6.json  # PokeballGame ABI v1.6.0 (Pyth Entropy)
 │   │   ├── abi_PokeballGameV7.json  # PokeballGame ABI v1.7.0 (random NFT selection)
-│   │   ├── abi_PokeballGameV8.json  # PokeballGame ABI v1.8.0 (gasless throws, **current**)
+│   │   ├── abi_PokeballGameV8.json  # PokeballGame ABI v1.8.0 (gasless throws)
+│   │   ├── abi_PokeballGameV9.json  # PokeballGame ABI v1.9.0 (spawn management, **current**)
 │   │   ├── abi_SlabNFTManager.json  # SlabNFTManager ABI (legacy)
 │   │   ├── abi_SlabNFTManagerV2_3.json  # SlabNFTManager ABI v2.3.0
 │   │   └── abi_SlabNFTManagerV2_4.json  # SlabNFTManager ABI v2.4.0 (APE reserves, **current**)
@@ -235,7 +237,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   │   ├── upgrade_SlabNFTManagerV2_3.cjs # Upgrade to v2.3.0 (random NFT selection)
 │   │   ├── upgrade_SlabNFTManagerV2_4.cjs # Upgrade to v2.4.0 (APE reserves, auto-purchase loop)
 │   │   ├── upgrade_PokeballGameV7.cjs     # Upgrade to v1.7.0 (random NFT selection)
-│   │   └── upgrade_PokeballGameV8.cjs     # Upgrade to v1.8.0 (gasless throws, APE reserves)
+│   │   ├── upgrade_PokeballGameV8.cjs     # Upgrade to v1.8.0 (gasless throws, APE reserves)
+│   │   └── upgrade_PokeballGameV9.cjs     # Upgrade to v1.9.0 (spawn management)
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -314,6 +317,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `contracts/PokeballGameV6.sol` | Game contract v1.6.0 (Pyth Entropy for randomness) |
 | `contracts/PokeballGameV7.sol` | Game contract v1.7.0 (random NFT selection) |
 | `contracts/PokeballGameV8.sol` | Game contract v1.8.0 (gasless throws, APE reserves) |
+| `contracts/PokeballGameV9.sol` | Game contract v1.9.0 (spawn management, repositionPokemon) |
 | `contracts/SlabNFTManager.sol` | NFT inventory manager v1.0.0 |
 | `contracts/SlabNFTManagerV2.sol` | NFT manager v2.0.0 (max 20 NFTs) |
 | `contracts/SlabNFTManagerV2_3.sol` | NFT manager v2.3.0 (random NFT selection) |
@@ -324,7 +328,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `contracts/abi/abi_PokeballGameV5.json` | PokeballGame ABI v1.5.0 (unified payments) |
 | `contracts/abi/abi_PokeballGameV6.json` | PokeballGame ABI v1.6.0 (Pyth Entropy) |
 | `contracts/abi/abi_PokeballGameV7.json` | PokeballGame ABI v1.7.0 (random NFT selection) |
-| `contracts/abi/abi_PokeballGameV8.json` | PokeballGame ABI v1.8.0 (gasless throws, **current**) |
+| `contracts/abi/abi_PokeballGameV8.json` | PokeballGame ABI v1.8.0 (gasless throws) |
+| `contracts/abi/abi_PokeballGameV9.json` | PokeballGame ABI v1.9.0 (spawn management, **current**) |
 | `contracts/abi/abi_SlabNFTManagerV2_3.json` | SlabNFTManager ABI v2.3.0 (random NFT selection) |
 | `contracts/abi/abi_SlabNFTManagerV2_4.json` | SlabNFTManager ABI v2.4.0 (APE reserves, auto-purchase loop, **current**) |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
@@ -333,6 +338,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `contracts/deployment/upgrade_PokeballGameV3.cjs` | Upgrade to v1.3.0 (configurable pricing) |
 | `contracts/deployment/upgrade_PokeballGameV4_NativeAPE.cjs` | Upgrade to v1.4.0 (native APE payments) |
 | `contracts/deployment/upgrade_PokeballGameV5.cjs` | Upgrade to v1.5.0 (unified payments, auto-swap) |
+| `contracts/deployment/upgrade_PokeballGameV9.cjs` | Upgrade to v1.9.0 (spawn management) |
 | `contracts/deployment/set_slabNFTManager.cjs` | Configure SlabNFTManager on PokeballGame |
 | `contracts/deployment/upgrade_SlabNFTManagerV2.cjs` | Upgrade to v2.0.0 (max 20 NFTs) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
@@ -374,7 +380,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
 | **WAPE (Wrapped APE)** | `0x48b62137EdfA95a428D35C09E44256a739F6B557` |
-| **PokeballGame Implementation (v1.8.0)** | `0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c` |
+| **PokeballGame Implementation (v1.9.0)** | `0x308c619d850fc3C38CD61dD286A2a6B4Fa387Ef4` |
 | **SlabNFTManager Implementation (v2.4.0)** | `0xCaFcB2606F8Fae7A2B44f9293920d4cE179ABd2c` |
 | **Camelot Router (AMMv3)** | `0xC69Dc28924930583024E067b2B3d773018F4EB52` |
 | **Pyth Entropy** | `0x36825bf3Fbdf5a29E2d5148bfe7Dcf7B5639e320` |
@@ -382,7 +388,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 
 **Note:** On ApeChain, APE is the native gas token. PokeballGame uses **Pyth Entropy** for randomness (replaced POP VRNG which required whitelisting). Both APE and USDC.e payments result in USDC.e for the NFT pool. APE is auto-swapped via Camelot DEX.
 
-**v1.8.0 (Current - Deployed 2026-01-25):** New revenue split: 0.5% APE to PokeballGame reserves, 0.5% APE to SlabNFTManager reserves, 96% USDC.e to NFT pool, 3% USDC.e to treasury. **Gasless throws** - players only sign ball purchases; throws are executed by a relayer using the contract's APE reserve. Both contracts maintain APE reserves for Entropy fees and gas. Meta-transaction support via `throwBallFor()` with signature verification. SlabNFTManager v2.4.0 includes auto-purchase loop (continues until 20 NFTs OR funds depleted).
+**v1.9.0 (Current - Deployed 2026-01-26):** Spawn management improvements: `repositionPokemon()` to move Pokemon without despawning, `despawnPokemon()` to remove from slots, and configurable `maxActivePokemon` soft cap. All v1.8.0 features unchanged: gasless throws, APE reserves, meta-transactions, revenue split (0.5%+0.5% APE reserves, 96% NFT pool, 3% treasury). SlabNFTManager v2.4.0 includes auto-purchase loop (continues until 20 NFTs OR funds depleted).
 
 ### Multicall3 Configuration
 
@@ -1429,7 +1435,7 @@ See `docs/pop_vrng_integration.md` for complete implementation details
 - ABI at `abi_SlabMachine.json`
 - Address: `0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466`
 
-### PokeballGame Contract (v1.7.0)
+### PokeballGame Contract (v1.9.0)
 Pokemon catching mini-game with provably fair mechanics:
 
 **Versions:**
@@ -1445,7 +1451,8 @@ Pokemon catching mini-game with provably fair mechanics:
 | v1.5.0 | 20 | Unified payments: APE auto-swap to USDC.e, 97% to SlabNFTManager | Superseded |
 | v1.6.0 | 20 | Pyth Entropy for randomness (replaces POP VRNG, no whitelist needed) | Superseded |
 | v1.7.0 | 20 | Random NFT selection using Pyth Entropy random number | Superseded |
-| v1.8.0 | 20 | **Gasless throws, APE reserves, meta-transactions** | **Latest** |
+| v1.8.0 | 20 | Gasless throws, APE reserves, meta-transactions | Superseded |
+| v1.9.0 | 20 | **Spawn management: repositionPokemon, despawnPokemon, configurable max** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
@@ -1562,6 +1569,7 @@ To check current price: `await contract.apePriceUSD()` → returns 8-decimal val
 - **v1.3.0:** Optional revert if no NFT available on catch (`revertOnNoNFT`)
 - **v1.7.0:** Random NFT selection from inventory using Pyth Entropy—no deterministic "next in array" selection
 - **v1.7.0:** Platform pays Entropy fees from APE buffer; players pay only ball prices
+- **v1.9.0:** Admin spawn management: `repositionPokemon()`, `despawnPokemon()`, configurable `maxActivePokemon`
 
 **Key Functions:**
 - `purchaseBalls(ballType, quantity, useAPE)` - Buy balls (if useAPE=true, send APE via msg.value)
@@ -1627,7 +1635,7 @@ To check current price: `await contract.apePriceUSD()` → returns 8-decimal val
 - Uses different entropy bits: low 128 bits for catch rate, high 128 bits for NFT index
 - Formula: `(randomNumber >> 128) % inventorySize` for unbiased index selection
 
-**New Functions (v1.8.0 - Gasless Throws, Planned):**
+**New Functions (v1.8.0 - Gasless Throws):**
 - `initializeV180()` - Initialize v1.8.0 (marks as initialized)
 - `throwBallFor(player, pokemonSlot, ballType, nonce, signature)` - Gasless throw via relayer (onlyRelayerOrOwner)
 - `depositAPEReserve()` - Manually deposit APE to reserve (payable)
@@ -1637,6 +1645,41 @@ To check current price: `await contract.apePriceUSD()` → returns 8-decimal val
 - `playerThrowNonces(address)` - View player's current nonce for meta-transactions
 - `relayerAddress()` - View current relayer address
 - `_swapUSDCtoAPE(usdcAmount)` - Internal: swap USDC.e to APE for reserves
+
+**New Functions (v1.9.0 - Spawn Management):**
+- `initializeV190()` - Initialize v1.9.0 (sets `maxActivePokemon = MAX_ACTIVE_POKEMON`, marks initialized)
+- `repositionPokemon(slot, newPosX, newPosY)` - Move existing Pokemon to new position without despawning (owner only)
+- `despawnPokemon(slot)` - Remove Pokemon from a slot, freeing it for future spawns (owner only)
+- `setMaxActivePokemon(newMax)` - Set soft cap on active spawns, 1 ≤ newMax ≤ 20 (owner only)
+- `getEffectiveMaxActivePokemon()` - View current effective max (returns configured or hardcoded 20)
+- `maxActivePokemon()` - Storage variable for configurable soft cap
+
+**v1.9.0 Events:**
+- `PokemonRepositioned(pokemonId, slot, oldX, oldY, newX, newY)` - Emitted when Pokemon moved via `repositionPokemon()`
+- `PokemonDespawned(pokemonId, slot)` - Emitted when Pokemon removed via `despawnPokemon()`
+- `MaxActivePokemonUpdated(oldMax, newMax)` - Emitted when soft cap changed
+
+**v1.9.0 Errors:**
+- `SlotNotOccupied(slot)` - Thrown when operating on empty slot
+- `InvalidCoordinate(coordinate, max)` - Thrown when coordinate exceeds MAX_COORDINATE (999)
+- `MaxActivePokemonExceeded(current, max)` - Thrown when spawning would exceed soft cap
+- `InvalidMaxActivePokemon(provided, hardCap)` - Thrown when setting invalid max (0 or > 20)
+
+**v1.9.0 Storage Layout:**
+```solidity
+// Added after v1.8.0 variables, before __gap
+uint8 public maxActivePokemon;     // Configurable soft cap (default: MAX_ACTIVE_POKEMON)
+bool private _v190Initialized;     // One-time initialization flag
+
+// Storage gap reduced from 33 to 32 slots to accommodate new variables
+uint256[32] private __gap;
+```
+
+**v1.9.0 Spawn Behavior:**
+- `spawnPokemon()` and `forceSpawnPokemon()` now check `getEffectiveMaxActivePokemon()` before spawning
+- If active count >= effective max, revert with `MaxActivePokemonExceeded`
+- `repositionPokemon()` resets `throwAttempts` to 0 (fresh start at new location)
+- `repositionPokemon()` emits both `PokemonRepositioned` (detailed) AND `PokemonRelocated` (frontend-compatible)
 
 **v1.8.0 Revenue Split Constants:**
 ```solidity
@@ -1678,6 +1721,9 @@ npx hardhat run contracts/deployment/upgrade_PokeballGameV7.cjs --network apecha
 # Upgrade to v1.8.0 (Gasless Throws - requires SlabNFTManager v2.4.0 first!)
 npx hardhat run contracts/deployment/upgrade_SlabNFTManagerV2_4.cjs --network apechain  # First
 npx hardhat run contracts/deployment/upgrade_PokeballGameV8.cjs --network apechain      # Second
+
+# Upgrade to v1.9.0 (Spawn Management - no SlabNFTManager changes required)
+npx hardhat run contracts/deployment/upgrade_PokeballGameV9.cjs --network apechain
 ```
 
 **v1.7.0 Payment Flow:**
@@ -1711,7 +1757,8 @@ await pokeballGame.setRevertOnNoNFT(true);
 - v1.4.0 adds native APE payments via msg.value (no more ERC-20 approval for APE!)
 - v1.6.0 adds Pyth Entropy for randomness (replaces POP VRNG)
 - v1.7.0 adds random NFT selection using same Entropy random number from catch determination
-- v1.8.0 (planned) adds gasless throws, APE reserves, meta-transaction support
+- v1.8.0 adds gasless throws, APE reserves, meta-transaction support
+- v1.9.0 adds spawn management: `repositionPokemon()`, `despawnPokemon()`, configurable `maxActivePokemon`
 - See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for v1.2.0 upgrade guide
 
 ### SlabNFTManager Contract (v2.3.0)

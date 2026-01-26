@@ -6,8 +6,8 @@
   "contracts": {
     "pokeballGame": {
       "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
-      "implementation": "0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c",
-      "version": "1.8.0"
+      "implementation": "0x308c619d850fc3C38CD61dD286A2a6B4Fa387Ef4",
+      "version": "1.9.0"
     },
     "camelotRouter": "0xC69Dc28924930583024E067b2B3d773018F4EB52",
     "slabNFTManager": {
@@ -186,6 +186,23 @@
       "USDC to APE swap function for USDC.e purchases to fund reserves",
       "Nonce tracking for replay protection (playerThrowNonces)",
       "Relayer authorization system (onlyRelayerOrOwner)"
+    ]
+  },
+  "upgrade_v1_9_0": {
+    "timestamp": "2026-01-26T00:00:00.000Z",
+    "oldImplementation": "0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c",
+    "newImplementation": "0x308c619d850fc3C38CD61dD286A2a6B4Fa387Ef4",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "upgradeTxHash": "0x2625406ac5e76ef6a126dfecc7918db168cc50ac8e384f8300a9aaa6250f84af",
+    "initTxHash": "0x4351c3ee67e465ca95b77c1a8f505520408cf7a8fdb4daeb25c6234cd707c731",
+    "changes": [
+      "repositionPokemon(slot, newX, newY) - Move existing Pokemon without despawning",
+      "despawnPokemon(slot) - Remove Pokemon from a slot",
+      "maxActivePokemon - Owner-configurable soft cap on active spawns (max 20)",
+      "setMaxActivePokemon(newMax) - Adjust spawn density at runtime",
+      "getEffectiveMaxActivePokemon() - View current effective max",
+      "PokemonRepositioned, PokemonDespawned, MaxActivePokemonUpdated events",
+      "SlotNotOccupied, InvalidCoordinate, MaxActivePokemonExceeded, InvalidMaxActivePokemon errors"
     ]
   }
 }
