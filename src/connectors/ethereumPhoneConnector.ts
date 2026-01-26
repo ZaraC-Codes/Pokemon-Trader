@@ -42,6 +42,7 @@ import {
   isEthereumPhoneAvailable,
   getEthereumPhoneProvider,
   getBundlerRpcUrl,
+  getDGen1Diagnostic,
 } from '../utils/walletDetection';
 
 // ============================================================
@@ -168,7 +169,21 @@ export function ethereumPhoneConnector(
       console.log('[ethereumPhoneConnector] Connected:', {
         account: accounts[0],
         chainId: currentChainId,
+        bundlerRpcUrl,
+        isDGen1: true,
       });
+
+      // Log connection diagnostic
+      try {
+        const diagnostic = await getDGen1Diagnostic();
+        console.log('[ethereumPhoneConnector] Post-connection diagnostic:', JSON.stringify({
+          ...diagnostic,
+          connectedAddress: accounts[0],
+          connectedChainId: currentChainId,
+        }, null, 2));
+      } catch {
+        // Ignore diagnostic errors on connect
+      }
 
       // Return type compatible with wagmi's conditional accounts type
       // When withCapabilities is true, return account objects; otherwise return addresses
@@ -329,6 +344,29 @@ export function ethereumPhoneConnector(
     async setup() {
       console.log('[ethereumPhoneConnector] setup() called');
       console.log('[ethereumPhoneConnector] Bundler RPC:', bundlerRpcUrl);
+
+      // Log comprehensive diagnostic on setup
+      try {
+        const diagnostic = await getDGen1Diagnostic();
+        console.log('[ethereumPhoneConnector] === dGen1 SETUP DIAGNOSTIC ===');
+        console.log('[ethereumPhoneConnector] Diagnostic:', JSON.stringify(diagnostic, null, 2));
+
+        if (!diagnostic.hasBundlerUrl) {
+          console.warn('[ethereumPhoneConnector] ⚠️ WARNING: VITE_BUNDLER_RPC_URL not configured!');
+          console.warn('[ethereumPhoneConnector] dGen1 ERC-4337 transactions require a bundler RPC.');
+          console.warn('[ethereumPhoneConnector] For ApeChain (33139), set: VITE_BUNDLER_RPC_URL=<your-bundler-url>');
+        }
+
+        // Log provider detection details
+        console.log('[ethereumPhoneConnector] Provider detection:', {
+          isEthereumPhoneAvailable: isEthereumPhoneAvailable(),
+          'window.ethereum?.isEthereumPhone': (window as unknown as { ethereum?: { isEthereumPhone?: boolean } }).ethereum?.isEthereumPhone,
+          'window.__ETHOS_WALLET__': (window as unknown as { __ETHOS_WALLET__?: boolean }).__ETHOS_WALLET__,
+          userAgent: navigator.userAgent,
+        });
+      } catch (diagError) {
+        console.error('[ethereumPhoneConnector] Failed to get diagnostic:', diagError);
+      }
 
       const provider = getTypedProvider();
       if (provider?.on) {

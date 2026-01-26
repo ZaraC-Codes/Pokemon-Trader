@@ -237,6 +237,68 @@ export function logWalletDetectionStatus(): void {
   console.log('[walletDetection] ===============================');
 }
 
+/**
+ * dGen1 diagnostic object for logging and debugging.
+ * Contains all relevant info for troubleshooting dGen1 wallet issues.
+ */
+export interface DGen1Diagnostic {
+  walletType: 'dgen1' | 'standard';
+  isEthereumPhone: boolean;
+  hasEthosWalletFlag: boolean;
+  hasBundlerUrl: boolean;
+  bundlerUrl: string | undefined;
+  chainId: number | undefined;
+  providerFlags: {
+    isEthereumPhone?: boolean;
+    isMetaMask?: boolean;
+  };
+}
+
+/**
+ * Get dGen1 diagnostic info for troubleshooting.
+ * Useful for logging in approval/transaction flows.
+ */
+export async function getDGen1Diagnostic(): Promise<DGen1Diagnostic> {
+  const isEthPhone = isEthereumPhoneAvailable();
+  const provider = getEthereumPhoneProvider();
+  const bundlerUrl = getBundlerRpcUrl();
+  const envBundlerUrl = import.meta.env.VITE_BUNDLER_RPC_URL as string | undefined;
+
+  let chainId: number | undefined;
+  if (provider) {
+    try {
+      const chainIdHex = await provider.request({ method: 'eth_chainId' }) as string;
+      chainId = parseInt(chainIdHex, 16);
+    } catch {
+      chainId = undefined;
+    }
+  }
+
+  return {
+    walletType: isEthPhone ? 'dgen1' : 'standard',
+    isEthereumPhone: isEthPhone,
+    hasEthosWalletFlag: typeof window !== 'undefined' && window.__ETHOS_WALLET__ === true,
+    hasBundlerUrl: !!envBundlerUrl,
+    bundlerUrl: envBundlerUrl || bundlerUrl,
+    chainId,
+    providerFlags: {
+      isEthereumPhone: provider?.isEthereumPhone,
+      isMetaMask: provider?.isMetaMask,
+    },
+  };
+}
+
+/**
+ * Log dGen1 diagnostic for transaction debugging.
+ * Call this before/during approval or purchase transactions.
+ */
+export async function logDGen1Diagnostic(context: string = 'general'): Promise<DGen1Diagnostic> {
+  const diagnostic = await getDGen1Diagnostic();
+  console.log(`[dGen1Diagnostic] === ${context} ===`);
+  console.log('[dGen1Diagnostic]', JSON.stringify(diagnostic, null, 2));
+  return diagnostic;
+}
+
 // ============================================================
 // ENVIRONMENT CONFIGURATION
 // ============================================================
@@ -279,4 +341,6 @@ export default {
   logWalletDetectionStatus,
   getBundlerRpcUrl,
   getGlyphApiKey,
+  getDGen1Diagnostic,
+  logDGen1Diagnostic,
 };

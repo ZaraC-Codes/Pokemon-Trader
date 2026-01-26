@@ -928,6 +928,80 @@ VITE_GLYPH_API_KEY=
 - Active/pressed states instead of hover
 - Square screen layout (300x300px viewport)
 
+**dGen1 Transaction Troubleshooting:**
+
+The dGen1 uses ERC-4337 Account Abstraction, which requires a bundler RPC for transactions.
+
+**Symptom: USDC.e approval stuck on "Confirming approval…"**
+- No wallet popup appears on dGen1
+- No transaction is mined
+- Console shows `isApproving: true` indefinitely
+
+**Root Causes & Solutions:**
+
+1. **Missing Bundler RPC URL**
+   - dGen1 requires `VITE_BUNDLER_RPC_URL` configured for ApeChain (chainId 33139)
+   - Without it, transactions may not reach the bundler
+   - Set: `VITE_BUNDLER_RPC_URL=https://your-bundler-for-apechain`
+   - Note: Pimlico's free tier may not support ApeChain
+
+2. **Chain Mismatch**
+   - dGen1's bundler must be configured for the same chainId as the app
+   - Check console for `chainId` in diagnostic logs
+   - Ensure dGen1 is on ApeChain (33139)
+
+3. **Transaction Format Issues**
+   - dGen1 WalletSDK expects specific transaction format via `sendTransaction()`
+   - Standard `eth_sendTransaction` may not work correctly
+   - Check console for `dGen1 approve() transaction request:` logs
+
+**Diagnostic Console Logs (look for these):**
+```
+[ethereumPhoneConnector] === dGen1 SETUP DIAGNOSTIC ===
+[useTokenApproval] === dGen1 APPROVAL DIAGNOSTIC ===
+[usePurchaseBalls] === dGen1 PURCHASE DIAGNOSTIC ===
+```
+
+**Diagnostic Object Structure:**
+```typescript
+interface DGen1Diagnostic {
+  walletType: 'dgen1' | 'standard';
+  isEthereumPhone: boolean;
+  hasEthosWalletFlag: boolean;
+  hasBundlerUrl: boolean;        // ← Must be true for dGen1
+  bundlerUrl: string | undefined;
+  chainId: number | undefined;   // ← Must be 33139 for ApeChain
+  providerFlags: {
+    isEthereumPhone?: boolean;
+    isMetaMask?: boolean;
+  };
+}
+```
+
+**Testing dGen1 Approvals:**
+1. Connect dGen1 wallet via RainbowKit
+2. Open PokeBallShop, select USDC.e payment
+3. Click "Approve" button
+4. Check console for:
+   - `[useTokenApproval] dGen1 approve() transaction request:` - transaction details
+   - `[useTokenApproval] writeContract called - waiting for wallet response...`
+5. If no wallet UI appears:
+   - Check `hasBundlerUrl` in diagnostic
+   - Verify chainId matches ApeChain (33139)
+   - Check dGen1 device for any pending approval prompts
+
+**Programmatic Diagnostics:**
+```typescript
+import { getDGen1Diagnostic, logDGen1Diagnostic } from './utils/walletDetection';
+
+// Get diagnostic object
+const diag = await getDGen1Diagnostic();
+console.log(diag);
+
+// Or use the logging helper
+await logDGen1Diagnostic('before-approval');
+```
+
 **Documentation:** See `docs/WALLET_INTEGRATION.md` for full setup and troubleshooting guide.
 
 ### FundingWidget (Bridge/Swap/Buy)

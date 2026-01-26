@@ -33,8 +33,8 @@
  */
 
 import { useCallback, useMemo, useEffect, useRef } from 'react';
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { erc20Abi, maxUint256 } from 'viem';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useConnectorClient } from 'wagmi';
+import { erc20Abi, maxUint256, encodeFunctionData } from 'viem';
 import { useActiveWeb3React } from '../useActiveWeb3React';
 import {
   POKEBALL_GAME_ADDRESS,
@@ -42,6 +42,12 @@ import {
   RELATED_CONTRACTS,
   type BallType,
 } from './pokeballGameConfig';
+import {
+  isEthereumPhoneAvailable,
+  getDGen1Diagnostic,
+  getBundlerRpcUrl,
+  type DGen1Diagnostic,
+} from '../../utils/walletDetection';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -265,7 +271,7 @@ export function useTokenApproval(
   }, [isNativeCurrency, tokenType, allowance, requiredAmount, isApproved, isApproving, isConfirming, isConfirmed, writeHash]);
 
   // Approve function - requests unlimited approval (no-op for native currency)
-  const approve = useCallback(() => {
+  const approve = useCallback(async () => {
     if (isNativeCurrency) {
       console.warn('[useTokenApproval] APE does not require approval (uses native msg.value)');
       return;
@@ -276,12 +282,50 @@ export function useTokenApproval(
       return;
     }
 
+    // ====== dGen1 DIAGNOSTIC LOGGING ======
+    const isDGen1 = isEthereumPhoneAvailable();
+    if (isDGen1) {
+      console.log('[useTokenApproval] === dGen1 APPROVAL DIAGNOSTIC ===');
+      try {
+        const diagnostic = await getDGen1Diagnostic();
+        console.log('[useTokenApproval] dGen1 diagnostic:', JSON.stringify(diagnostic, null, 2));
+
+        // Warn if no bundler URL configured
+        if (!diagnostic.hasBundlerUrl) {
+          console.warn('[useTokenApproval] ⚠️ WARNING: No bundler RPC URL configured for dGen1!');
+          console.warn('[useTokenApproval] Set VITE_BUNDLER_RPC_URL in .env for ApeChain (chainId: 33139)');
+        }
+
+        // Log the exact approve() transaction that will be built
+        const approveCallData = encodeFunctionData({
+          abi: erc20Abi,
+          functionName: 'approve',
+          args: [spender, maxUint256],
+        });
+
+        console.log('[useTokenApproval] dGen1 approve() transaction request:', {
+          to: tokenAddress,
+          data: approveCallData,
+          value: '0',
+          chainId: POKEBALL_GAME_CHAIN_ID,
+          bundlerUrl: diagnostic.bundlerUrl,
+        });
+      } catch (diagError) {
+        console.error('[useTokenApproval] Failed to get dGen1 diagnostic:', diagError);
+      }
+    }
+
     console.log('[useTokenApproval] Requesting approval:', {
       token: tokenType,
       tokenAddress,
       spender,
       amount: 'unlimited',
+      isDGen1,
+      chainId: POKEBALL_GAME_CHAIN_ID,
     });
+
+    // Track when we call writeContract
+    console.log('[useTokenApproval] Calling writeContract for approval...');
 
     writeContract({
       address: tokenAddress,
@@ -290,6 +334,8 @@ export function useTokenApproval(
       args: [spender, maxUint256],
       chainId: POKEBALL_GAME_CHAIN_ID,
     });
+
+    console.log('[useTokenApproval] writeContract called - waiting for wallet response...');
   }, [isNativeCurrency, tokenType, tokenAddress, spender, writeContract]);
 
   // For native currency, no errors possible from approval flow

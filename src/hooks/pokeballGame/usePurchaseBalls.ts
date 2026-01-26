@@ -47,7 +47,7 @@
 import { useState, useCallback } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount } from 'wagmi';
 import type { TransactionReceipt } from 'viem';
-import { formatEther, formatGwei } from 'viem';
+import { formatEther, formatGwei, encodeFunctionData } from 'viem';
 import {
   POKEBALL_GAME_ADDRESS,
   POKEBALL_GAME_ABI,
@@ -55,6 +55,10 @@ import {
   usePokeballGameAddress,
   type BallType,
 } from './pokeballGameConfig';
+import {
+  isEthereumPhoneAvailable,
+  getDGen1Diagnostic,
+} from '../../utils/walletDetection';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -207,6 +211,39 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
           note: 'Sending exact APE amount via msg.value - no markup (fees split internally)',
         }),
       });
+
+      // ====== dGen1 DIAGNOSTIC LOGGING ======
+      const isDGen1 = isEthereumPhoneAvailable();
+      if (isDGen1) {
+        console.log('[usePurchaseBalls] === dGen1 PURCHASE DIAGNOSTIC ===');
+        try {
+          const diagnostic = await getDGen1Diagnostic();
+          console.log('[usePurchaseBalls] dGen1 diagnostic:', JSON.stringify(diagnostic, null, 2));
+
+          // Warn if no bundler URL configured
+          if (!diagnostic.hasBundlerUrl) {
+            console.warn('[usePurchaseBalls] ⚠️ WARNING: No bundler RPC URL configured for dGen1!');
+            console.warn('[usePurchaseBalls] Set VITE_BUNDLER_RPC_URL in .env for ApeChain (chainId: 33139)');
+          }
+
+          // Log the exact transaction that will be built
+          const callData = encodeFunctionData({
+            abi: POKEBALL_GAME_ABI,
+            functionName: useAPE ? 'purchaseBallsWithAPE' : 'purchaseBallsWithUSDC',
+            args: [ballType, BigInt(quantity)],
+          });
+
+          console.log('[usePurchaseBalls] dGen1 transaction request:', {
+            to: POKEBALL_GAME_ADDRESS,
+            data: callData,
+            value: useAPE ? totalCostAPE.toString() : '0',
+            chainId: POKEBALL_GAME_CHAIN_ID,
+            bundlerUrl: diagnostic.bundlerUrl,
+          });
+        } catch (diagError) {
+          console.error('[usePurchaseBalls] Failed to get dGen1 diagnostic:', diagError);
+        }
+      }
 
       // ====== DEBUG: Log transaction parameters ======
       // v1.4.0+: Uses dedicated functions (purchaseBallsWithAPE / purchaseBallsWithUSDC)
