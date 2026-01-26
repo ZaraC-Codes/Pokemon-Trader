@@ -17,10 +17,11 @@
 
 import { useMemo } from 'react';
 import { apeChainMainnet } from '../../services/apechainConfig';
-// v1.8.0 ABI with APE reserves and gasless relay support
-// v1.8.0: Adds depositAPEReserve(), totalAPEReserve(), throwBallFor() for gasless throws
+// v1.9.0 ABI with admin spawn control functions
+// v1.9.0: Adds repositionPokemon(), despawnPokemon(), setMaxActivePokemon(), getEffectiveMaxActivePokemon()
+// v1.8.0: APE reserves, gasless relay via throwBallFor()
 // v1.8.0: Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE reserve, 1% SlabNFTManager APE reserve
-import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV8.json';
+import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV9.json';
 
 // ============================================================
 // CONTRACT ADDRESS
@@ -44,11 +45,17 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
 // ============================================================
 
 /**
- * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV8.json.
+ * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV9.json.
  * The JSON file is an array directly (not { abi: [...] }), so we use it as-is.
  * Type assertion ensures Wagmi type inference works correctly.
  *
- * v1.8.0 ABI includes (adds to v1.7.0):
+ * v1.9.0 ABI includes (adds to v1.8.0):
+ * - repositionPokemon(slot, newPosX, newPosY) - move Pokemon to new position (owner only)
+ * - despawnPokemon(slot) - remove Pokemon from slot (owner only)
+ * - setMaxActivePokemon(newMax) - set max active Pokemon (owner only)
+ * - getEffectiveMaxActivePokemon() - get current max active Pokemon
+ *
+ * v1.8.0 ABI includes:
  * - depositAPEReserve() PAYABLE - deposit APE to contract reserve
  * - totalAPEReserve() - view current APE reserve
  * - getAPEReserve() - alias for totalAPEReserve()

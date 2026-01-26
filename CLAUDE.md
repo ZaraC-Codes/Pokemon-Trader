@@ -45,6 +45,7 @@ npx hardhat test     # Run contract tests
 npx hardhat run contracts/deployment/deployProxies.cjs --network apechain  # Deploy both contracts
 npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 initial Pokemon (slots 0-2)
 npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Pokemon in slots 3-19 (v1.2.0)
+npx hardhat run scripts/repositionPokemonV9.cjs --network apechain # Reposition all Pokemon (center-heavy layout, v1.9.0)
 
 # Hardhat Tasks (Reserve Management)
 npx hardhat checkReserves --network apechain                                    # View all reserves with health status
@@ -256,6 +257,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 ├── scripts/                 # Hardhat scripts
 │   ├── spawnInitialPokemon.cjs  # Spawn 3 initial Pokemon (slots 0-2)
 │   ├── spawnMorePokemon.cjs     # Spawn Pokemon in slots 3-19 (v1.2.0)
+│   ├── repositionPokemonV9.cjs  # Reposition all Pokemon (center-heavy layout, v1.9.0)
 │   ├── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.7.0)
 │   ├── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.7.0)
 │   ├── update_ape_price.cjs     # Auto-update APE/USD price from CoinGecko
@@ -343,6 +345,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `contracts/deployment/upgrade_SlabNFTManagerV2.cjs` | Upgrade to v2.0.0 (max 20 NFTs) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
 | `scripts/spawnMorePokemon.cjs` | Spawn Pokemon in slots 3-19 (v1.2.0) |
+| `scripts/repositionPokemonV9.cjs` | Reposition all Pokemon (center-heavy layout, v1.9.0) |
 | `scripts/verify_revenue_flow.cjs` | Verify 3%/97% fee/revenue split on-chain (v1.7.0) |
 | `scripts/withdraw_test_funds.cjs` | Withdraw fees/revenue from contracts for testing |
 | `scripts/update_ape_price.cjs` | Hourly APE/USD price updater from CoinGecko |
@@ -2762,6 +2765,9 @@ import {
 | `useContractDiagnostics()` | Environment sanity checks (APE price, NFT pool status, warnings) |
 | `useSetOwnerWallet()` | Transfer ownership (owner only) |
 | `useSetTreasuryWallet()` | Update treasury address (owner only) |
+| `useRepositionPokemon()` | **v1.9.0** Reposition Pokemon to new coordinates (owner only) |
+| `useDespawnPokemon()` | **v1.9.0** Remove Pokemon from slot (owner only) |
+| `useMaxActivePokemon()` | **v1.9.0** Read/write max active Pokemon count |
 
 **Specialized Event Hooks:**
 - `useBallPurchasedEvents()` - Ball purchase events
@@ -2797,7 +2803,7 @@ const { events: catches } = useCaughtPokemonEvents();
 
 **Configuration:**
 - Contract address: `VITE_POKEBALL_GAME_ADDRESS` env var
-- ABI: `contracts/abi/abi_PokeballGameV5.json` (v1.5.x, unified payments)
+- ABI: `contracts/abi/abi_PokeballGameV9.json` (v1.9.0, spawn management, current)
 - Chain: ApeChain Mainnet (33139)
 - **Important:** ABI file must be a raw array `[...]`, not a Hardhat artifact object
 

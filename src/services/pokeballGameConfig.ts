@@ -31,11 +31,12 @@
  */
 
 import { apeChainMainnet, ALCHEMY_RPC_URL } from './apechainConfig';
-// Use V8 ABI with APE reserves and gasless relay support (v1.8.0)
-// v1.8.0: Adds depositAPEReserve(), totalAPEReserve(), throwBallFor() for gasless throws
+// Use V9 ABI with admin spawn control functions (v1.9.0)
+// v1.9.0: Adds repositionPokemon(), despawnPokemon(), setMaxActivePokemon(), getEffectiveMaxActivePokemon()
+// v1.8.0: APE reserves, gasless relay via throwBallFor()
 // v1.8.0: Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE, 1% SlabNFTManager APE
 // Must be a raw array, not a Hardhat artifact object
-import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV8.json';
+import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV9.json';
 
 // ============================================================
 // CHAIN CONFIGURATION
@@ -94,8 +95,8 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
   | undefined;
 
 /**
- * PokeballGame contract ABI (v1.8.0 with APE reserves and gasless relay).
- * Imported from contracts/abi/abi_PokeballGameV8.json.
+ * PokeballGame contract ABI (v1.9.0 with admin spawn control).
+ * Imported from contracts/abi/abi_PokeballGameV9.json.
  * Note: The JSON file is an array directly (not { abi: [...] }).
  *
  * Key functions:
@@ -108,6 +109,12 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
  * - totalAPEReserve() - View current APE reserve balance
  * - getAllPlayerBalls(player) - Get player inventory
  * - getAllActivePokemons() - Get spawned Pokemon
+ *
+ * v1.9.0 Changes (Admin Spawn Control):
+ * - repositionPokemon(slot, newPosX, newPosY) - Move existing Pokemon to new position (owner only)
+ * - despawnPokemon(slot) - Remove Pokemon from slot (owner only)
+ * - setMaxActivePokemon(newMax) - Set max active Pokemon (owner only)
+ * - getEffectiveMaxActivePokemon() - Get current max active Pokemon
  *
  * v1.8.0 Changes:
  * - APE reserves for entropy fees and gas operations

@@ -144,3 +144,16 @@ export {
   type GaslessThrowPayload,
   type ThrowStatus,
 } from './useGaslessThrow';
+
+// ============================================================
+// ADMIN SPAWN CONTROL HOOKS (v1.9.0)
+// ============================================================
+
+// Reposition Pokemon hook (owner only)
+export { useRepositionPokemon, type UseRepositionPokemonReturn } from './useRepositionPokemon';
+
+// Despawn Pokemon hook (owner only)
+export { useDespawnPokemon, type UseDespawnPokemonReturn } from './useDespawnPokemon';
+
+// Max active Pokemon hook (read + write)
+export { useMaxActivePokemon, type UseMaxActivePokemonReturn } from './useMaxActivePokemon';
