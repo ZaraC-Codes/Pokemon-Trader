@@ -421,26 +421,58 @@ export function useTokenApproval(
 
         setDgen1LastStep('sending_tx');
 
-        // Try standard eth_sendTransaction first
+        // Try multiple provider methods in order of preference
+        // The ethOS injected provider may use a non-standard API
         let txHash: `0x${string}`;
-        try {
-          txHash = await provider.request({
-            method: 'eth_sendTransaction',
-            params: [txParams],
-          }) as `0x${string}`;
-        } catch (rpcError) {
-          // If eth_sendTransaction fails, log the error and try alternative methods
-          console.error('[useTokenApproval] eth_sendTransaction failed:', rpcError);
-          setDgen1LastStep('trying_alt_method');
+        let lastError: unknown;
 
-          // Try if provider has a direct sendTransaction method (non-standard)
-          if (typeof (provider as any).sendTransaction === 'function') {
-            console.log('[useTokenApproval] Trying provider.sendTransaction() directly...');
-            txHash = await (provider as any).sendTransaction(txParams) as `0x${string}`;
-          } else {
-            // Re-throw original error if no alternative
-            throw rpcError;
+        // Method 1: Standard EIP-1193 provider.request()
+        if (typeof provider.request === 'function') {
+          try {
+            console.log('[useTokenApproval] Trying provider.request({ method: eth_sendTransaction })...');
+            txHash = await provider.request({
+              method: 'eth_sendTransaction',
+              params: [txParams],
+            }) as `0x${string}`;
+            console.log('[useTokenApproval] provider.request succeeded:', txHash);
+          } catch (err) {
+            console.error('[useTokenApproval] provider.request failed:', err);
+            lastError = err;
+            setDgen1LastStep('request_failed');
           }
+        }
+
+        // Method 2: Direct sendTransaction method (some providers expose this)
+        if (!txHash && typeof (provider as any).sendTransaction === 'function') {
+          try {
+            console.log('[useTokenApproval] Trying provider.sendTransaction()...');
+            setDgen1LastStep('trying_sendTransaction');
+            txHash = await (provider as any).sendTransaction(txParams) as `0x${string}`;
+            console.log('[useTokenApproval] provider.sendTransaction succeeded:', txHash);
+          } catch (err) {
+            console.error('[useTokenApproval] provider.sendTransaction failed:', err);
+            lastError = err;
+            setDgen1LastStep('sendTransaction_failed');
+          }
+        }
+
+        // Method 3: Legacy provider.send() (older web3 style)
+        if (!txHash && typeof (provider as any).send === 'function') {
+          try {
+            console.log('[useTokenApproval] Trying provider.send(eth_sendTransaction, [...])...');
+            setDgen1LastStep('trying_send');
+            txHash = await (provider as any).send('eth_sendTransaction', [txParams]) as `0x${string}`;
+            console.log('[useTokenApproval] provider.send succeeded:', txHash);
+          } catch (err) {
+            console.error('[useTokenApproval] provider.send failed:', err);
+            lastError = err;
+            setDgen1LastStep('send_failed');
+          }
+        }
+
+        // If all methods failed, throw the last error
+        if (!txHash) {
+          throw lastError || new Error('No transaction method worked on this provider');
         }
 
         console.log('[useTokenApproval] dGen1 transaction submitted! Hash:', txHash);
