@@ -6,14 +6,14 @@
   "contracts": {
     "pokeballGame": {
       "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
-      "implementation": "0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4",
-      "version": "1.7.0"
+      "implementation": "0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c",
+      "version": "1.8.0"
     },
     "camelotRouter": "0xC69Dc28924930583024E067b2B3d773018F4EB52",
     "slabNFTManager": {
       "proxy": "0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71",
-      "implementation": "0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13",
-      "version": "2.3.0"
+      "implementation": "0xCaFcB2606F8Fae7A2B44f9293920d4cE179ABd2c",
+      "version": "2.4.0"
     },
     "slabMachine": "0xC2DC75bdd0bAa476fcE8A9C628fe45a72e19C466",
     "slabNFT": "0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7",
@@ -151,6 +151,41 @@
       "Reuses same random number from catch determination (no extra Entropy fee)",
       "Uses different entropy bits: low 128 bits for catch rate, high 128 bits for NFT index",
       "Formula: (randomNumber >> 128) % inventorySize for unbiased selection"
+    ]
+  },
+  "upgrade_slabNFTManager_v2_4_0": {
+    "timestamp": "2026-01-25T00:00:00.000Z",
+    "oldImplementation": "0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13",
+    "newImplementation": "0xCaFcB2606F8Fae7A2B44f9293920d4cE179ABd2c",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "upgradeTxHash": "0x15612b375708da949a26f45cd28d238249a5929259393dba898033155620c45b",
+    "initTxHash": "0xc1a803e519797c599ca45ea26ffa51407b8beaa59d0854e969bc46b2380a44b0",
+    "pythEntropy": "0x36825bf3Fbdf5a29E2d5148bfe7Dcf7B5639e320",
+    "pythEntropyProvider": "0x52DeaA1c84233F7bb8C8A45baeDE41091c616506",
+    "changes": [
+      "APE reserve management for Entropy fees (depositAPEReserve, apeReserve)",
+      "Auto-purchase loop in checkAndPurchaseNFT() (until 20 NFTs OR funds depleted)",
+      "Pyth Entropy integration for random NFT selection",
+      "APEReserveDeposited event when APE received",
+      "AutoPurchaseLoopCompleted event when loop completes"
+    ]
+  },
+  "upgrade_v1_8_0": {
+    "timestamp": "2026-01-25T00:00:00.000Z",
+    "oldImplementation": "0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4",
+    "newImplementation": "0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "upgradeTxHash": "0x8c74bb17b43d1d7fb66977b3bf40cef7576a26a23080530f0066bd6bbdde4001",
+    "initTxHash": "0x40f22079e9ad3c0ad944f4caa8845e3bf123cb5d472080486ef9db6e874b42e2",
+    "relayerAddress": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "changes": [
+      "New revenue split: 0.5% APE to PokeballGame, 0.5% APE to SlabNFTManager",
+      "New revenue split: 96% USDC.e to NFT pool, 3% USDC.e to treasury",
+      "Gasless throws via throwBallFor() meta-transaction function",
+      "APE reserve management (totalAPEReserve, depositAPEReserve)",
+      "USDC to APE swap function for USDC.e purchases to fund reserves",
+      "Nonce tracking for replay protection (playerThrowNonces)",
+      "Relayer authorization system (onlyRelayerOrOwner)"
     ]
   }
 }

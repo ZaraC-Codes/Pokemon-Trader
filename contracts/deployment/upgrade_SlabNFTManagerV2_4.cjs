@@ -103,7 +103,8 @@ async function main() {
   );
 
   try {
-    const initTx = await manager.initializeV240(PYTH_ENTROPY_ADDRESS, PYTH_ENTROPY_PROVIDER, { gasLimit: 200000 });
+    // Note: initializeV240 only takes entropy address - it gets provider via getDefaultProvider()
+    const initTx = await manager.initializeV240(PYTH_ENTROPY_ADDRESS, { gasLimit: 200000 });
     console.log('Init TX:', initTx.hash);
     await initTx.wait();
     console.log('v2.4.0 initialization complete');

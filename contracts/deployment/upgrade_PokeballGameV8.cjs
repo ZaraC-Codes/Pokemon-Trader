@@ -116,15 +116,19 @@ async function main() {
 
   console.log();
 
-  // Initialize v1.8.0
-  console.log('Initializing v1.8.0...');
+  // Initialize v1.8.0 with relayer address
+  console.log('Initializing v1.8.0 with relayer address...');
   const game = await hre.ethers.getContractAt(
     'contracts/PokeballGameV8.sol:PokeballGame',
     PROXY_ADDRESS
   );
 
+  // Use deployer as relayer for testing (can be changed later via setRelayerAddress)
+  const RELAYER_ADDRESS = deployer.address;
+  console.log('  Relayer Address:', RELAYER_ADDRESS);
+
   try {
-    const initTx = await game.initializeV180({ gasLimit: 100000 });
+    const initTx = await game.initializeV180(RELAYER_ADDRESS, { gasLimit: 200000 });
     console.log('Init TX:', initTx.hash);
     await initTx.wait();
     console.log('v1.8.0 initialization complete');
@@ -134,19 +138,6 @@ async function main() {
     } else {
       throw err;
     }
-  }
-
-  console.log();
-
-  // Set relayer address (deployer by default for testing)
-  console.log('Setting relayer address to deployer for testing...');
-  try {
-    const relayerTx = await game.setRelayerAddress(deployer.address, { gasLimit: 100000 });
-    console.log('Set Relayer TX:', relayerTx.hash);
-    await relayerTx.wait();
-    console.log('Relayer address set to:', deployer.address);
-  } catch (err) {
-    console.log('Setting relayer failed (may already be set):', err.message);
   }
 
   console.log();
