@@ -47,7 +47,7 @@
 import { useState, useCallback } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount } from 'wagmi';
 import type { TransactionReceipt } from 'viem';
-import { formatEther, formatGwei, encodeFunctionData } from 'viem';
+import { formatEther, formatGwei, encodeFunctionData, toHex } from 'viem';
 import {
   POKEBALL_GAME_ADDRESS,
   POKEBALL_GAME_ABI,
@@ -58,6 +58,7 @@ import {
 import {
   isEthereumPhoneAvailable,
   getDGen1Diagnostic,
+  getEthereumPhoneProvider,
 } from '../../utils/walletDetection';
 
 // ============================================================
@@ -350,9 +351,63 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
       }
 
       console.log('='.repeat(60));
-      console.log('[usePurchaseBalls] Sending transaction to Wagmi...');
+      console.log('[usePurchaseBalls] Sending transaction...');
       console.log('='.repeat(60));
 
+      // Build the call data for the appropriate function
+      const functionName = useAPE ? 'purchaseBallsWithAPE' : 'purchaseBallsWithUSDC';
+      const callData = encodeFunctionData({
+        abi: POKEBALL_GAME_ABI,
+        functionName,
+        args: [ballType, BigInt(quantity)],
+      });
+
+      // ====== dGen1: Use direct provider.request() instead of wagmi ======
+      // The dGen1 wallet may not properly receive wagmi's writeContract calls
+      // because it needs transactions routed through its ERC-4337 bundler
+      if (isDGen1) {
+        console.log('[usePurchaseBalls] dGen1 detected - using direct eth_sendTransaction...');
+
+        const provider = getEthereumPhoneProvider();
+        if (!provider) {
+          console.error('[usePurchaseBalls] dGen1 provider not available');
+          setLocalError(new Error('dGen1 wallet provider not available'));
+          return;
+        }
+
+        try {
+          // Build the transaction object for eth_sendTransaction
+          const txParams = {
+            from: userAddress,
+            to: POKEBALL_GAME_ADDRESS,
+            data: callData,
+            value: useAPE ? toHex(totalCostAPE) : '0x0',
+            // Don't specify gas - let the wallet/bundler estimate
+          };
+
+          console.log('[usePurchaseBalls] dGen1 eth_sendTransaction params:', {
+            ...txParams,
+            valueInAPE: useAPE ? formatEther(totalCostAPE) : '0',
+          });
+
+          // Send transaction directly via provider
+          const txHash = await provider.request({
+            method: 'eth_sendTransaction',
+            params: [txParams],
+          }) as `0x${string}`;
+
+          console.log('[usePurchaseBalls] dGen1 transaction submitted! Hash:', txHash);
+          setCurrentHash(txHash);
+
+        } catch (error) {
+          console.error('[usePurchaseBalls] dGen1 purchase failed:', error);
+          setLocalError(error instanceof Error ? error : new Error(String(error)));
+        }
+
+        return; // Exit early for dGen1
+      }
+
+      // ====== Standard wallets: Use wagmi writeContract ======
       if (useAPE) {
         // v1.4.0+: Use dedicated purchaseBallsWithAPE function for cleaner APE payments
         // This avoids any internal ERC-20 allowance checks that can cause gas estimation issues

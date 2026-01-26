@@ -32,7 +32,7 @@
  * ```
  */
 
-import { useCallback, useMemo, useEffect, useRef } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useConnectorClient } from 'wagmi';
 import { erc20Abi, maxUint256, encodeFunctionData } from 'viem';
 import { useActiveWeb3React } from '../useActiveWeb3React';
@@ -45,6 +45,7 @@ import {
 import {
   isEthereumPhoneAvailable,
   getDGen1Diagnostic,
+  getEthereumPhoneProvider,
   getBundlerRpcUrl,
   type DGen1Diagnostic,
 } from '../../utils/walletDetection';
@@ -208,21 +209,31 @@ export function useTokenApproval(
     return allowance >= requiredAmount;
   }, [isNativeCurrency, allowance, requiredAmount]);
 
-  // Write contract for approval
+  // Write contract for approval (standard wallets)
   const {
     writeContract,
-    isPending: isApproving,
+    isPending: isApprovingWagmi,
     error: writeError,
     data: writeHash,
   } = useWriteContract();
 
-  // Wait for confirmation
+  // dGen1-specific state for direct provider calls
+  const [dgen1Approving, setDgen1Approving] = useState(false);
+  const [dgen1Hash, setDgen1Hash] = useState<`0x${string}` | undefined>(undefined);
+  const [dgen1Error, setDgen1Error] = useState<Error | undefined>(undefined);
+
+  // Combined approval state (wagmi OR dgen1)
+  const isApproving = isApprovingWagmi || dgen1Approving;
+  const combinedHash = writeHash || dgen1Hash;
+  const combinedWriteError = writeError || dgen1Error;
+
+  // Wait for confirmation (uses combined hash from wagmi or dGen1)
   const {
     isLoading: isConfirming,
     isSuccess: isConfirmed,
     error: confirmError,
   } = useWaitForTransactionReceipt({
-    hash: writeHash,
+    hash: combinedHash,
     chainId: POKEBALL_GAME_CHAIN_ID,
   });
 
@@ -233,16 +244,18 @@ export function useTokenApproval(
   useEffect(() => {
     if (isNativeCurrency) return; // No refetch needed for native currency
 
-    if (isConfirmed && writeHash && writeHash !== lastConfirmedHashRef.current) {
+    if (isConfirmed && combinedHash && combinedHash !== lastConfirmedHashRef.current) {
       console.log('[useTokenApproval] Approval tx confirmed! Refetching allowance...', {
-        hash: writeHash,
+        hash: combinedHash,
         token: tokenType,
         tokenAddress,
         spender,
         owner: account,
         chainId: POKEBALL_GAME_CHAIN_ID,
       });
-      lastConfirmedHashRef.current = writeHash;
+      lastConfirmedHashRef.current = combinedHash;
+      // Reset dGen1 state after confirmation
+      setDgen1Approving(false);
       // Refetch the allowance after successful approval
       refetch().then((result) => {
         console.log('[useTokenApproval] Refetch result:', {
@@ -252,7 +265,7 @@ export function useTokenApproval(
         });
       });
     }
-  }, [isNativeCurrency, isConfirmed, writeHash, refetch, tokenType, tokenAddress, spender, account]);
+  }, [isNativeCurrency, isConfirmed, combinedHash, refetch, tokenType, tokenAddress, spender, account]);
 
   // Debug logging for approval state (only for USDC)
   useEffect(() => {
@@ -266,11 +279,13 @@ export function useTokenApproval(
       isApproving,
       isConfirming,
       isConfirmed,
-      hash: writeHash,
+      hash: combinedHash,
+      isDgen1Approving: dgen1Approving,
     });
-  }, [isNativeCurrency, tokenType, allowance, requiredAmount, isApproved, isApproving, isConfirming, isConfirmed, writeHash]);
+  }, [isNativeCurrency, tokenType, allowance, requiredAmount, isApproved, isApproving, isConfirming, isConfirmed, combinedHash, dgen1Approving]);
 
   // Approve function - requests unlimited approval (no-op for native currency)
+  // For dGen1 devices, uses direct provider.request() instead of wagmi writeContract
   const approve = useCallback(async () => {
     if (isNativeCurrency) {
       console.warn('[useTokenApproval] APE does not require approval (uses native msg.value)');
@@ -282,8 +297,22 @@ export function useTokenApproval(
       return;
     }
 
-    // ====== dGen1 DIAGNOSTIC LOGGING ======
+    if (!account) {
+      console.error('[useTokenApproval] No account connected');
+      return;
+    }
+
+    // Check if this is a dGen1 device
     const isDGen1 = isEthereumPhoneAvailable();
+
+    // Build the approve() call data
+    const approveCallData = encodeFunctionData({
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [spender, maxUint256],
+    });
+
+    // ====== dGen1 DIAGNOSTIC LOGGING ======
     if (isDGen1) {
       console.log('[useTokenApproval] === dGen1 APPROVAL DIAGNOSTIC ===');
       try {
@@ -296,17 +325,10 @@ export function useTokenApproval(
           console.warn('[useTokenApproval] Set VITE_BUNDLER_RPC_URL in .env for ApeChain (chainId: 33139)');
         }
 
-        // Log the exact approve() transaction that will be built
-        const approveCallData = encodeFunctionData({
-          abi: erc20Abi,
-          functionName: 'approve',
-          args: [spender, maxUint256],
-        });
-
         console.log('[useTokenApproval] dGen1 approve() transaction request:', {
           to: tokenAddress,
           data: approveCallData,
-          value: '0',
+          value: '0x0',
           chainId: POKEBALL_GAME_CHAIN_ID,
           bundlerUrl: diagnostic.bundlerUrl,
         });
@@ -324,8 +346,56 @@ export function useTokenApproval(
       chainId: POKEBALL_GAME_CHAIN_ID,
     });
 
-    // Track when we call writeContract
-    console.log('[useTokenApproval] Calling writeContract for approval...');
+    // ====== dGen1: Use direct provider.request() instead of wagmi ======
+    // The dGen1 wallet may not properly receive wagmi's writeContract calls
+    // because it needs transactions routed through its ERC-4337 bundler
+    if (isDGen1) {
+      console.log('[useTokenApproval] dGen1 detected - using direct eth_sendTransaction...');
+
+      const provider = getEthereumPhoneProvider();
+      if (!provider) {
+        console.error('[useTokenApproval] dGen1 provider not available');
+        setDgen1Error(new Error('dGen1 wallet provider not available'));
+        return;
+      }
+
+      try {
+        setDgen1Approving(true);
+        setDgen1Error(undefined);
+        setDgen1Hash(undefined);
+
+        // Build the transaction object for eth_sendTransaction
+        const txParams = {
+          from: account,
+          to: tokenAddress,
+          data: approveCallData,
+          value: '0x0',
+          // Don't specify gas - let the wallet/bundler estimate
+        };
+
+        console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', txParams);
+
+        // Send transaction directly via provider
+        const txHash = await provider.request({
+          method: 'eth_sendTransaction',
+          params: [txParams],
+        }) as `0x${string}`;
+
+        console.log('[useTokenApproval] dGen1 transaction submitted! Hash:', txHash);
+        setDgen1Hash(txHash);
+        // Note: setDgen1Approving(false) will be called when tx confirms via useEffect
+
+      } catch (error) {
+        console.error('[useTokenApproval] dGen1 approval failed:', error);
+        setDgen1Error(error instanceof Error ? error : new Error(String(error)));
+        setDgen1Approving(false);
+      }
+
+      return; // Exit early for dGen1
+    }
+
+    // ====== Standard wallets: Use wagmi writeContract ======
+    console.log('[useTokenApproval] Using wagmi writeContract for approval...');
 
     writeContract({
       address: tokenAddress,
@@ -336,10 +406,11 @@ export function useTokenApproval(
     });
 
     console.log('[useTokenApproval] writeContract called - waiting for wallet response...');
-  }, [isNativeCurrency, tokenType, tokenAddress, spender, writeContract]);
+  }, [isNativeCurrency, tokenType, tokenAddress, spender, account, writeContract]);
 
   // For native currency, no errors possible from approval flow
-  const error = isNativeCurrency ? undefined : (writeError || confirmError || undefined);
+  // For ERC-20, combine wagmi errors, dGen1 errors, and confirm errors
+  const error = isNativeCurrency ? undefined : (combinedWriteError || confirmError || undefined);
 
   // For native currency, never loading
   const isLoading = isNativeCurrency ? false : isAllowanceLoading;
@@ -352,7 +423,7 @@ export function useTokenApproval(
     isConfirming: isNativeCurrency ? false : isConfirming,
     isConfirmed: isNativeCurrency ? false : isConfirmed,
     error,
-    hash: isNativeCurrency ? undefined : writeHash,
+    hash: isNativeCurrency ? undefined : combinedHash,
     refetch: isNativeCurrency ? () => {} : refetch,
     isLoading,
   };
