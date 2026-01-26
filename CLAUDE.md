@@ -52,6 +52,8 @@ npx hardhat withdrawApeReserve --contract PokeballGame --keep-minimum 0.5 --netw
 npx hardhat withdrawUsdceReserve --keep-buffer 100 --network apechain           # Withdraw USDC.e from SlabNFTManager
 npx hardhat withdrawTreasuryFunds --all --network apechain                      # Withdraw 3% platform fees
 npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all --network apechain  # Emergency
+npx hardhat returnPokemonNft --token-id 123 --network apechain                  # Return single NFT to SlabNFTManager
+npx hardhat returnPokemonBatch --token-ids 101,102,103 --network apechain       # Return multiple NFTs to SlabNFTManager
 ```
 
 ## Project Structure
@@ -263,6 +265,8 @@ npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all
 │   ├── withdrawUsdceReserve.cjs # Withdraw USDC.e keeping buffer
 │   ├── withdrawTreasuryFunds.cjs # Withdraw 3% platform fees
 │   ├── emergencyWithdraw.cjs    # Dangerous bypass with confirmation
+│   ├── returnPokemonNft.cjs     # Return single NFT to SlabNFTManager
+│   ├── returnPokemonBatch.cjs   # Return multiple NFTs to SlabNFTManager
 │   └── helpers/                 # Task helper modules
 │       ├── formatOutput.cjs         # Colored console output
 │       └── getContractBalances.cjs  # Contract state utilities
@@ -1887,6 +1891,8 @@ Custom Hardhat tasks for inspecting and withdrawing funds from contracts with sa
 | `withdrawUsdceReserve` | Withdraw USDC.e from SlabNFTManager with buffer |
 | `withdrawTreasuryFunds` | Withdraw accumulated 3% USDC.e fees to treasury |
 | `emergencyWithdraw` | Dangerous bypass requiring typed "YES" confirmation |
+| `returnPokemonNft` | Return single NFT from owner wallet to SlabNFTManager |
+| `returnPokemonBatch` | Return multiple NFTs from owner wallet to SlabNFTManager |
 
 **Usage Examples:**
 ```bash
@@ -1907,6 +1913,12 @@ npx hardhat withdrawTreasuryFunds --all --network apechain
 
 # Emergency withdraw (requires typing "YES" to confirm)
 npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all --network apechain
+
+# Return single NFT to SlabNFTManager inventory
+npx hardhat returnPokemonNft --token-id 123 --network apechain
+
+# Return multiple NFTs in batch (comma-separated)
+npx hardhat returnPokemonBatch --token-ids 101,102,103 --network apechain
 ```
 
 **Health Status Indicators:**
@@ -1924,6 +1936,47 @@ npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all
 **Helper Modules:**
 - `helpers/formatOutput.cjs`: Colored console output, formatting functions
 - `helpers/getContractBalances.cjs`: Contract state reading utilities
+
+**NFT Return Tasks:**
+
+The `returnPokemonNft` and `returnPokemonBatch` tasks return Pokemon NFTs from the owner wallet back to SlabNFTManager for testing/inventory replenishment.
+
+**Use Cases:**
+- Return NFTs won during testing back to the inventory pool
+- Replenish SlabNFTManager inventory for more catch tests
+- Clean up owner wallet after testing sessions
+
+**Contract Addresses (hardcoded in tasks):**
+- Slab NFT (ERC-721): `0x8a981C2cfdd7Fbc65395dD2c02ead94e9a2f65a7`
+- SlabNFTManager Proxy: `0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71`
+- Expected Owner: `0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06`
+
+**Single NFT Return (`returnPokemonNft`):**
+```bash
+npx hardhat returnPokemonNft --token-id 123 --network apechain
+```
+- Verifies signer matches expected owner wallet
+- Checks `ownerOf(tokenId)` before attempting transfer
+- Calls `safeTransferFrom(owner, SlabNFTManager, tokenId)`
+- Verifies new owner after transfer
+
+**Batch NFT Return (`returnPokemonBatch`):**
+```bash
+npx hardhat returnPokemonBatch --token-ids 101,102,103 --network apechain
+```
+- Comma-separated token IDs (spaces allowed after commas)
+- Processes each token sequentially
+- Skips tokens not owned by signer (logs warning, continues)
+- Skips tokens that error during transfer (logs error, continues)
+- Prints summary at end: successful, skipped (not owned), skipped (errors)
+
+**Output Format:**
+Both tasks use the same colored output format as other Hardhat tasks:
+- Headers with `═══════` borders
+- ✅ Green success messages
+- ⚠️ Yellow warnings for skipped tokens
+- ❌ Red errors for failures
+- Progress indicators `[1/3]` for batch processing
 
 ### APE Price Auto-Update Script
 Automatically updates the on-chain `apePriceUSD` value from CoinGecko market data. Run hourly to keep APE payment pricing accurate.
