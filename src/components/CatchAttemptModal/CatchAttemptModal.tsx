@@ -2,7 +2,10 @@
  * CatchAttemptModal Component
  *
  * Modal component for selecting and throwing a PokeBall at a specific Pokemon.
- * Displays available balls, catch rates, and handles the contract interaction.
+ * Displays available balls, catch rates, and handles the gasless throw flow.
+ *
+ * v1.8.0 Update: Uses gasless meta-transactions via relayer API instead of
+ * direct on-chain throwBall(). Player signs EIP-712 message, relayer submits.
  *
  * Usage:
  * ```tsx
@@ -44,14 +47,14 @@
 
 import React, { useCallback, useEffect } from 'react';
 import {
-  useThrowBall,
+  useGaslessThrow,
   usePlayerBallInventory,
   getBallTypeName,
   getBallPriceUSD,
   getCatchRatePercent,
   type BallType,
+  type ThrowStatus,
 } from '../../hooks/pokeballGame';
-import { formatUnits } from 'viem';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -403,18 +406,16 @@ export function CatchAttemptModal({
   // Track which ball type is being thrown (for button label)
   const [throwingBallType, setThrowingBallType] = React.useState<BallType | null>(null);
 
-  // Hooks
+  // Hooks - v1.8.0: Use gasless throw instead of direct contract write
   const {
-    write,
+    initiateThrow,
+    throwStatus,
     isLoading,
     isPending,
     error,
     reset,
-    isFeeReady,
-    isFeeLoading,
-    feeError,
-    throwFee,
-  } = useThrowBall();
+    txHash,
+  } = useGaslessThrow();
   const inventory = usePlayerBallInventory(playerAddress);
 
   // Get ball count for each type
@@ -458,77 +459,83 @@ export function CatchAttemptModal({
         isLoading: inventory.isLoading,
         error: inventory.error?.message ?? 'none',
       });
-      console.log('[CatchAttemptModal] Fee status:', {
-        isFeeReady,
-        isFeeLoading,
-        feeError,
-        throwFee: throwFee ? formatUnits(throwFee, 18) + ' APE' : 'undefined',
-      });
+      console.log('[CatchAttemptModal] Gasless throw status:', throwStatus);
       console.log('[CatchAttemptModal] hasAnyBalls:', hasAnyBalls);
     }
-  }, [playerAddress, isOpen, inventory, isFeeReady, isFeeLoading, feeError, throwFee, hasAnyBalls]);
+  }, [playerAddress, isOpen, inventory, throwStatus, hasAnyBalls]);
 
-  // Handle throw
+  // Get status message for the current throw state
+  const getStatusMessage = useCallback((status: ThrowStatus): string => {
+    switch (status) {
+      case 'fetching_nonce':
+        return 'Preparing throw...';
+      case 'signing':
+        return 'Please sign the message in your wallet';
+      case 'submitting':
+        return 'Sending to relayer...';
+      case 'pending':
+        return 'Waiting for confirmation...';
+      default:
+        return 'Throwing...';
+    }
+  }, []);
+
+  // Handle throw - v1.8.0: Use gasless meta-transaction
   const handleThrow = useCallback(
     async (ballType: BallType) => {
-      if (!write) {
-        console.error('[CatchAttemptModal] write function not available');
-        return;
-      }
       if (getBallCount(ballType) <= 0) {
         console.error('[CatchAttemptModal] No balls of type', ballType);
         return;
       }
 
-      console.log('[CatchAttemptModal] === THROW INITIATED ===');
+      console.log('[CatchAttemptModal] === GASLESS THROW INITIATED ===');
       console.log('[CatchAttemptModal] ballType:', ballType);
       console.log('[CatchAttemptModal] slotIndex:', slotIndex);
       console.log('[CatchAttemptModal] pokemonId:', pokemonId.toString());
 
       setThrowingBallType(ballType);
 
-      // CRITICAL: Call the contract FIRST before closing modal
-      // The write function triggers wallet popup - we must do this BEFORE unmounting
-      console.log('[CatchAttemptModal] Calling write() to send contract transaction...');
+      // v1.8.0: Sign EIP-712 message and submit to relayer
+      console.log('[CatchAttemptModal] Calling initiateThrow() for gasless flow...');
       try {
-        const success = await write(slotIndex, ballType);
-        console.log('[CatchAttemptModal] write() returned:', success);
+        const success = await initiateThrow(slotIndex, ballType);
+        console.log('[CatchAttemptModal] initiateThrow() returned:', success);
 
         if (success) {
-          console.log('[CatchAttemptModal] Transaction initiated! Wallet should have opened.');
+          console.log('[CatchAttemptModal] Throw submitted to relayer!');
 
-          // Trigger visual throw animation AFTER contract call succeeds
+          // Trigger visual throw animation AFTER relayer accepts
           if (onVisualThrow) {
             console.log('[CatchAttemptModal] Triggering visual throw animation...');
             onVisualThrow(pokemonId, ballType);
           }
 
-          // Close the modal AFTER transaction is sent so the animation is visible
-          console.log('[CatchAttemptModal] Closing modal after transaction sent...');
+          // Close the modal AFTER signature is sent so the animation is visible
+          console.log('[CatchAttemptModal] Closing modal after throw submitted...');
           onClose();
         } else {
-          console.error('[CatchAttemptModal] write() returned false - transaction blocked');
+          console.error('[CatchAttemptModal] initiateThrow() returned false - throw blocked');
           // Don't close modal - show error state
           setThrowingBallType(null);
         }
       } catch (err) {
-        console.error('[CatchAttemptModal] write() threw error:', err);
+        console.error('[CatchAttemptModal] initiateThrow() threw error:', err);
         setThrowingBallType(null);
       }
     },
-    [write, slotIndex, getBallCount, onVisualThrow, pokemonId, onClose]
+    [slotIndex, getBallCount, onVisualThrow, pokemonId, onClose, initiateThrow]
   );
 
   // Reset throwing state when transaction completes or errors
   React.useEffect(() => {
-    if (!isLoading && !isPending) {
-      // Small delay to show "Throwing..." briefly
+    if (throwStatus === 'idle' || throwStatus === 'error' || throwStatus === 'success') {
+      // Small delay to show status briefly
       const timer = setTimeout(() => {
         setThrowingBallType(null);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, isPending]);
+  }, [throwStatus]);
 
   // Handle dismiss error
   const handleDismissError = useCallback(() => {
@@ -588,12 +595,12 @@ export function CatchAttemptModal({
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Loading State - v1.8.0: Shows gasless throw status */}
         {isTransactionPending && (
           <div style={styles.loadingOverlay}>
-            <div style={styles.loadingText}>Throwing ball...</div>
+            <div style={styles.loadingText}>{getStatusMessage(throwStatus)}</div>
             <div style={styles.loadingSubtext}>
-              Please confirm in your wallet
+              {throwStatus === 'signing' ? 'No gas required - just sign!' : 'Processing...'}
             </div>
           </div>
         )}
@@ -617,7 +624,7 @@ export function CatchAttemptModal({
                       ballType={ballType}
                       ownedCount={count}
                       onThrow={() => handleThrow(ballType)}
-                      isDisabled={!write || attemptsRemaining <= 0}
+                      isDisabled={attemptsRemaining <= 0}
                       isPending={isTransactionPending}
                       isThrowingThis={
                         isTransactionPending && throwingBallType === ballType
@@ -638,29 +645,13 @@ export function CatchAttemptModal({
           </>
         )}
 
-        {/* Fee Error Warning */}
-        {feeError && !error && (
-          <div style={styles.warningBox}>
-            <span style={styles.warningText}>
-              ⚠️ {feeError}
-            </span>
-          </div>
-        )}
+        {/* v1.8.0: No fee warnings needed - gasless throws are free for players */}
 
-        {/* Fee Loading Status */}
-        {isFeeLoading && !isFeeReady && (
-          <div style={styles.warningBox}>
-            <span style={styles.warningText}>
-              Loading throw fee...
-            </span>
-          </div>
-        )}
-
-        {/* Error Display - show full revert reason from gas estimation */}
+        {/* Error Display - show error message from gasless throw */}
         {error && (
           <div style={styles.errorBox}>
             <span style={styles.errorText}>
-              {error.message}
+              {error}
             </span>
             <button style={styles.dismissButton} onClick={handleDismissError}>
               Dismiss
@@ -677,12 +668,15 @@ export function CatchAttemptModal({
           </div>
         )}
 
-        {/* Footer hint */}
+        {/* Footer hint - v1.8.0: No entropy fee display since it's gasless */}
         <div style={styles.footer}>
           Slot #{slotIndex} | Higher tier balls have better catch rates
-          {throwFee !== undefined && throwFee > 0n && isFeeReady && (
+          <div style={{ marginTop: '4px', color: '#00ff88' }}>
+            ✓ Gasless throw - no transaction fees!
+          </div>
+          {txHash && (
             <div style={{ marginTop: '4px', color: '#888' }}>
-              Entropy fee: ~{Number(formatUnits(throwFee, 18)).toFixed(4)} APE
+              TX: {txHash.slice(0, 10)}...
             </div>
           )}
         </div>

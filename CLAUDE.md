@@ -89,6 +89,9 @@ npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all
 │   │   ├── AdminDevTools/           # Dev tools panel (dev mode only)
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── AdminDevTools.tsx        # SlabNFTManager admin operations
+│   │   ├── OperatorDashboard/       # Owner diagnostics panel (v1.8.0)
+│   │   │   ├── index.ts                 # Barrel export
+│   │   │   └── OperatorDashboard.tsx    # APE reserves, pool status, CLI commands
 │   │   ├── HelpModal/               # How to Play help modal
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── HelpModal.tsx            # Game instructions + ball info
@@ -118,6 +121,8 @@ npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all
 │   │
 │   ├── services/                # Web3 services
 │   │   ├── apechainConfig.ts        # Network & wallet config
+│   │   ├── pokeballGameConfig.ts    # PokeballGame shared config (v1.8.0)
+│   │   ├── slabNFTManagerConfig.ts  # SlabNFTManager shared config (v2.4.0)
 │   │   ├── contractService.ts       # Contract interactions
 │   │   ├── config.ts                # Contract configs & ABIs (tokenContractConfig, swapContractConfig, nftUtils)
 │   │   ├── thirdwebConfig.ts        # ThirdWeb SDK v5 config (Pay/Checkout)
@@ -143,8 +148,10 @@ npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all
 │   │       ├── index.ts                 # Barrel export
 │   │       ├── pokeballGameConfig.ts    # Shared config, ABI, types, token addresses
 │   │       ├── usePurchaseBalls.ts      # Buy balls (APE/USDC.e)
-│   │       ├── useThrowBall.ts          # Throw ball at Pokemon (v1.6.0 includes Entropy fee)
+│   │       ├── useGaslessThrow.ts       # Gasless throws via relayer (v1.8.0)
+│   │       ├── useThrowBall.ts          # Direct throws (legacy/testing)
 │   │       ├── useThrowFee.ts           # Get Pyth Entropy fee for throwBall
+│   │       ├── useContractDiagnostics.ts # APE reserves, pool status, warnings
 │   │       ├── useGetPokemonSpawns.ts   # Read active spawns
 │   │       ├── usePlayerBallInventory.ts # Read player inventory
 │   │       ├── useContractEvents.ts     # Event subscriptions
@@ -1147,6 +1154,62 @@ import { AdminDevTools } from './components/AdminDevTools';
 - `[AdminDevTools] Finding untracked NFTs in range X-Y`
 - `[AdminDevTools] Recovering NFT X`
 - `[AdminDevTools] Clearing pending request X`
+
+### OperatorDashboard Component (v1.8.0)
+Owner-only diagnostics panel for monitoring contract health and APE reserves:
+
+**Location:** `src/components/OperatorDashboard/OperatorDashboard.tsx`
+
+**Access:**
+- Dev mode only (URL param `?dev=1` or `localStorage.setItem('pokeballTrader_devMode', 'true')`)
+- Visible to all users, but admin actions require owner wallet
+- Press **F2** to toggle (shares toggle with AdminDevTools)
+
+**Features:**
+1. **APE Reserves** - Both contract balances with health indicators:
+   - PokeballGame APE reserve (for Entropy fees)
+   - SlabNFTManager APE reserve (for SlabMachine pulls)
+   - Health status: ✅ HEALTHY (≥0.5 APE) or ⚠️ LOW (<0.5 APE)
+
+2. **USDC Pool Status** - NFT pool balance and auto-purchase eligibility:
+   - Current USDC.e balance
+   - Auto-purchase status (≥$51 threshold)
+   - NFT inventory count (X/20)
+
+3. **Treasury** - Accumulated 3% platform fees
+
+4. **CLI Commands** - Copy-to-clipboard Hardhat task suggestions:
+   - `npx hardhat checkReserves --network apechain`
+   - `npx hardhat withdrawApeReserve --contract PokeballGame --keep-minimum 0.5 --network apechain`
+   - etc.
+
+5. **Operator Warnings** - Alerts for low reserves or pool issues
+
+**Props:**
+```typescript
+interface OperatorDashboardProps {
+  isOpen: boolean;
+  onClose: () => void;
+  connectedAddress?: `0x${string}`;
+}
+```
+
+**Usage:**
+```tsx
+import { OperatorDashboard } from './components/OperatorDashboard';
+
+// In App.tsx (integrated via dev mode)
+{isDevMode && (
+  <OperatorDashboard
+    isOpen={isOperatorDashboardOpen}
+    onClose={() => setIsOperatorDashboardOpen(false)}
+    connectedAddress={account}
+  />
+)}
+```
+
+**Hooks Used:**
+- `useContractDiagnostics()` - Reads APE reserves, pool status, warnings
 
 ### HelpModal Component
 In-game "How to Play" help modal explaining Pokemon catching mechanics:
@@ -2508,7 +2571,8 @@ import {
 | Hook | Purpose |
 |------|---------|
 | `usePurchaseBalls()` | Buy balls via dedicated functions: `purchaseBallsWithAPE` (payable) or `purchaseBallsWithUSDC` (nonpayable) |
-| `useThrowBall()` | Throw ball at Pokemon slot (0-19), includes Entropy fee automatically |
+| `useGaslessThrow()` | **v1.8.0** Gasless throws via relayer - player signs, relayer pays gas |
+| `useThrowBall()` | Direct throws (legacy/testing) - player pays Entropy fee |
 | `useThrowFee()` | Get current Pyth Entropy fee for throwBall (~0.073 APE) |
 | `useGetPokemonSpawns()` | Read all 20 Pokemon slots (polls every 5s) |
 | `useActivePokemonCount()` | Get count of active Pokemon (efficient) |
@@ -2773,7 +2837,7 @@ if (log.address.toLowerCase() === SLAB_NFT_MANAGER_ADDRESS.toLowerCase()) {
 ```
 
 ### useContractDiagnostics Hook
-Environment sanity check hook for PokeballGame and SlabNFTManager contracts:
+Environment sanity check hook for PokeballGame and SlabNFTManager contracts (updated for v1.8.0/v2.4.0):
 
 **Location:** `src/hooks/pokeballGame/useContractDiagnostics.ts`
 
@@ -2782,17 +2846,32 @@ Environment sanity check hook for PokeballGame and SlabNFTManager contracts:
 import { useContractDiagnostics } from '../hooks/pokeballGame';
 
 const {
+  // APE Reserves (v1.8.0/v2.4.0)
+  pokeballGameApeReserve,          // bigint - PokeballGame APE balance
+  pokeballGameApeReserveFormatted, // number - e.g., 2.5
+  slabManagerApeReserve,           // bigint - SlabNFTManager APE balance
+  slabManagerApeReserveFormatted,  // number - e.g., 1.2
+
+  // APE Price
   apePriceUSD,               // bigint - raw 8-decimal value
   apePriceFormatted,         // number - e.g., 0.19
+
+  // NFT Pool
   pullPrice,                 // bigint - NFT pull cost (6 decimals)
   pullPriceFormatted,        // number - e.g., 51.00
   slabNFTManagerBalance,     // bigint - USDC.e pool balance
   slabNFTManagerBalanceFormatted, // number - e.g., 125.50
   canAutoPurchase,           // boolean - balance >= threshold
+
+  // Inventory
   inventoryCount,            // number - current NFT count
   maxInventorySize,          // number - max NFTs (20)
+
+  // Warnings
   hasWarnings,               // boolean - any warnings present
   warnings,                  // string[] - warning messages
+
+  // Loading
   isLoading,                 // boolean - data loading
   isError,                   // boolean - fetch error
   refetch,                   // () => void - manual refresh
@@ -2804,6 +2883,8 @@ if (hasWarnings) {
 ```
 
 **Data Sources:**
+- `pokeballGameApeReserve`: Reads native APE balance of PokeballGame contract
+- `slabManagerApeReserve`: Reads native APE balance of SlabNFTManager contract
 - `apePriceUSD`: Reads from PokeballGame.`apePriceUSD()` (8 decimals)
 - `canAutoPurchase`: Reads from SlabNFTManager.`canAutoPurchase()` (returns tuple)
 - `inventoryCount`: Reads from SlabNFTManager.`getInventoryCount()`
@@ -2812,6 +2893,13 @@ if (hasWarnings) {
 **Return Shape:**
 ```typescript
 interface ContractDiagnostics {
+  // APE Reserves (v1.8.0/v2.4.0)
+  pokeballGameApeReserve: bigint;
+  pokeballGameApeReserveFormatted: number;
+  slabManagerApeReserve: bigint;
+  slabManagerApeReserveFormatted: number;
+
+  // Existing fields
   apePriceUSD: bigint;
   apePriceFormatted: number;
   pullPrice: bigint;
@@ -2830,10 +2918,95 @@ interface ContractDiagnostics {
 }
 ```
 
+**Warning Conditions (v1.8.0):**
+- APE reserve < 0.5 APE (low reserve warning)
+- APE price is 0 or unrealistic
+- NFT inventory full (20/20)
+- Auto-purchase blocked (< $51)
+
 **Polling:**
 - Stale time: 30 seconds
 - Refetch interval: 60 seconds
 - Manual refetch available via `refetch()`
+
+### useGaslessThrow Hook (v1.8.0)
+Hook for gasless meta-transaction throws via relayer:
+
+**Location:** `src/hooks/pokeballGame/useGaslessThrow.ts`
+
+**Flow:**
+1. Player clicks "Throw" button
+2. Frontend fetches player's current nonce from contract
+3. Player signs EIP-712 typed message (no wallet gas popup)
+4. Frontend POSTs signature + params to relayer API
+5. Relayer validates signature, calls `throwBallFor()` on-chain
+6. Player sees catch result via contract events
+
+**Usage:**
+```typescript
+import { useGaslessThrow, type ThrowStatus } from '../hooks/pokeballGame';
+
+const {
+  initiateThrow,  // (pokemonSlot: number, ballType: BallType) => Promise<boolean>
+  throwStatus,    // 'idle' | 'fetching_nonce' | 'signing' | 'submitting' | 'pending' | 'error'
+  isLoading,      // True during any in-progress step
+  isPending,      // True while waiting for relayer confirmation
+  error,          // Error message string or null
+  reset,          // Reset hook state
+  txHash,         // Transaction hash from relayer (if available)
+  requestId,      // Request ID / sequence number (if available)
+} = useGaslessThrow();
+
+// Player presses throw button
+const handleThrow = async () => {
+  const success = await initiateThrow(0, 1); // slot=0, ballType=1
+  if (success) {
+    // Throw submitted to relayer, wait for CaughtPokemon/FailedCatch events
+  }
+};
+```
+
+**Throw Status Values:**
+| Status | Description |
+|--------|-------------|
+| `idle` | Ready for new throw |
+| `fetching_nonce` | Reading player nonce from contract |
+| `signing` | Waiting for wallet signature |
+| `submitting` | Sending to relayer API |
+| `pending` | Relayer received, waiting for chain |
+| `success` | Throw completed successfully |
+| `error` | Something went wrong |
+
+**EIP-712 Configuration:**
+```typescript
+const EIP712_DOMAIN = {
+  name: 'PokeballGame',
+  version: '1',
+  chainId: 33139,  // ApeChain
+  verifyingContract: POKEBALL_GAME_ADDRESS,
+};
+
+const EIP712_TYPES = {
+  ThrowBall: [
+    { name: 'player', type: 'address' },
+    { name: 'pokemonSlot', type: 'uint8' },
+    { name: 'ballType', type: 'uint8' },
+    { name: 'nonce', type: 'uint256' },
+  ],
+};
+```
+
+**Relayer API:**
+- Endpoint: `VITE_RELAYER_API_URL` (default: `/api/throwBallFor`)
+- Timeout: 30 seconds
+- Request body: `{ player, pokemonSlot, ballType, nonce, signature }`
+- Response: `{ txHash, requestId }` or `{ error }`
+
+**Error Handling:**
+- "Wallet not connected" - No wallet address
+- "Signature request cancelled" - User rejected in wallet
+- "Relayer error: [status]" - Relayer returned non-200
+- "Relayer request timed out" - 30s timeout exceeded
 
 ### usePurchaseBalls Error Handling
 The `usePurchaseBalls` hook now includes robust error handling that prevents failed transactions:
@@ -3689,6 +3862,7 @@ Required environment variables for the application:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `VITE_POKEBALL_GAME_ADDRESS` | Yes | PokeballGame UUPS proxy address on ApeChain |
+| `VITE_RELAYER_API_URL` | No | Gasless throw relayer endpoint (default: `/api/throwBallFor`) |
 | `VITE_THIRDWEB_CLIENT_ID` | No | ThirdWeb client ID for crypto checkout (get free at thirdweb.com/create-api-key) |
 | `VITE_PUBLIC_RPC_URL` | No | Override default ApeChain RPC URL |
 | `VITE_WALLETCONNECT_PROJECT_ID` | No | WalletConnect project ID (has default) |
@@ -3702,6 +3876,9 @@ Example `.env` file (see `.env.example` for full template):
 VITE_POKEBALL_GAME_ADDRESS=0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f
 VITE_THIRDWEB_CLIENT_ID=your_thirdweb_client_id
 
+# Gasless throws (v1.8.0)
+VITE_RELAYER_API_URL=/api/throwBallFor
+
 # Wallet Integration (optional)
 VITE_BUNDLER_RPC_URL=https://your-bundler-endpoint
 VITE_GLYPH_API_KEY=your_glyph_api_key
@@ -3713,6 +3890,7 @@ VITE_FORCE_TOUCH_CONTROLS=false
 
 See `docs/SETUP_POKEBALL_GAME.md` for complete setup instructions.
 See `docs/WALLET_INTEGRATION.md` for wallet connector configuration.
+See `docs/WEB3_FRONTEND.md` for Web3 integration details (v1.8.0/v2.4.0).
 
 ## Centralized Configuration
 

@@ -133,4 +133,14 @@ export {
   useContractDiagnostics,
   type ContractDiagnostics,
   type UseContractDiagnosticsReturn,
+  type ApeReserveInfo,
+  type UsdcPoolInfo,
 } from './useContractDiagnostics';
+
+// Gasless throw hook (v1.8.0 - relayer-based throws)
+export {
+  useGaslessThrow,
+  type UseGaslessThrowReturn,
+  type GaslessThrowPayload,
+  type ThrowStatus,
+} from './useGaslessThrow';
