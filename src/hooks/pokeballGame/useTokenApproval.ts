@@ -377,16 +377,26 @@ export function useTokenApproval(
         setDgen1Error(undefined);
         setDgen1Hash(undefined);
 
+        // Get bundler RPC URL for dGen1 ERC-4337 transactions
+        const bundlerRpcUrl = getBundlerRpcUrl();
+
         // Build the transaction object for eth_sendTransaction
+        // dGen1 requires chainId to route through the ERC-4337 bundler
+        const chainIdHex = `0x${POKEBALL_GAME_CHAIN_ID.toString(16)}`;
         const txParams = {
           from: account,
           to: tokenAddress,
           data: approveCallData,
           value: '0x0',
+          chainId: chainIdHex,
           // Don't specify gas - let the wallet/bundler estimate
         };
 
-        console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', txParams);
+        console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', {
+          ...txParams,
+          bundlerRpcUrl,
+          chainIdDecimal: POKEBALL_GAME_CHAIN_ID,
+        });
 
         // Send transaction directly via provider
         const txHash = await provider.request({
