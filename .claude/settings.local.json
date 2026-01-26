@@ -32,7 +32,25 @@
       "Bash(find:*)",
       "Bash(curl:*)",
       "Bash(ping:*)",
-      "Bash(npx kill-port:*)"
+      "Bash(npx kill-port:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge dev -m \"$\\(cat <<''EOF''\nMerge dev: Touch controls & proximity check features\n\nFeatures:\n- Mobile touch controls \\(tap-to-move, virtual D-Pad option\\)\n- Proximity-based catch restrictions \\(96px range\\)\n- Toast notifications for out-of-range attempts\n- Debug range circles in debug mode\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git merge:*)",
+      "Bash(npx wrangler:*)",
+      "Bash(nslookup:*)",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://pokeballgame.workers.dev'' -Method POST -ContentType ''application/json'' -Body ''{}'' -UseBasicParsing\")",
+      "Bash(powershell:*)",
+      "Bash(npx vercel --prod)",
+      "Bash(npx vercel --prod --yes)",
+      "Bash(npx vercel login:*)",
+      "Bash(npx vercel env ls)",
+      "Bash(npx vercel env pull:*)",
+      "Bash(echo:*)",
+      "Bash(node scripts/repositionPokemonV9.cjs:*)",
+      "Bash(node scripts/debug/decode_pokemon_data.cjs:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

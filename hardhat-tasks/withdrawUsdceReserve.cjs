@@ -5,6 +5,7 @@
  *
  * Usage:
  *   npx hardhat withdrawUsdceReserve --keep-buffer 100 --network apechain
+ *   npx hardhat withdrawUsdceReserve --keep-buffer 0 --network apechain    # Withdraw ALL
  */
 
 const { task, types } = require('hardhat/config');
@@ -76,10 +77,18 @@ task('withdrawUsdceReserve', 'Withdraw USDC.e from SlabNFTManager (keeps buffer)
     info('NFT Inventory', `${manager.inventoryCount.toString()} / 20`);
     console.log();
 
+    // Check if withdrawing all (buffer = 0)
+    const withdrawAll = keepBufferUnits.eq(0);
+
     // Calculate withdrawable amount
-    const withdrawAmount = manager.usdcBalance.gt(keepBufferUnits)
-      ? manager.usdcBalance.sub(keepBufferUnits)
-      : hre.ethers.BigNumber.from(0);
+    let withdrawAmount;
+    if (withdrawAll) {
+      withdrawAmount = manager.usdcBalance;
+    } else {
+      withdrawAmount = manager.usdcBalance.gt(keepBufferUnits)
+        ? manager.usdcBalance.sub(keepBufferUnits)
+        : hre.ethers.BigNumber.from(0);
+    }
 
     if (withdrawAmount.lte(0)) {
       warning(`Nothing to withdraw. Current balance (${formatUSDC(manager.usdcBalance)}) <= buffer (${formatUSDC(keepBufferUnits)})`);
@@ -89,6 +98,9 @@ task('withdrawUsdceReserve', 'Withdraw USDC.e from SlabNFTManager (keeps buffer)
     const remainingAfter = manager.usdcBalance.sub(withdrawAmount);
 
     subheader('Withdrawal Plan');
+    if (withdrawAll) {
+      warning('MODE: Withdraw ALL USDC.e (buffer = 0)');
+    }
     info('Will Withdraw', formatUSDC(withdrawAmount));
     info('Will Keep', formatUSDC(remainingAfter));
     info('Auto-Buy After', autoBuyStatus(remainingAfter));
@@ -102,7 +114,13 @@ task('withdrawUsdceReserve', 'Withdraw USDC.e from SlabNFTManager (keeps buffer)
     // Execute withdrawal
     subheader('Executing Withdrawal');
     try {
-      const tx = await managerContract.emergencyWithdrawRevenue(withdrawAmount, { gasLimit: 200000 });
+      let tx;
+      if (withdrawAll) {
+        // Use emergencyWithdrawAllRevenue for withdrawing everything
+        tx = await managerContract.emergencyWithdrawAllRevenue({ gasLimit: 200000 });
+      } else {
+        tx = await managerContract.emergencyWithdrawRevenue(withdrawAmount, { gasLimit: 200000 });
+      }
       info('TX Hash', tx.hash);
       console.log('Waiting for confirmation...');
 

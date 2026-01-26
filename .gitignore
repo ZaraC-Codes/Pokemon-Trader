@@ -68,3 +68,5 @@ listings-output.txt
 *.tmp
 *.temp
 hooks.zip
+.vercel
+.env*.local

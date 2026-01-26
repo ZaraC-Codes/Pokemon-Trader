@@ -30,8 +30,7 @@ const ERC721_ABI = [
 task("returnPokemonNft", "Return a single Pokemon NFT to SlabNFTManager")
   .addParam("tokenId", "The NFT token ID to return")
   .setAction(async (taskArgs, hre) => {
-    const { formatOutput } = require("./helpers/formatOutput.cjs");
-    const { header, subheader, success, warning, error, info } = formatOutput;
+    const { header, subheader, success, warning, error, info } = require("./helpers/formatOutput.cjs");
 
     header("Return Pokemon NFT to SlabNFTManager");
 

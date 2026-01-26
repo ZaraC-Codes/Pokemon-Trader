@@ -967,8 +967,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV2.sol": {
-      "lastModificationDate": 1769010359724,
-      "contentHash": "40d4f2c7879a6c7f5aebe8ba589571de",
+      "lastModificationDate": 1769334368057,
+      "contentHash": "93b530d0b3d2d279b4f5d052b0160807",
       "sourceName": "contracts/PokeballGameV2.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1017,8 +1017,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\SlabNFTManagerV2.sol": {
-      "lastModificationDate": 1769128972029,
-      "contentHash": "3192e5d272c0e07ea850134a8f520a4a",
+      "lastModificationDate": 1769334368075,
+      "contentHash": "f0f96add20bd916924230380208f24dd",
       "sourceName": "contracts/SlabNFTManagerV2.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1066,8 +1066,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV3.sol": {
-      "lastModificationDate": 1769050479471,
-      "contentHash": "dedd006de2611b96001cdbd3b25c2725",
+      "lastModificationDate": 1769334368059,
+      "contentHash": "78a3444a58d5b56a3a92c679707bfe50",
       "sourceName": "contracts/PokeballGameV3.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1116,8 +1116,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV4.sol": {
-      "lastModificationDate": 1769056999623,
-      "contentHash": "e2d823b1f7af11ac61ea819a7333dc2c",
+      "lastModificationDate": 1769334368063,
+      "contentHash": "051e170f48f2dff6b6dd856ac0c125e9",
       "sourceName": "contracts/PokeballGameV4.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1165,8 +1165,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV5.sol": {
-      "lastModificationDate": 1769111585276,
-      "contentHash": "08d32c363476fa0d4dbd20be0fd76c5b",
+      "lastModificationDate": 1769334368065,
+      "contentHash": "035f506f79df336ecfd0d8d021b1464c",
       "sourceName": "contracts/PokeballGameV5.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1216,8 +1216,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV6.sol": {
-      "lastModificationDate": 1769119029455,
-      "contentHash": "4194b3e0617079e8badf4fea464ed445",
+      "lastModificationDate": 1769334368066,
+      "contentHash": "8f00415610e487439c5cbc01d8460470",
       "sourceName": "contracts/PokeballGameV6.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1504,8 +1504,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\SlabNFTManagerV2_1.sol": {
-      "lastModificationDate": 1769157702074,
-      "contentHash": "6e456d91db1705c6b6c278a9be39bfe1",
+      "lastModificationDate": 1769334368077,
+      "contentHash": "5ae84847523b9e51541e237685d0b4be",
       "sourceName": "contracts/SlabNFTManagerV2_1.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1553,8 +1553,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\SlabNFTManagerV2_2.sol": {
-      "lastModificationDate": 1769161762213,
-      "contentHash": "7d02f3099b135a8266408424fdbed45e",
+      "lastModificationDate": 1769334368079,
+      "contentHash": "cf1825c4423a7fd63c8ce9692bd389ad",
       "sourceName": "contracts/SlabNFTManagerV2_2.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1602,8 +1602,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\SlabNFTManagerV2_3.sol": {
-      "lastModificationDate": 1769307668068,
-      "contentHash": "9e2243c45e20ef6a98b997026c42d06d",
+      "lastModificationDate": 1769334368081,
+      "contentHash": "308fd5dd8b1f05d6b3453495113a85fb",
       "sourceName": "contracts/SlabNFTManagerV2_3.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1651,8 +1651,8 @@
       ]
     },
     "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV7.sol": {
-      "lastModificationDate": 1769307844597,
-      "contentHash": "2865d03362a2f72d21342c069f2a4ca8",
+      "lastModificationDate": 1769334368068,
+      "contentHash": "a8175bccfc645035af8c25d0e2440aac",
       "sourceName": "contracts/PokeballGameV7.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -2345,6 +2345,161 @@
       ],
       "artifacts": [
         "MockSlabMachine"
+      ]
+    },
+    "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\SlabNFTManagerV2_4.sol": {
+      "lastModificationDate": 1769385588995,
+      "contentHash": "c8b343266062bc0b04bcc5aec0412cce",
+      "sourceName": "contracts/SlabNFTManagerV2_4.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/token/ERC721/IERC721.sol",
+        "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol",
+        "@pythnetwork/entropy-sdk-solidity/IEntropyV2.sol",
+        "@pythnetwork/entropy-sdk-solidity/IEntropyConsumer.sol"
+      ],
+      "versionPragmas": [
+        "0.8.26"
+      ],
+      "artifacts": [
+        "ISlabMachine",
+        "SlabNFTManager"
+      ]
+    },
+    "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV8.sol": {
+      "lastModificationDate": 1769385484026,
+      "contentHash": "1abec44ee295da4177722f5e17cda324",
+      "sourceName": "contracts/PokeballGameV8.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/token/ERC721/IERC721.sol",
+        "@pythnetwork/entropy-sdk-solidity/IEntropyV2.sol",
+        "@pythnetwork/entropy-sdk-solidity/IEntropyConsumer.sol"
+      ],
+      "versionPragmas": [
+        "0.8.26"
+      ],
+      "artifacts": [
+        "ICamelotRouter",
+        "ISlabNFTManager",
+        "IWAPE",
+        "PokeballGame"
+      ]
+    },
+    "C:\\Users\\zarac\\Pokemon-Trader\\contracts\\PokeballGameV9.sol": {
+      "lastModificationDate": 1769410166830,
+      "contentHash": "2321328ee0ccd17cfaf47c16a3afaddf",
+      "sourceName": "contracts/PokeballGameV9.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/token/ERC721/IERC721.sol",
+        "@pythnetwork/entropy-sdk-solidity/IEntropyV2.sol",
+        "@pythnetwork/entropy-sdk-solidity/IEntropyConsumer.sol"
+      ],
+      "versionPragmas": [
+        "0.8.26"
+      ],
+      "artifacts": [
+        "ICamelotRouter",
+        "ISlabNFTManager",
+        "IWAPE",
+        "PokeballGame"
       ]
     }
   }

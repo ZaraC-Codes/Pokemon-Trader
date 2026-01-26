@@ -396,21 +396,20 @@ export function useTokenApproval(
         const bundlerRpcUrl = getBundlerRpcUrl();
 
         // Build the transaction object for eth_sendTransaction
-        // dGen1 requires chainId to route through the ERC-4337 bundler
-        const chainIdHex = `0x${POKEBALL_GAME_CHAIN_ID.toString(16)}`;
+        // NOTE: Standard eth_sendTransaction does NOT accept chainId in the params
+        // The chain is determined by the connected network, not passed in tx params
         const txParams = {
           from: account,
           to: tokenAddress,
           data: approveCallData,
           value: '0x0',
-          chainId: chainIdHex,
           // Don't specify gas - let the wallet/bundler estimate
         };
 
         console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', {
           ...txParams,
           bundlerRpcUrl,
-          chainIdDecimal: POKEBALL_GAME_CHAIN_ID,
+          note: 'chainId NOT passed in tx params - determined by connected network',
         });
 
         setDgen1LastStep('sending_tx');

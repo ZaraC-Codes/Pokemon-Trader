@@ -32,8 +32,7 @@ const ERC721_ABI = [
 task("returnPokemonBatch", "Return multiple Pokemon NFTs to SlabNFTManager")
   .addParam("tokenIds", "Comma-separated list of NFT token IDs to return (e.g., 101,102,103)")
   .setAction(async (taskArgs, hre) => {
-    const { formatOutput } = require("./helpers/formatOutput.cjs");
-    const { header, subheader, success, warning, error, info } = formatOutput;
+    const { header, subheader, success, warning, error, info } = require("./helpers/formatOutput.cjs");
 
     header("Batch Return Pokemon NFTs to SlabNFTManager");
 
