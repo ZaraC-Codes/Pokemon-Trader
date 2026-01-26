@@ -17,9 +17,10 @@
 
 import { useMemo } from 'react';
 import { apeChainMainnet } from '../../services/apechainConfig';
-// v1.7.0 ABI with Pyth Entropy (replaces POP VRNG, no whitelist required)
-// v1.7.0: On catch, reuses Entropy random number to select random NFT from SlabNFTManager inventory
-import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV7.json';
+// v1.8.0 ABI with APE reserves and gasless relay support
+// v1.8.0: Adds depositAPEReserve(), totalAPEReserve(), throwBallFor() for gasless throws
+// v1.8.0: Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE reserve, 1% SlabNFTManager APE reserve
+import PokeballGameABI from '../../../contracts/abi/abi_PokeballGameV8.json';
 
 // ============================================================
 // CONTRACT ADDRESS
@@ -43,18 +44,18 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
 // ============================================================
 
 /**
- * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV7.json.
+ * Full PokeballGame ABI imported from contracts/abi/abi_PokeballGameV8.json.
  * The JSON file is an array directly (not { abi: [...] }), so we use it as-is.
  * Type assertion ensures Wagmi type inference works correctly.
  *
- * v1.7.0 ABI includes (adds to v1.6.0):
- * - throwBall() PAYABLE - requires msg.value for Pyth Entropy fee (~0.073 APE)
- * - spawnPokemon() PAYABLE - requires msg.value for Entropy fee
- * - getThrowFee() - view function to get current Entropy fee
- * - entropy() - Pyth Entropy contract address
- * - entropyProvider() - Pyth Entropy provider address
- * - On catch success, reuses Entropy random number to select random NFT
- * - Calls SlabNFTManagerV2_3.awardNFTToWinnerWithRandomness(winner, randomNumber)
+ * v1.8.0 ABI includes (adds to v1.7.0):
+ * - depositAPEReserve() PAYABLE - deposit APE to contract reserve
+ * - totalAPEReserve() - view current APE reserve
+ * - getAPEReserve() - alias for totalAPEReserve()
+ * - throwBallFor(player, slot, ballType, nonce, signature) - gasless throw
+ * - setRelayer(address) - set authorized relayer (owner only)
+ * - getPlayerNonce(player) - get player's current nonce for gasless throws
+ * - Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE, 1% SlabNFTManager APE
  */
 export const POKEBALL_GAME_ABI = PokeballGameABI as typeof PokeballGameABI;
 

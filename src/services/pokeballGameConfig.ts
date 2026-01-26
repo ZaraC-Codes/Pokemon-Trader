@@ -9,9 +9,12 @@
  * - Chain config: ApeChain Mainnet (ID 33139)
  * - Contract: PokeballGame proxy (UUPS upgradeable)
  * - Tokens: APE (native) and USDC.e (Stargate bridged)
- * - Randomness: Pyth Entropy for provably fair catch mechanics (v1.7.0)
+ * - Randomness: Pyth Entropy for provably fair catch mechanics (v1.8.0)
  *   - throwBall() requires ~0.073 APE fee for entropy callback
  *   - On catch success, reuses random number to select random NFT from inventory
+ * - APE Reserves: v1.8.0 adds contract APE reserves for gas-free operations
+ *   - Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE, 1% SlabNFTManager APE
+ * - Gasless Throws: v1.8.0 adds throwBallFor() for relayer-paid transactions
  *
  * Usage:
  * ```ts
@@ -28,10 +31,11 @@
  */
 
 import { apeChainMainnet, ALCHEMY_RPC_URL } from './apechainConfig';
-// Use V7 ABI with Pyth Entropy integration (v1.7.0)
-// v1.7.0: On catch, reuses Entropy random number to select random NFT from SlabNFTManager inventory
+// Use V8 ABI with APE reserves and gasless relay support (v1.8.0)
+// v1.8.0: Adds depositAPEReserve(), totalAPEReserve(), throwBallFor() for gasless throws
+// v1.8.0: Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE, 1% SlabNFTManager APE
 // Must be a raw array, not a Hardhat artifact object
-import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV7.json';
+import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV8.json';
 
 // ============================================================
 // CHAIN CONFIGURATION
@@ -90,21 +94,25 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
   | undefined;
 
 /**
- * PokeballGame contract ABI (v1.7.0 with Pyth Entropy).
- * Imported from contracts/abi/abi_PokeballGameV7.json.
+ * PokeballGame contract ABI (v1.8.0 with APE reserves and gasless relay).
+ * Imported from contracts/abi/abi_PokeballGameV8.json.
  * Note: The JSON file is an array directly (not { abi: [...] }).
  *
  * Key functions:
- * - purchaseBalls(ballType, quantity, useAPE) - Buy balls
+ * - purchaseBallsWithAPE(ballType, quantity) - Buy balls with native APE
+ * - purchaseBallsWithUSDC(ballType, quantity) - Buy balls with USDC.e
  * - throwBall(pokemonSlot, ballType) - Attempt catch (PAYABLE, requires Entropy fee)
+ * - throwBallFor(player, slot, ballType, nonce, sig) - Gasless throw via relayer
  * - getThrowFee() - Get current Pyth Entropy fee for throwBall
+ * - depositAPEReserve() - Deposit APE to contract reserve (PAYABLE)
+ * - totalAPEReserve() - View current APE reserve balance
  * - getAllPlayerBalls(player) - Get player inventory
  * - getAllActivePokemons() - Get spawned Pokemon
  *
- * v1.7.0 Changes:
- * - On catch success, reuses Entropy random number to select random NFT
- * - Calls SlabNFTManagerV2_3.awardNFTToWinnerWithRandomness(winner, randomNumber)
- * - No additional Entropy fee for NFT selection (same ~0.073 APE per throw)
+ * v1.8.0 Changes:
+ * - APE reserves for entropy fees and gas operations
+ * - Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE, 1% SlabNFTManager APE
+ * - Gasless throws via throwBallFor() with EIP-712 signatures
  */
 export const POKEBALL_GAME_ABI = PokeballGameABI as typeof PokeballGameABI;
 
