@@ -80,6 +80,63 @@ export interface CatchAttemptModalProps {
 }
 
 // ============================================================
+// USER-FACING COPY (Centralized for easy updates)
+// ============================================================
+
+const THROW_STATUS_MESSAGES: Record<ThrowStatus, string> = {
+  idle: '',
+  fetching_nonce: 'Preparing your gasless throw…',
+  signing: 'Preparing your gasless throw…',
+  submitting: 'Sending to relayer…',
+  pending: 'Waiting for on-chain result…',
+  success: 'Throw complete!',
+  error: '', // Error has its own display
+};
+
+/**
+ * Maps raw error messages to user-friendly text.
+ * Keeps technical details out of the UI.
+ */
+function getFriendlyErrorMessage(rawError: string | null): string {
+  if (!rawError) return '';
+
+  const errorLower = rawError.toLowerCase();
+
+  // Signature rejected
+  if (errorLower.includes('rejected') || errorLower.includes('denied') || errorLower.includes('cancelled')) {
+    return 'Signature cancelled. Tap Throw to try again.';
+  }
+
+  // Relayer errors
+  if (errorLower.includes('relayer') || errorLower.includes('503') || errorLower.includes('502')) {
+    return 'Relayer is busy. Please try again in a moment.';
+  }
+
+  // Timeout
+  if (errorLower.includes('timeout') || errorLower.includes('timed out')) {
+    return 'Request timed out. Please try again.';
+  }
+
+  // Network errors
+  if (errorLower.includes('network') || errorLower.includes('fetch') || errorLower.includes('connection')) {
+    return 'Network error. Check your connection and try again.';
+  }
+
+  // Nonce errors (replay protection)
+  if (errorLower.includes('nonce') || errorLower.includes('already used')) {
+    return 'Please try again. Your previous throw may still be processing.';
+  }
+
+  // Invalid signature
+  if (errorLower.includes('signature') && errorLower.includes('invalid')) {
+    return 'Signature verification failed. Please try again.';
+  }
+
+  // Fallback: keep it short and non-technical
+  return 'Something went wrong. Please try again.';
+}
+
+// ============================================================
 // STYLES (Inline pixel art aesthetic)
 // ============================================================
 
@@ -325,8 +382,43 @@ interface BallOptionProps {
   ownedCount: number;
   onThrow: () => void;
   isDisabled: boolean;
-  isPending: boolean;
+  /** True when any throw is in progress (not idle) */
+  isThrowInProgress: boolean;
   isThrowingThis: boolean;
+}
+
+/**
+ * Simple inline spinner component for throw button.
+ */
+function InlineSpinner() {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        width: '12px',
+        height: '12px',
+        border: '2px solid #666',
+        borderTopColor: '#00ff00',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+        marginRight: '6px',
+        verticalAlign: 'middle',
+      }}
+    />
+  );
+}
+
+// Add keyframe animation via style tag (only once)
+if (typeof document !== 'undefined' && !document.getElementById('catch-modal-spinner-styles')) {
+  const styleTag = document.createElement('style');
+  styleTag.id = 'catch-modal-spinner-styles';
+  styleTag.textContent = `
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(styleTag);
 }
 
 function BallOption({
@@ -334,14 +426,28 @@ function BallOption({
   ownedCount,
   onThrow,
   isDisabled,
-  isPending,
+  isThrowInProgress,
   isThrowingThis,
 }: BallOptionProps) {
   const name = getBallTypeName(ballType);
   const price = getBallPriceUSD(ballType);
   const catchRate = getCatchRatePercent(ballType);
   const hasBalls = ownedCount > 0;
-  const canThrow = hasBalls && !isDisabled && !isPending;
+  // Disable if: no balls, explicitly disabled, OR any throw is in progress
+  const canThrow = hasBalls && !isDisabled && !isThrowInProgress;
+
+  // Button label logic
+  const getButtonLabel = () => {
+    if (!hasBalls) return 'None';
+    if (isThrowingThis) return (
+      <>
+        <InlineSpinner />
+        Throwing…
+      </>
+    );
+    if (isThrowInProgress) return 'Wait…';
+    return 'Throw';
+  };
 
   return (
     <div
@@ -384,7 +490,7 @@ function BallOption({
           ...(canThrow ? {} : styles.throwButtonDisabled),
         }}
       >
-        {isThrowingThis ? 'Throwing...' : hasBalls ? 'Throw' : 'None'}
+        {getButtonLabel()}
       </button>
     </div>
   );
@@ -464,21 +570,11 @@ export function CatchAttemptModal({
     }
   }, [playerAddress, isOpen, inventory, throwStatus, hasAnyBalls]);
 
-  // Get status message for the current throw state
-  const getStatusMessage = useCallback((status: ThrowStatus): string => {
-    switch (status) {
-      case 'fetching_nonce':
-        return 'Preparing throw...';
-      case 'signing':
-        return 'Please sign the message in your wallet';
-      case 'submitting':
-        return 'Sending to relayer...';
-      case 'pending':
-        return 'Waiting for confirmation...';
-      default:
-        return 'Throwing...';
-    }
-  }, []);
+  // Derived: is throw in progress (status !== 'idle')
+  const isThrowInProgress = throwStatus !== 'idle' && throwStatus !== 'error' && throwStatus !== 'success';
+
+  // Get user-friendly status message
+  const statusMessage = THROW_STATUS_MESSAGES[throwStatus] || '';
 
   // Handle throw - v1.8.0: Use gasless meta-transaction
   const handleThrow = useCallback(
@@ -556,8 +652,6 @@ export function CatchAttemptModal({
   // Don't render if not open
   if (!isOpen) return null;
 
-  const isTransactionPending = isLoading || isPending;
-
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -567,7 +661,7 @@ export function CatchAttemptModal({
           <button
             style={styles.closeButton}
             onClick={onClose}
-            disabled={isTransactionPending}
+            disabled={isThrowInProgress}
           >
             CLOSE
           </button>
@@ -596,11 +690,13 @@ export function CatchAttemptModal({
         )}
 
         {/* Loading State - v1.8.0: Shows gasless throw status */}
-        {isTransactionPending && (
+        {isThrowInProgress && statusMessage && (
           <div style={styles.loadingOverlay}>
-            <div style={styles.loadingText}>{getStatusMessage(throwStatus)}</div>
+            <div style={styles.loadingText}>{statusMessage}</div>
             <div style={styles.loadingSubtext}>
-              {throwStatus === 'signing' ? 'No gas required - just sign!' : 'Processing...'}
+              {throwStatus === 'signing' || throwStatus === 'fetching_nonce'
+                ? 'No gas fees – just sign to throw!'
+                : 'This may take a few seconds…'}
             </div>
           </div>
         )}
@@ -625,9 +721,9 @@ export function CatchAttemptModal({
                       ownedCount={count}
                       onThrow={() => handleThrow(ballType)}
                       isDisabled={attemptsRemaining <= 0}
-                      isPending={isTransactionPending}
+                      isThrowInProgress={isThrowInProgress}
                       isThrowingThis={
-                        isTransactionPending && throwingBallType === ballType
+                        isThrowInProgress && throwingBallType === ballType
                       }
                     />
                   );
@@ -647,11 +743,11 @@ export function CatchAttemptModal({
 
         {/* v1.8.0: No fee warnings needed - gasless throws are free for players */}
 
-        {/* Error Display - show error message from gasless throw */}
+        {/* Error Display - show friendly error message from gasless throw */}
         {error && (
           <div style={styles.errorBox}>
             <span style={styles.errorText}>
-              {error}
+              {getFriendlyErrorMessage(error)}
             </span>
             <button style={styles.dismissButton} onClick={handleDismissError}>
               Dismiss
@@ -668,15 +764,17 @@ export function CatchAttemptModal({
           </div>
         )}
 
-        {/* Footer hint - v1.8.0: No entropy fee display since it's gasless */}
+        {/* Footer hint - v1.8.0: Gasless throw explanation */}
         <div style={styles.footer}>
-          Slot #{slotIndex} | Higher tier balls have better catch rates
-          <div style={{ marginTop: '4px', color: '#00ff88' }}>
-            ✓ Gasless throw - no transaction fees!
+          <div style={{ color: '#888', marginBottom: '6px' }}>
+            Slot #{slotIndex} • Higher tier balls = better catch rates
+          </div>
+          <div style={{ color: '#00ff88', fontSize: '11px' }}>
+            Throws are gasless. You only pay when buying balls.
           </div>
           {txHash && (
-            <div style={{ marginTop: '4px', color: '#888' }}>
-              TX: {txHash.slice(0, 10)}...
+            <div style={{ marginTop: '6px', color: '#666', fontSize: '10px' }}>
+              TX: {txHash.slice(0, 10)}…{txHash.slice(-6)}
             </div>
           )}
         </div>

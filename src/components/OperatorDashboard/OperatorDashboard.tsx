@@ -28,10 +28,32 @@
  * ```
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useContractDiagnostics, POKEBALL_GAME_ADDRESS } from '../../hooks/pokeballGame';
 import { SLAB_NFT_MANAGER_ADDRESS } from '../../services/slabNFTManagerConfig';
 import { getTransactionUrl, getAddressUrl } from '../../services/pokeballGameConfig';
+
+// ============================================================
+// TOAST NOTIFICATION FOR COPY FEEDBACK
+// ============================================================
+
+interface ToastState {
+  visible: boolean;
+  message: string;
+}
+
+function useToast() {
+  const [toast, setToast] = useState<ToastState>({ visible: false, message: '' });
+
+  const showToast = useCallback((message: string) => {
+    setToast({ visible: true, message });
+    setTimeout(() => {
+      setToast({ visible: false, message: '' });
+    }, 2000);
+  }, []);
+
+  return { toast, showToast };
+}
 
 // ============================================================
 // CONSTANTS
@@ -239,7 +261,45 @@ const styles = {
     fontSize: '10px',
     fontFamily: "'Courier New', monospace",
   },
+  toast: {
+    position: 'fixed' as const,
+    bottom: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    padding: '10px 20px',
+    backgroundColor: 'rgba(0, 255, 136, 0.95)',
+    color: '#000',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    zIndex: 9999,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+  },
+  loadingSpinner: {
+    display: 'inline-block',
+    width: '12px',
+    height: '12px',
+    border: '2px solid #00ff8833',
+    borderTopColor: '#00ff88',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
+    marginRight: '6px',
+    verticalAlign: 'middle',
+  },
 };
+
+// Add keyframe animation for spinners (only once)
+if (typeof document !== 'undefined' && !document.getElementById('operator-dashboard-spinner-styles')) {
+  const styleTag = document.createElement('style');
+  styleTag.id = 'operator-dashboard-spinner-styles';
+  styleTag.textContent = `
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(styleTag);
+}
 
 // ============================================================
 // HELPER COMPONENTS
@@ -274,20 +334,35 @@ function StatRow({ label, value, status = 'neutral', suffix }: StatRowProps) {
 interface CLICommandProps {
   command: string;
   description: string;
+  onCopy?: (command: string) => void;
 }
 
-function CLICommand({ command, description }: CLICommandProps) {
+function CLICommand({ command, description, onCopy }: CLICommandProps) {
+  const [copied, setCopied] = useState(false);
+
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(command);
-  }, [command]);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+    onCopy?.(command);
+  }, [command, onCopy]);
 
   return (
-    <div style={styles.cliCommand} onClick={handleCopy} title="Click to copy">
-      <span>
-        <code>{command}</code>
-        <span style={styles.cliDescription}>- {description}</span>
+    <div
+      style={{
+        ...styles.cliCommand,
+        ...(copied ? { borderColor: '#00ff88', backgroundColor: 'rgba(0, 255, 136, 0.1)' } : {}),
+      }}
+      onClick={handleCopy}
+      title="Click to copy"
+    >
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <code style={{ wordBreak: 'break-all' }}>{command}</code>
+        <span style={styles.cliDescription}>– {description}</span>
       </span>
-      <span style={styles.copyIcon}>📋</span>
+      <span style={{ ...styles.copyIcon, color: copied ? '#00ff88' : '#666' }}>
+        {copied ? '✓' : '📋'}
+      </span>
     </div>
   );
 }
@@ -301,6 +376,9 @@ export function OperatorDashboard({
   onClose,
   connectedAddress,
 }: OperatorDashboardProps) {
+  // Toast notification for copy feedback
+  const { toast, showToast } = useToast();
+
   // Get diagnostics from the shared hook
   const diagnostics = useContractDiagnostics();
 
@@ -362,7 +440,12 @@ export function OperatorDashboard({
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <button style={styles.refreshButton} onClick={refetch} disabled={isLoading}>
-              {isLoading ? 'Loading...' : 'Refresh'}
+              {isLoading ? (
+                <>
+                  <span style={styles.loadingSpinner} />
+                  Refreshing…
+                </>
+              ) : 'Refresh'}
             </button>
             <button style={styles.closeButton} onClick={onClose}>CLOSE</button>
           </div>
@@ -538,29 +621,42 @@ export function OperatorDashboard({
             <CLICommand
               command="npx hardhat checkReserves --network apechain"
               description="View all reserves with health status"
+              onCopy={() => showToast('Copied!')}
             />
             <CLICommand
               command="npx hardhat withdrawApeReserve --contract PokeballGame --keep-minimum 0.5 --network apechain"
               description="Withdraw APE keeping minimum"
+              onCopy={() => showToast('Copied!')}
             />
             <CLICommand
               command="npx hardhat withdrawUsdceReserve --keep-buffer 100 --network apechain"
               description="Withdraw USDC.e keeping buffer"
+              onCopy={() => showToast('Copied!')}
             />
             <CLICommand
               command="npx hardhat withdrawTreasuryFunds --all --network apechain"
               description="Withdraw 3% platform fees"
+              onCopy={() => showToast('Copied!')}
             />
             <CLICommand
               command="node scripts/update_ape_price.cjs"
               description="Update on-chain APE price from CoinGecko"
+              onCopy={() => showToast('Copied!')}
             />
             <CLICommand
               command="node scripts/fund_ape_reserves.cjs"
               description="Fund APE reserves for both contracts"
+              onCopy={() => showToast('Copied!')}
             />
           </div>
         </div>
+
+        {/* Toast notification */}
+        {toast.visible && (
+          <div style={styles.toast}>
+            {toast.message}
+          </div>
+        )}
       </div>
     </div>
   );

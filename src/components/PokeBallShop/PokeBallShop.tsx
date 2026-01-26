@@ -567,6 +567,19 @@ const BALL_COLORS: Record<BallType, string> = {
   3: '#aa44ff', // Master Ball - Purple
 };
 
+// Add keyframe animation for spinners (only once)
+if (typeof document !== 'undefined' && !document.getElementById('pokeball-shop-spinner-styles')) {
+  const styleTag = document.createElement('style');
+  styleTag.id = 'pokeball-shop-spinner-styles';
+  styleTag.textContent = `
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(styleTag);
+}
+
 // ============================================================
 // SUB-COMPONENTS
 // ============================================================
@@ -639,17 +652,39 @@ function BallRow({
   const isPending = isPurchasePending || isApprovalPending;
   const canBuy = safeQty > 0 && !isDisabled && !isPending && !hasInsufficientBalance && !exceedsCap;
 
-  // Determine button text based on state
-  let buttonText = 'Buy';
-  if (exceedsCap) {
-    buttonText = 'Over Cap';
-  } else if (isApprovalPending) {
-    buttonText = 'Approving...';
-  } else if (isPurchasePending) {
-    buttonText = 'Buying...';
-  } else if (needsApproval && safeQty > 0) {
-    buttonText = 'Approve';
-  }
+  // Inline spinner component for buttons
+  const InlineSpinner = ({ color = '#666' }: { color?: string }) => (
+    <span
+      style={{
+        display: 'inline-block',
+        width: '10px',
+        height: '10px',
+        border: `2px solid ${color}33`,
+        borderTopColor: color,
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+        marginRight: '4px',
+        verticalAlign: 'middle',
+      }}
+    />
+  );
+
+  // Determine button content based on state
+  const getButtonContent = () => {
+    if (exceedsCap) {
+      return 'Over Cap';
+    }
+    if (isApprovalPending) {
+      return <><InlineSpinner color="#ff8800" />Approving…</>;
+    }
+    if (isPurchasePending) {
+      return <><InlineSpinner color="#00ff00" />Buying…</>;
+    }
+    if (needsApproval && safeQty > 0) {
+      return 'Approve';
+    }
+    return 'Buy';
+  };
 
   return (
     <div style={styles.ballRow}>
@@ -732,7 +767,7 @@ function BallRow({
             : {}),
         }}
       >
-        {buttonText}
+        {getButtonContent()}
       </button>
     </div>
   );
@@ -1315,7 +1350,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
           </div>
         </div>
 
-        {/* Payment Toggle */}
+        {/* Payment Toggle - Clear APE vs USDC.e selection */}
         <div style={styles.paymentToggle}>
           <button
             style={{
@@ -1325,7 +1360,17 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             onClick={() => setPaymentToken('USDC')}
             disabled={isAnyPending}
           >
-            Pay with USDC.e
+            <span style={{
+              display: 'inline-block',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              backgroundColor: paymentToken === 'USDC' ? '#00aa00' : '#444',
+              marginRight: '6px',
+              fontSize: '10px',
+            }}>
+              USDC.e
+            </span>
+            {paymentToken === 'USDC' ? '✓ Selected' : 'Stablecoin'}
           </button>
           <button
             style={{
@@ -1335,32 +1380,65 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             onClick={() => setPaymentToken('APE')}
             disabled={isAnyPending}
           >
-            Pay with APE
+            <span style={{
+              display: 'inline-block',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              backgroundColor: paymentToken === 'APE' ? '#00aa00' : '#444',
+              marginRight: '6px',
+              fontSize: '10px',
+            }}>
+              APE
+            </span>
+            {paymentToken === 'APE' ? '✓ Selected' : 'Native token'}
           </button>
         </div>
 
         {/* APE Payment Info - v1.4.0 uses native APE with dynamic pricing */}
         {paymentToken === 'APE' && (
-          <div style={{ ...styles.loadingOverlay, border: '2px solid #00ff88', backgroundColor: '#1a2a2a' }}>
-            <div style={{ color: '#00ff88', fontSize: '12px', marginBottom: '4px' }}>
-              APE payments send native APE directly - no approval step required!
+          <div style={{ ...styles.loadingOverlay, border: '2px solid #ffcc00', backgroundColor: '#1a2a1a' }}>
+            <div style={{ color: '#ffcc00', fontSize: '12px', marginBottom: '4px' }}>
+              ✓ APE: No approval needed – pay directly from your wallet
             </div>
             {liveApePrice && (
               <div style={{ color: '#888', fontSize: '10px' }}>
-                Current APE price: ~${liveApePrice.toFixed(2)} USD
+                1 APE ≈ ${liveApePrice.toFixed(4)} USD (live rate)
               </div>
             )}
+          </div>
+        )}
+
+        {/* USDC.e Payment Info - Show approval requirement upfront */}
+        {paymentToken === 'USDC' && !isApprovalPending && !isTransactionPending && (
+          <div style={{ ...styles.loadingOverlay, border: '2px solid #00ff00', backgroundColor: '#1a2a1a' }}>
+            <div style={{ color: '#00ff00', fontSize: '12px', marginBottom: '4px' }}>
+              {isApproved ? '✓ USDC.e approved – ready to purchase' : 'USDC.e: Requires one-time approval first'}
+            </div>
+            <div style={{ color: '#888', fontSize: '10px' }}>
+              {isApproved
+                ? 'Click Buy to complete your purchase'
+                : 'Click Approve when prompted, then Buy'}
+            </div>
           </div>
         )}
 
         {/* Approval Loading State */}
         {isApprovalPending && (
           <div style={{ ...styles.loadingOverlay, border: '2px solid #4488ff' }}>
-            <div style={{ ...styles.loadingText, color: '#4488ff' }}>
-              {isApproving ? 'Requesting token approval...' : 'Confirming approval...'}
+            <div style={{ ...styles.loadingText, color: '#4488ff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span style={{
+                display: 'inline-block',
+                width: '14px',
+                height: '14px',
+                border: '2px solid #4488ff33',
+                borderTopColor: '#4488ff',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+              {isApproving ? 'Approving USDC.e…' : 'Confirming approval…'}
             </div>
-            <div style={{ color: '#888', fontSize: '12px', marginTop: '8px' }}>
-              Approve {paymentToken === 'APE' ? 'APE' : 'USDC.e'} spending in your wallet
+            <div style={{ color: '#888', fontSize: '11px', marginTop: '6px' }}>
+              Check your wallet for the approval request
             </div>
           </div>
         )}
@@ -1368,22 +1446,20 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
         {/* Purchase Loading State */}
         {isTransactionPending && !isApprovalPending && (
           <div style={styles.loadingOverlay}>
-            <div style={styles.loadingText}>Transaction in progress...</div>
-            <div style={{ color: '#888', fontSize: '12px', marginTop: '8px' }}>
-              Please confirm in your wallet
+            <div style={{ ...styles.loadingText, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span style={{
+                display: 'inline-block',
+                width: '14px',
+                height: '14px',
+                border: '2px solid #ffcc0033',
+                borderTopColor: '#ffcc00',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+              Purchasing balls…
             </div>
-          </div>
-        )}
-
-        {/* Approval Status Info - Only for USDC.e (APE uses native currency, no approval) */}
-        {paymentToken === 'USDC' && !isApproved && totalQuantity > 0 && !isApprovalPending && (
-          <div style={{ ...styles.loadingOverlay, border: '2px solid #ff8800' }}>
-            <div style={{ color: '#ff8800', fontSize: '14px' }}>
-              USDC.e approval required
-            </div>
-            <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
-              You need to approve USDC.e before purchasing.
-              Click "Buy" to start the approval process.
+            <div style={{ color: '#888', fontSize: '11px', marginTop: '6px' }}>
+              Confirm the transaction in your wallet
             </div>
           </div>
         )}

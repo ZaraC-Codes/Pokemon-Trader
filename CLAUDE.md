@@ -1182,8 +1182,15 @@ Owner-only diagnostics panel for monitoring contract health and APE reserves:
    - `npx hardhat checkReserves --network apechain`
    - `npx hardhat withdrawApeReserve --contract PokeballGame --keep-minimum 0.5 --network apechain`
    - etc.
+   - **v1.8.0 UX**: Click to copy with visual checkmark (✓) feedback and "Copied!" toast notification
 
 5. **Operator Warnings** - Alerts for low reserves or pool issues
+
+**v1.8.0 UX Polish:**
+- **Health color coding**: Green (HEALTHY ≥0.5 APE), Yellow (LOW 0.25-0.5 APE), Red (CRITICAL <0.25 APE)
+- **Copyable CLI commands**: Click any command to copy; shows checkmark and "Copied!" toast
+- **Refresh button**: Shows inline spinner + "Refreshing…" while loading data
+- **Toast notification**: Auto-dismisses after 2 seconds
 
 **Props:**
 ```typescript
@@ -2755,6 +2762,13 @@ import { PokeBallShop } from './components/PokeBallShop';
 5. After approval: Green "BUY" button becomes active
 6. User clicks buy → purchase transaction executes
 
+**v1.8.0 UX Polish:**
+- **Payment toggle badges**: Visual pills showing "USDC.e" or "APE" with checkmark when selected
+- **APE info box**: "✓ APE: No approval needed – pay directly from your wallet"
+- **USDC.e info box**: Shows approval status ("✓ USDC.e approved – ready to purchase" or "Requires one-time approval first")
+- **Inline spinners**: Approval button shows "Approving…" with spinner; Buy button shows "Buying…" with spinner
+- **Button content function**: `getButtonContent()` handles all button states (Over Cap, Approving, Buying, Approve, Buy)
+
 **Hooks Used:**
 - `usePurchaseBalls()` - Contract write (stops on gas estimation failure)
 - `usePlayerBallInventory(address)` - Read inventory
@@ -3346,14 +3360,24 @@ const handlePokemonClick = (spawn: PokemonSpawn) => {
 - "Throw" button for each available ball type
 - **Visual throw animation**: Calls `onVisualThrow` BEFORE contract write for immediate feedback
 - **Auto-close on throw**: Modal closes immediately after triggering animation so the ball arc is visible on the map
-- Calls `useThrowBall().write(slotIndex, ballType)` on click
+- **v1.8.0 Gasless throws**: Uses `useGaslessThrow()` for meta-transaction signing (no gas for players)
 - Result shown via CatchWinModal (success) or CatchResultModal (failure) - attempt modal doesn't reopen
 - "Connect wallet" warning if no address
 - "No attempts remaining" warning when attemptsRemaining <= 0
 - "No PokeBalls" message with shop hint if inventory empty
 
+**v1.8.0 Gasless UX Polish:**
+- **Status messages** mapped to user-friendly text:
+  - `idle` → (no label)
+  - `signing` / `fetching_nonce` → "Preparing your gasless throw…"
+  - `submitting` → "Sending to relayer…"
+  - `pending` → "Waiting for on-chain result…"
+- **Friendly error messages**: Signature rejected, relayer busy, timeout, network errors
+- **Button states**: Shows inline spinner + "Throwing…" when in progress; "Wait…" for other balls
+- **Footer hint**: "Throws are gasless. You only pay when buying balls."
+
 **Hooks Used:**
-- `useThrowBall()` - Contract write for throwBall()
+- `useGaslessThrow()` - v1.8.0 gasless meta-transaction signing
 - `usePlayerBallInventory(address)` - Read ball counts
 
 **Note:** This modal only initiates the throw transaction. The Pyth Entropy result (caught/escaped) should be handled by the parent component via contract event listeners.
