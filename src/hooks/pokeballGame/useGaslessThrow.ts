@@ -45,7 +45,8 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { useAccount, usePublicClient, useSignTypedData, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, usePublicClient, useSignMessage, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { keccak256, encodePacked, type Hex } from 'viem';
 import {
   POKEBALL_GAME_ADDRESS,
   POKEBALL_GAME_ABI,
@@ -142,28 +143,24 @@ console.log('[useGaslessThrow] Mode:', IS_DEV_MODE ? 'DEV (direct contract calls
 });
 
 /**
- * EIP-712 domain for the PokeballGame contract.
- * Must match the contract's domain separator exactly.
+ * Build the message hash that the contract expects.
+ * Must match the contract's keccak256(abi.encodePacked(player, pokemonSlot, ballType, nonce, block.chainid, address(this)))
  */
-const EIP712_DOMAIN = {
-  name: 'PokeballGame',
-  version: '1',
-  chainId: POKEBALL_GAME_CHAIN_ID,
-  verifyingContract: POKEBALL_GAME_ADDRESS!,
-} as const;
-
-/**
- * EIP-712 types for the throwBallFor message.
- * Must match the contract's type hash exactly.
- */
-const EIP712_TYPES = {
-  ThrowBall: [
-    { name: 'player', type: 'address' },
-    { name: 'pokemonSlot', type: 'uint8' },
-    { name: 'ballType', type: 'uint8' },
-    { name: 'nonce', type: 'uint256' },
-  ],
-} as const;
+function buildMessageHash(
+  player: Hex,
+  pokemonSlot: number,
+  ballType: number,
+  nonce: bigint,
+  chainId: number,
+  contractAddress: Hex
+): Hex {
+  return keccak256(
+    encodePacked(
+      ['address', 'uint8', 'uint8', 'uint256', 'uint256', 'address'],
+      [player, pokemonSlot, ballType, nonce, BigInt(chainId), contractAddress]
+    )
+  );
+}
 
 // ============================================================
 // HOOK IMPLEMENTATION
@@ -182,8 +179,9 @@ export function useGaslessThrow(): UseGaslessThrowReturn {
   // Guard against duplicate requests
   const isProcessingRef = useRef(false);
 
-  // Wagmi sign typed data hook (only used in production mode)
-  const { signTypedDataAsync } = useSignTypedData();
+  // Wagmi sign message hook (only used in production mode)
+  // Uses personal_sign to match contract's "\x19Ethereum Signed Message:\n32" prefix
+  const { signMessageAsync } = useSignMessage();
 
   // Wagmi write contract hook (only used in dev mode)
   const {
@@ -295,24 +293,28 @@ export function useGaslessThrow(): UseGaslessThrowReturn {
 
       console.log('[useGaslessThrow] Player nonce:', nonce.toString());
 
-      // Step 2: Sign EIP-712 message
+      // Step 2: Sign message hash (personal_sign)
+      // The contract uses: keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", innerHash))
+      // where innerHash = keccak256(abi.encodePacked(player, pokemonSlot, ballType, nonce, chainId, contractAddress))
+      // signMessageAsync automatically adds the "\x19Ethereum Signed Message:\n32" prefix
       setThrowStatus('signing');
-      console.log('[useGaslessThrow] Requesting signature...');
+      console.log('[useGaslessThrow] Building message hash...');
 
-      const message = {
-        player: playerAddress!,
+      const messageHash = buildMessageHash(
+        playerAddress!,
         pokemonSlot,
         ballType,
         nonce,
-      };
+        POKEBALL_GAME_CHAIN_ID,
+        POKEBALL_GAME_ADDRESS!
+      );
+      console.log('[useGaslessThrow] Message hash:', messageHash);
 
       let signature: `0x${string}`;
       try {
-        signature = await signTypedDataAsync({
-          domain: EIP712_DOMAIN,
-          types: EIP712_TYPES,
-          primaryType: 'ThrowBall',
-          message,
+        // Sign the raw hash - wagmi's signMessageAsync will add the Ethereum prefix
+        signature = await signMessageAsync({
+          message: { raw: messageHash },
         });
         console.log('[useGaslessThrow] Got signature:', signature.slice(0, 20) + '...');
       } catch (signError) {
@@ -392,7 +394,7 @@ export function useGaslessThrow(): UseGaslessThrowReturn {
         return false;
       }
     },
-    [playerAddress, signTypedDataAsync, refetchNonce]
+    [playerAddress, signMessageAsync, refetchNonce]
   );
 
   /**
