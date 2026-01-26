@@ -278,28 +278,52 @@ export function ethereumPhoneConnector(
 
       const chainIdHex = `0x${chainId.toString(16)}` as Hex;
 
+      // For ApeChain, use the known good RPC URL
+      // This is critical for dGen1 as ethOS needs a working RPC for bundler operations
+      let rpcUrl = chain.rpcUrls.default.http[0];
+      if (chainId === 33139) {
+        // ApeChain - use reliable public RPC
+        rpcUrl = 'https://rpc.apechain.com/http';
+        console.log('[ethereumPhoneConnector] Using ApeChain RPC:', rpcUrl);
+      }
+
       try {
         // Try to switch to the chain
+        console.log('[ethereumPhoneConnector] Attempting wallet_switchEthereumChain...');
         await provider.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: chainIdHex }],
         });
+        console.log('[ethereumPhoneConnector] wallet_switchEthereumChain succeeded');
       } catch (error: unknown) {
-        const switchError = error as { code?: number };
+        const switchError = error as { code?: number; message?: string };
+        console.log('[ethereumPhoneConnector] switchChain error:', {
+          code: switchError.code,
+          message: switchError.message,
+        });
+
         // Chain not added to wallet - try to add it
         if (switchError.code === 4902) {
+          console.log('[ethereumPhoneConnector] Chain not found, adding via wallet_addEthereumChain...');
+
+          const addChainParams = {
+            chainId: chainIdHex,
+            chainName: chain.name,
+            nativeCurrency: chain.nativeCurrency,
+            rpcUrls: [rpcUrl],
+            blockExplorerUrls: chain.blockExplorers
+              ? [chain.blockExplorers.default.url]
+              : undefined,
+          };
+
+          console.log('[ethereumPhoneConnector] wallet_addEthereumChain params:', addChainParams);
+
           await provider.request({
             method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: chainIdHex,
-              chainName: chain.name,
-              nativeCurrency: chain.nativeCurrency,
-              rpcUrls: [chain.rpcUrls.default.http[0]],
-              blockExplorerUrls: chain.blockExplorers
-                ? [chain.blockExplorers.default.url]
-                : undefined,
-            }],
+            params: [addChainParams],
           });
+
+          console.log('[ethereumPhoneConnector] wallet_addEthereumChain succeeded');
         } else {
           throw error;
         }

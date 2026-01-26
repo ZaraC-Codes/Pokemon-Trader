@@ -50,6 +50,7 @@ import {
   isThirdwebConfigured,
 } from '../../services/thirdwebConfig';
 import { FundingWidget, type FundingToken } from '../FundingWidget';
+import { isEthereumPhoneAvailable, getDGen1Diagnostic, type DGen1Diagnostic } from '../../utils/walletDetection';
 
 // ============================================================
 // ERROR BOUNDARY FOR THIRDWEB COMPONENTS
@@ -982,6 +983,22 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   // Contract diagnostics for environment sanity checks
   const diagnostics = useContractDiagnostics();
 
+  // dGen1 (EthereumPhone) detection and diagnostics
+  const [dgen1Diagnostic, setDgen1Diagnostic] = useState<DGen1Diagnostic | null>(null);
+  const isDGen1 = isEthereumPhoneAvailable();
+
+  // Fetch dGen1 diagnostic on mount if on dGen1 device
+  useEffect(() => {
+    if (isDGen1 && isOpen) {
+      getDGen1Diagnostic().then((diag) => {
+        setDgen1Diagnostic(diag);
+        console.log('[PokeBallShop] dGen1 diagnostic:', diag);
+      }).catch((err) => {
+        console.error('[PokeBallShop] Failed to get dGen1 diagnostic:', err);
+      });
+    }
+  }, [isDGen1, isOpen]);
+
   // Calculate required amount for current selection
   // We sum all quantities to get max possible cost for approval
   // Safe: filter out NaN/undefined values before summing
@@ -1288,6 +1305,47 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             <div style={{ ...styles.warningText, color: '#888', marginTop: '4px' }}>
               Purchases may fail. Contact devs if issues persist.
             </div>
+          </div>
+        )}
+
+        {/* dGen1 Warning Banner - shown when on dGen1 without bundler URL */}
+        {isDGen1 && dgen1Diagnostic && !dgen1Diagnostic.hasBundlerUrl && (
+          <div style={{
+            ...styles.warningBanner,
+            backgroundColor: 'rgba(255, 100, 50, 0.15)',
+            borderColor: '#ff6432',
+          }}>
+            <div style={{ ...styles.warningTitle, color: '#ff6432' }}>
+              📱 dGen1 CONFIGURATION NEEDED
+            </div>
+            <div style={styles.warningText}>
+              • Bundler RPC URL not configured for ApeChain
+            </div>
+            <div style={styles.warningText}>
+              • Transactions may fail without proper ERC-4337 bundler
+            </div>
+            <div style={{ ...styles.warningText, color: '#888', marginTop: '4px' }}>
+              ChainId: {dgen1Diagnostic.chainId ?? 'unknown'} |
+              Provider: {dgen1Diagnostic.providerFlags.isEthereumPhone ? 'ethOS' : 'standard'}
+            </div>
+          </div>
+        )}
+
+        {/* dGen1 Info Banner - shown when on dGen1 with proper config */}
+        {isDGen1 && dgen1Diagnostic?.hasBundlerUrl && (
+          <div style={{
+            backgroundColor: 'rgba(50, 150, 255, 0.1)',
+            border: '1px solid #3296ff',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            marginBottom: '12px',
+            fontFamily: "'Courier New', monospace",
+            fontSize: '10px',
+          }}>
+            <span style={{ color: '#3296ff' }}>📱 dGen1 detected</span>
+            <span style={{ color: '#666', marginLeft: '8px' }}>
+              ChainId: {dgen1Diagnostic.chainId} | Bundler: ✓
+            </span>
           </div>
         )}
 
