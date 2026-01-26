@@ -3042,17 +3042,40 @@ interface ContractDiagnostics {
 - Manual refetch available via `refetch()`
 
 ### useGaslessThrow Hook (v1.8.0)
-Hook for gasless meta-transaction throws via relayer:
+Hook for gasless meta-transaction throws via relayer (or direct contract calls in dev mode):
 
 **Location:** `src/hooks/pokeballGame/useGaslessThrow.ts`
 
-**Flow:**
+**Modes:**
+
+| Mode | When Active | Player Pays | Description |
+|------|-------------|-------------|-------------|
+| **Production** | `VITE_RELAYER_API_URL` is set | Nothing | Relayer pays gas via `throwBallFor()` |
+| **Dev Mode** | `VITE_GASLESS_DEV_MODE=true` OR no relayer URL | Entropy fee (~0.073 APE) | Direct `throwBall()` call |
+
+**Environment Variables:**
+```env
+# Dev mode: direct throwBall() calls (player pays Entropy fee)
+VITE_GASLESS_DEV_MODE=true
+
+# Production: relayer-based gasless throws
+VITE_GASLESS_DEV_MODE=false
+VITE_RELAYER_API_URL=https://your-relayer.workers.dev/api/throwBallFor
+```
+
+**Flow (Production - with relayer):**
 1. Player clicks "Throw" button
 2. Frontend fetches player's current nonce from contract
 3. Player signs EIP-712 typed message (no wallet gas popup)
 4. Frontend POSTs signature + params to relayer API
 5. Relayer validates signature, calls `throwBallFor()` on-chain
 6. Player sees catch result via contract events
+
+**Flow (Dev Mode - no relayer):**
+1. Player clicks "Throw" button
+2. Frontend reads Entropy fee from contract
+3. Direct `throwBall()` call (player confirms in wallet, pays ~0.073 APE)
+4. Player sees catch result via contract events
 
 **Usage:**
 ```typescript
@@ -3062,34 +3085,38 @@ const {
   initiateThrow,  // (pokemonSlot: number, ballType: BallType) => Promise<boolean>
   throwStatus,    // 'idle' | 'fetching_nonce' | 'signing' | 'submitting' | 'pending' | 'error'
   isLoading,      // True during any in-progress step
-  isPending,      // True while waiting for relayer confirmation
+  isPending,      // True while waiting for confirmation
   error,          // Error message string or null
   reset,          // Reset hook state
-  txHash,         // Transaction hash from relayer (if available)
+  txHash,         // Transaction hash (if available)
   requestId,      // Request ID / sequence number (if available)
+  isDevMode,      // True if using direct contract calls (no relayer)
 } = useGaslessThrow();
 
 // Player presses throw button
 const handleThrow = async () => {
   const success = await initiateThrow(0, 1); // slot=0, ballType=1
   if (success) {
-    // Throw submitted to relayer, wait for CaughtPokemon/FailedCatch events
+    // Throw submitted, wait for CaughtPokemon/FailedCatch events
   }
 };
+
+// Show mode indicator
+console.log(isDevMode ? 'Using direct throwBall()' : 'Using relayer');
 ```
 
 **Throw Status Values:**
 | Status | Description |
 |--------|-------------|
 | `idle` | Ready for new throw |
-| `fetching_nonce` | Reading player nonce from contract |
-| `signing` | Waiting for wallet signature |
-| `submitting` | Sending to relayer API |
-| `pending` | Relayer received, waiting for chain |
+| `fetching_nonce` | Reading player nonce from contract (production only) |
+| `signing` | Waiting for wallet signature/confirmation |
+| `submitting` | Sending to relayer API (production only) |
+| `pending` | Waiting for on-chain confirmation |
 | `success` | Throw completed successfully |
 | `error` | Something went wrong |
 
-**EIP-712 Configuration:**
+**EIP-712 Configuration (Production Mode):**
 ```typescript
 const EIP712_DOMAIN = {
   name: 'PokeballGame',
@@ -3108,17 +3135,34 @@ const EIP712_TYPES = {
 };
 ```
 
-**Relayer API:**
-- Endpoint: `VITE_RELAYER_API_URL` (default: `/api/throwBallFor`)
+**Relayer API (Production Mode):**
+- Endpoint: `VITE_RELAYER_API_URL`
 - Timeout: 30 seconds
 - Request body: `{ player, pokemonSlot, ballType, nonce, signature }`
 - Response: `{ txHash, requestId }` or `{ error }`
 
+**Relayer Implementation Requirements:**
+The relayer endpoint must:
+1. Validate the EIP-712 signature matches the player address
+2. Check player has sufficient balls of the requested type
+3. Verify the Pokemon slot is active
+4. Call `throwBallFor(player, pokemonSlot, ballType, nonce, signature)` on PokeballGame v1.8.0
+5. Return `{ txHash: "0x...", requestId: "123" }` on success
+6. Return `{ error: "message" }` on failure
+
 **Error Handling:**
 - "Wallet not connected" - No wallet address
-- "Signature request cancelled" - User rejected in wallet
-- "Relayer error: [status]" - Relayer returned non-200
-- "Relayer request timed out" - 30s timeout exceeded
+- "Signature request cancelled" - User rejected in wallet (production)
+- "Transaction cancelled" - User rejected in wallet (dev mode)
+- "Entropy fee unavailable" - Failed to read throw fee (dev mode)
+- "Relayer error: [status]" - Relayer returned non-200 (production)
+- "Relayer request timed out" - 30s timeout exceeded (production)
+
+**Console Logs:**
+- `[useGaslessThrow] Mode: DEV (direct contract calls)` - Dev mode active
+- `[useGaslessThrow] Mode: PRODUCTION (relayer)` - Production mode active
+- `[useGaslessThrow] DEV MODE: Calling throwBall with fee: X` - Direct call
+- `[useGaslessThrow] Submitting to relayer: URL` - Relayer submission
 
 ### usePurchaseBalls Error Handling
 The `usePurchaseBalls` hook now includes robust error handling that prevents failed transactions:
