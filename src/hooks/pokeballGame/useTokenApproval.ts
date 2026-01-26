@@ -85,6 +85,7 @@ export interface UseTokenApprovalReturn {
     hash: `0x${string}` | undefined;
     error: string | undefined;
     lastStep: string;
+    providerMethods?: string; // Available methods on the provider
   };
 }
 
@@ -231,6 +232,7 @@ export function useTokenApproval(
   const [dgen1Hash, setDgen1Hash] = useState<`0x${string}` | undefined>(undefined);
   const [dgen1Error, setDgen1Error] = useState<Error | undefined>(undefined);
   const [dgen1LastStep, setDgen1LastStep] = useState<string>('idle');
+  const [dgen1ProviderMethods, setDgen1ProviderMethods] = useState<string>('');
 
   // Check if this is a dGen1 device (cached value for debug display)
   const isDGen1 = isEthereumPhoneAvailable();
@@ -392,30 +394,54 @@ export function useTokenApproval(
         setDgen1Hash(undefined);
         setDgen1LastStep('building_tx');
 
+        // Log all provider properties and methods for debugging
+        const providerInfo = {
+          keys: Object.keys(provider).slice(0, 10), // First 10 keys
+          hasRequest: typeof provider.request === 'function',
+          hasSend: typeof (provider as any).send === 'function',
+          hasSendAsync: typeof (provider as any).sendAsync === 'function',
+          hasSendTransaction: typeof (provider as any).sendTransaction === 'function',
+          isEthereumPhone: provider.isEthereumPhone,
+        };
+        console.log('[useTokenApproval] dGen1 provider inspection:', providerInfo);
+
+        // Update debug state with provider methods info
+        const methodsStr = `req:${providerInfo.hasRequest} send:${providerInfo.hasSend} sendTx:${providerInfo.hasSendTransaction}`;
+        setDgen1ProviderMethods(methodsStr);
+
         // Build the transaction object for eth_sendTransaction
-        // IMPORTANT: ethOS/dGen1 browser provider may be strict about params format
-        // - `from` must be lowercase
-        // - `to` must be lowercase
-        // - Only include minimal required fields
+        // EIP-1193 standard format
         const txParams = {
           from: account.toLowerCase(),
           to: tokenAddress.toLowerCase(),
           data: approveCallData,
-          // Note: Some providers reject '0x0', expecting '0x00' or just omitting value for 0
         };
 
-        console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', {
-          ...txParams,
-          note: 'Minimal params - no value/gas/chainId - let provider handle defaults',
-        });
+        console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', txParams);
 
         setDgen1LastStep('sending_tx');
 
-        // Send transaction directly via provider
-        const txHash = await provider.request({
-          method: 'eth_sendTransaction',
-          params: [txParams],
-        }) as `0x${string}`;
+        // Try standard eth_sendTransaction first
+        let txHash: `0x${string}`;
+        try {
+          txHash = await provider.request({
+            method: 'eth_sendTransaction',
+            params: [txParams],
+          }) as `0x${string}`;
+        } catch (rpcError) {
+          // If eth_sendTransaction fails, log the error and try alternative methods
+          console.error('[useTokenApproval] eth_sendTransaction failed:', rpcError);
+          setDgen1LastStep('trying_alt_method');
+
+          // Try if provider has a direct sendTransaction method (non-standard)
+          if (typeof (provider as any).sendTransaction === 'function') {
+            console.log('[useTokenApproval] Trying provider.sendTransaction() directly...');
+            txHash = await (provider as any).sendTransaction(txParams) as `0x${string}`;
+          } else {
+            // Re-throw original error if no alternative
+            throw rpcError;
+          }
+        }
 
         console.log('[useTokenApproval] dGen1 transaction submitted! Hash:', txHash);
         setDgen1Hash(txHash);
@@ -460,6 +486,7 @@ export function useTokenApproval(
     hash: dgen1Hash,
     error: dgen1Error?.message,
     lastStep: dgen1LastStep,
+    providerMethods: dgen1ProviderMethods,
   } : undefined;
 
   return {

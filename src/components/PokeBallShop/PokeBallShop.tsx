@@ -1541,8 +1541,13 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
               </div>
             )}
             {dgen1Debug.error && (
-              <div style={{ color: '#ff4444' }}>
+              <div style={{ color: '#ff4444', wordBreak: 'break-word' }}>
                 Error: {dgen1Debug.error}
+              </div>
+            )}
+            {dgen1Debug.providerMethods && (
+              <div style={{ color: '#888', marginTop: '4px', fontSize: '9px' }}>
+                Provider: {dgen1Debug.providerMethods}
               </div>
             )}
             <div style={{ color: '#888', marginTop: '4px', fontSize: '9px' }}>
