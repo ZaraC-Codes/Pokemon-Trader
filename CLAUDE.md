@@ -2588,6 +2588,7 @@ On square screens (dGen1), the Inventory button is repositioned to the RIGHT of 
 - **Virtual D-Pad**: On-screen directional buttons (bottom-left corner)
 - **Tap indicator**: Green pulsing circle shows tap target
 - **Interactive object detection**: Tapping on Pokemon/NPCs triggers their click handler instead of movement
+- **Pokemon tap detection**: Uses `getData('isPokemon')` check to identify Pokemon sprites and skip movement
 - **Keyboard priority**: Keyboard input overrides touch (both work simultaneously)
 - **Cancel on keyboard**: Using keyboard cancels any active tap-to-move
 
@@ -2632,6 +2633,10 @@ Visual representation of wild Pokemon in the game world:
 - `id: bigint` - Unique Pokemon ID from contract (getter)
 - `pokemonId: bigint` - Alias for id (backwards compatibility)
 - `attemptCount: number` - Catch attempts made (0-3)
+
+**Data Properties (via Phaser `setData`):**
+- `isPokemon: true` - Marker for touch input detection (prevents tap-to-move when tapped)
+- `pokemonId: bigint` - Pokemon ID for identification by managers
 
 **Animation Methods (Promise-returning):**
 - `playSpawnAnimation()` - Fade in with bounce, shadow appears

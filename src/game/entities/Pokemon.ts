@@ -128,6 +128,10 @@ export class Pokemon extends Phaser.GameObjects.Sprite {
     // Make interactive for click targeting
     this.setInteractive({ useHandCursor: true });
 
+    // Mark as Pokemon for touch input detection
+    this.setData('isPokemon', true);
+    this.setData('pokemonId', pokemonId);
+
     // Emit click event when clicked
     this.on('pointerdown', () => {
       if (!this.isDestroying) {

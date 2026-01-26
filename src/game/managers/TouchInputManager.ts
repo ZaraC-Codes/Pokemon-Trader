@@ -204,7 +204,14 @@ export class TouchInputManager {
         // Skip UI elements like D-Pad buttons
         if (this.dpadButtons.has((obj as any).key)) continue;
 
-        // Check for interactive game objects (Pokemon, NPCs, etc.)
+        // Check for Pokemon entities (marked with isPokemon data)
+        const gameObj = obj as Phaser.GameObjects.GameObject;
+        if (gameObj.getData && gameObj.getData('isPokemon')) {
+          console.log('[TouchInputManager] Tap on Pokemon entity, skipping movement');
+          return; // Don't move, let the Pokemon handle the click
+        }
+
+        // Check for other interactive game objects (NPCs, etc.)
         if (obj.input?.enabled) {
           console.log('[TouchInputManager] Tap on interactive object, skipping movement');
           return; // Don't move, let the object handle the click
