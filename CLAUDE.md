@@ -1008,9 +1008,22 @@ interface PurchaseStats {
 | Type | Event | Data |
 |------|-------|------|
 | `purchase` | BallPurchased | ballType, quantity, usedAPE, estimatedCost |
-| `throw` | ThrowAttempted | pokemonId, ballType, requestId |
+| `throw` | ThrowAttempted | pokemonId, ballType, sequenceNumber |
 | `caught` | CaughtPokemon | pokemonId, nftTokenId |
 | `failed` | FailedCatch | pokemonId, attemptsRemaining |
+
+**v1.8.0 Event Support:**
+- `GaslessThrowExecuted(player, relayer, pokemonId)` - Emitted when relayer executes `throwBallFor()`
+- Note: `ThrowAttempted` still captures all throw details; `GaslessThrowExecuted` is supplementary metadata
+- The hook's `EVENT_ABIS` includes both events for comprehensive v1.8.0 support
+
+**Debug Logging:**
+Set `DEBUG_TX_HISTORY = true` in the hook to enable verbose console logging:
+- `[useTransactionHistory] Debug info:` - Shows contractAddress, playerAddress, isConfigured on mount
+- `[useTransactionHistory] Starting initial fetch for address:` - Logs when fetch begins
+- `[useTransactionHistory] Fetching events from block X to Y` - Block range being queried
+- `[useTransactionHistory] BallPurchased: found X logs` - Per-event-type log counts
+- If `contractAddress: undefined`, the `VITE_POKEBALL_GAME_ADDRESS` env var is not set
 
 **Event Querying:**
 - Uses **Caldera public RPC** (`https://apechain.calderachain.xyz/http`) for historical queries
