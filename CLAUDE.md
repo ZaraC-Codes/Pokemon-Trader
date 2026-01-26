@@ -931,7 +931,7 @@ VITE_GLYPH_API_KEY=
 **Documentation:** See `docs/WALLET_INTEGRATION.md` for full setup and troubleshooting guide.
 
 ### FundingWidget (Bridge/Swap/Buy)
-Comprehensive wallet funding widget using ThirdWeb Universal Bridge:
+Comprehensive wallet funding widget using ThirdWeb Universal Bridge with existing wallet integration:
 
 **Location:** `src/components/FundingWidget/FundingWidget.tsx`
 
@@ -940,15 +940,17 @@ Comprehensive wallet funding widget using ThirdWeb Universal Bridge:
 - **Swap** any token into APE or USDC.e
 - **Buy with fiat** (card, bank transfer) via multiple providers
 - Cross-chain swap+bridge in a single transaction
-- Destination locked to ApeChain for seamless gameplay
+- **Uses existing RainbowKit/Wagmi wallet** - no separate wallet connection UI
+- **Destination token locked** - users cannot change from APE or USDC.e
+- **Destination chain locked** - always ApeChain
 
 **Props:**
 ```typescript
 interface FundingWidgetProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultToken?: 'APE' | 'USDC';  // Pre-select destination token
-  onFundingComplete?: () => void; // Callback when transaction completes
+  defaultToken?: 'APE' | 'USDC';  // LOCKED destination token (cannot be changed)
+  onComplete?: () => void;        // Callback when transaction completes
 }
 ```
 
@@ -956,22 +958,75 @@ interface FundingWidgetProps {
 ```tsx
 import { FundingWidget } from './components/FundingWidget';
 
+// "Get APE" button - locks destination to native APE
 <FundingWidget
   isOpen={showFunding}
   onClose={() => setShowFunding(false)}
   defaultToken="APE"
-  onFundingComplete={() => refetchBalances()}
+  onComplete={() => refetchBalances()}
 />
+
+// "Get USDC.e" button - locks destination to USDC.e
+<FundingWidget
+  isOpen={showFunding}
+  onClose={() => setShowFunding(false)}
+  defaultToken="USDC"
+  onComplete={() => refetchBalances()}
+/>
+```
+
+**Wallet Adapter Architecture:**
+The widget uses ThirdWeb's wallet adapter pattern to reuse the existing RainbowKit/Wagmi wallet:
+
+```typescript
+// 1. Get wagmi wallet client
+const { data: walletClient } = useWalletClient();
+
+// 2. Adapt to ThirdWeb format
+const adaptedAccount = viemAdapter.walletClient.fromViem({ walletClient });
+
+// 3. Create wallet adapter with callbacks
+const thirdwebWallet = createWalletAdapter({
+  adaptedAccount,
+  chain: defineChain(chainId),
+  client: thirdwebClient,
+  onDisconnect: async () => disconnectAsync(),
+  switchChain: async (chain) => switchChainAsync({ chainId: chain.id }),
+});
+
+// 4. Activate in ThirdwebProvider context
+const setActiveWallet = useSetActiveWallet();
+setActiveWallet(thirdwebWallet);
+```
+
+**Destination Locking:**
+The `prefillBuy` config uses `allowEdits` to lock the destination:
+```typescript
+prefillBuy: {
+  chain: apechain,
+  token: { address: USDC_ADDRESS, symbol: 'USDC.e', name: 'USDC.e' },
+  allowEdits: {
+    amount: true,   // User can change amount
+    token: false,   // LOCKED - cannot change destination token
+    chain: false,   // LOCKED - cannot change destination chain (ApeChain)
+  },
+}
 ```
 
 **User Flow (e.g., ETH on Ethereum → APE on ApeChain):**
 1. User clicks "Get APE" or "Get USDC.e" in the SHOP
-2. FundingWidget opens with destination pre-set to ApeChain
+2. FundingWidget opens with destination **locked** to APE or USDC.e
 3. User selects source chain (Ethereum) and token (ETH)
 4. ThirdWeb Universal Bridge calculates best route
-5. User approves transaction in wallet
+5. User approves transaction in existing RainbowKit wallet
 6. Bridge/swap executes automatically
 7. User receives APE/USDC.e on ApeChain, ready to play
+
+**Key Differences from Legacy Implementation:**
+- No separate ThirdWeb wallet connection UI
+- Uses existing wallet via `viemAdapter.walletClient.fromViem()`
+- Destination token/chain cannot be changed by user
+- `LazyWalletActivator` component ensures proper hook usage in ThirdwebProvider
 
 **Supported Methods:**
 - 95+ EVM chains supported as source
@@ -1371,9 +1426,22 @@ if (isThirdwebConfigured()) {
 }
 ```
 
-**Token Addresses (exported from thirdwebConfig):**
-- `APECHAIN_TOKENS.USDC` - USDC.e on ApeChain
-- `APECHAIN_TOKENS.APE` - Native APE (undefined for native token)
+**Exports from thirdwebConfig:**
+```typescript
+// Token addresses
+APECHAIN_TOKENS.USDC  // '0xF1815bd50389c46847f0Bda824eC8da914045D14'
+APECHAIN_TOKENS.APE   // undefined (native gas token)
+APECHAIN_TOKENS.WAPE  // '0x48b62137EdfA95a428D35C09E44256a739F6B557'
+
+// Token metadata for PayEmbed prefillBuy config
+APECHAIN_TOKEN_METADATA.APE   // { symbol: 'APE', name: 'ApeCoin' }
+APECHAIN_TOKEN_METADATA.USDC  // { address, symbol: 'USDC.e', name: 'USDC.e (Stargate)' }
+
+// Client and chain
+thirdwebClient    // ThirdWeb client (or null if not configured)
+apechain          // ApeChain chain definition for ThirdWeb
+isThirdwebConfigured()  // Check if client ID is set
+```
 
 **Error Handling Architecture:**
 The ThirdWeb integration uses a layered error handling approach to prevent app crashes:
