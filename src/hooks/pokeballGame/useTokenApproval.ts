@@ -78,6 +78,14 @@ export interface UseTokenApprovalReturn {
   refetch: () => void;
   /** Whether allowance is loading */
   isLoading: boolean;
+  /** dGen1-specific debug state for on-screen debugging */
+  dgen1Debug?: {
+    isDGen1: boolean;
+    isApproving: boolean;
+    hash: `0x${string}` | undefined;
+    error: string | undefined;
+    lastStep: string;
+  };
 }
 
 // ============================================================
@@ -222,6 +230,10 @@ export function useTokenApproval(
   const [dgen1Approving, setDgen1Approving] = useState(false);
   const [dgen1Hash, setDgen1Hash] = useState<`0x${string}` | undefined>(undefined);
   const [dgen1Error, setDgen1Error] = useState<Error | undefined>(undefined);
+  const [dgen1LastStep, setDgen1LastStep] = useState<string>('idle');
+
+  // Check if this is a dGen1 device (cached value for debug display)
+  const isDGen1 = isEthereumPhoneAvailable();
 
   // Combined approval state (wagmi OR dgen1)
   const isApproving = isApprovingWagmi || dgen1Approving;
@@ -352,6 +364,7 @@ export function useTokenApproval(
     // because it needs transactions routed through its ERC-4337 bundler
     if (isDGen1) {
       console.log('[useTokenApproval] dGen1 detected - using direct eth_sendTransaction...');
+      setDgen1LastStep('getting_provider');
 
       // Try the normal provider first, fall back to raw window.ethereum
       let provider = getEthereumPhoneProvider();
@@ -363,6 +376,7 @@ export function useTokenApproval(
       if (!provider) {
         console.error('[useTokenApproval] No provider available for dGen1');
         setDgen1Error(new Error('dGen1 wallet provider not available'));
+        setDgen1LastStep('error_no_provider');
         return;
       }
 
@@ -376,6 +390,7 @@ export function useTokenApproval(
         setDgen1Approving(true);
         setDgen1Error(undefined);
         setDgen1Hash(undefined);
+        setDgen1LastStep('building_tx');
 
         // Get bundler RPC URL for dGen1 ERC-4337 transactions
         const bundlerRpcUrl = getBundlerRpcUrl();
@@ -398,6 +413,8 @@ export function useTokenApproval(
           chainIdDecimal: POKEBALL_GAME_CHAIN_ID,
         });
 
+        setDgen1LastStep('sending_tx');
+
         // Send transaction directly via provider
         const txHash = await provider.request({
           method: 'eth_sendTransaction',
@@ -406,12 +423,14 @@ export function useTokenApproval(
 
         console.log('[useTokenApproval] dGen1 transaction submitted! Hash:', txHash);
         setDgen1Hash(txHash);
+        setDgen1LastStep('tx_submitted');
         // Note: setDgen1Approving(false) will be called when tx confirms via useEffect
 
       } catch (error) {
         console.error('[useTokenApproval] dGen1 approval failed:', error);
         setDgen1Error(error instanceof Error ? error : new Error(String(error)));
         setDgen1Approving(false);
+        setDgen1LastStep('error_' + (error instanceof Error ? error.message.slice(0, 30) : String(error).slice(0, 30)));
       }
 
       return; // Exit early for dGen1
@@ -438,6 +457,15 @@ export function useTokenApproval(
   // For native currency, never loading
   const isLoading = isNativeCurrency ? false : isAllowanceLoading;
 
+  // Build dGen1 debug state for on-screen debugging (since console logs aren't accessible on device)
+  const dgen1Debug = isDGen1 ? {
+    isDGen1: true,
+    isApproving: dgen1Approving,
+    hash: dgen1Hash,
+    error: dgen1Error?.message,
+    lastStep: dgen1LastStep,
+  } : undefined;
+
   return {
     allowance,
     isApproved,
@@ -449,6 +477,7 @@ export function useTokenApproval(
     hash: isNativeCurrency ? undefined : combinedHash,
     refetch: isNativeCurrency ? () => {} : refetch,
     isLoading,
+    dgen1Debug,
   };
 }
 

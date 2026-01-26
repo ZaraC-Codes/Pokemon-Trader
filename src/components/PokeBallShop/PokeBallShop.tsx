@@ -1037,6 +1037,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     isConfirmed: isApprovalConfirmed,
     error: approvalError,
     refetch: _refetchAllowance,
+    dgen1Debug,
   } = useTokenApproval(tokenType, requiredAmount);
 
   // Debug logging for approval state in shop
@@ -1508,6 +1509,44 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             </div>
             <div style={{ color: '#888', fontSize: '11px', marginTop: '6px' }}>
               Check your wallet for the approval request
+            </div>
+          </div>
+        )}
+
+        {/* dGen1 Debug Panel - Visible on-screen debugging since console isn't accessible on device */}
+        {isDGen1 && dgen1Debug && (
+          <div style={{
+            padding: '8px',
+            marginBottom: '8px',
+            backgroundColor: '#1a1a2e',
+            border: '2px solid #ff6600',
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontFamily: 'monospace',
+          }}>
+            <div style={{ color: '#ff6600', fontWeight: 'bold', marginBottom: '4px' }}>
+              dGen1 Debug Panel
+            </div>
+            <div style={{ color: '#ccc' }}>
+              Step: <span style={{ color: '#ffcc00' }}>{dgen1Debug.lastStep}</span>
+            </div>
+            <div style={{ color: '#ccc' }}>
+              Approving: <span style={{ color: dgen1Debug.isApproving ? '#ff4444' : '#44ff44' }}>
+                {dgen1Debug.isApproving ? 'YES' : 'NO'}
+              </span>
+            </div>
+            {dgen1Debug.hash && (
+              <div style={{ color: '#ccc' }}>
+                Hash: <span style={{ color: '#44ff44' }}>{dgen1Debug.hash.slice(0, 10)}...{dgen1Debug.hash.slice(-6)}</span>
+              </div>
+            )}
+            {dgen1Debug.error && (
+              <div style={{ color: '#ff4444' }}>
+                Error: {dgen1Debug.error}
+              </div>
+            )}
+            <div style={{ color: '#888', marginTop: '4px', fontSize: '9px' }}>
+              isApproved: {isApproved ? 'YES' : 'NO'} | isApprovalConfirming: {isApprovalConfirming ? 'YES' : 'NO'}
             </div>
           </div>
         )}
