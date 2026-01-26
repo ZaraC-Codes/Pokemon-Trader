@@ -54,6 +54,13 @@ npx hardhat withdrawTreasuryFunds --all --network apechain                      
 npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all --network apechain  # Emergency
 npx hardhat returnPokemonNft --token-id 123 --network apechain                  # Return single NFT to SlabNFTManager
 npx hardhat returnPokemonBatch --token-ids 101,102,103 --network apechain       # Return multiple NFTs to SlabNFTManager
+
+# Gasless Relayer Deployment (v1.8.0)
+cd relayer && npm install                                  # Install relayer dependencies
+npx wrangler login                                         # Authenticate with Cloudflare
+npx wrangler secret put RELAYER_PRIVATE_KEY                # Set relayer wallet private key
+npm run deploy                                             # Deploy to Cloudflare Workers
+npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize relayer on contract
 ```
 
 ## Project Structure
@@ -405,8 +412,16 @@ export const apeChainMainnet = defineChain({
 | **Owner** | `0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06` |
 | **Treasury** | `0x1D1d0E6eF415f2BAe0c21939c50Bc4ffBeb65c74` |
 | **NFT Revenue** | `0x628376239B6ccb6F21d0a6E4196a18F98F86bd48` |
+| **Relayer** | `0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06` |
 
 See `contracts/addresses.json` and `contracts/wallets.json` for full configuration.
+
+### Production URLs
+
+| Service | URL |
+|---------|-----|
+| **Frontend (Vercel)** | `https://pokemon-trader-gamma.vercel.app` |
+| **Gasless Relayer (Cloudflare)** | `https://pokeball-relayer.pokeballgame.workers.dev` |
 
 ## Coding Conventions
 
@@ -3196,7 +3211,7 @@ await pokeballGame.setRelayerAddress("0xYourRelayerWalletAddress");
 **Frontend Configuration:**
 ```env
 VITE_GASLESS_DEV_MODE=false
-VITE_RELAYER_API_URL=https://pokeball-relayer.YOUR_SUBDOMAIN.workers.dev
+VITE_RELAYER_API_URL=https://pokeball-relayer.pokeballgame.workers.dev
 ```
 
 **Relayer Requirements:**
@@ -3207,7 +3222,7 @@ VITE_RELAYER_API_URL=https://pokeball-relayer.YOUR_SUBDOMAIN.workers.dev
 
 **API Endpoint:**
 ```
-POST https://pokeball-relayer.xxx.workers.dev
+POST https://pokeball-relayer.pokeballgame.workers.dev
 
 Request Body:
 {
