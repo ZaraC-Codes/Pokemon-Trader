@@ -10,6 +10,11 @@
  *
  * Uses ThirdWeb Universal Bridge (PayEmbed) for seamless cross-chain transactions.
  *
+ * IMPORTANT: This widget uses the existing RainbowKit/Wagmi connected wallet.
+ * It does NOT show a separate wallet connection UI - the player must already be connected.
+ *
+ * Destination is LOCKED to either APE or USDC.e on ApeChain - users cannot change this.
+ *
  * Usage:
  * ```tsx
  * import { FundingWidget } from './components/FundingWidget';
@@ -17,16 +22,17 @@
  * <FundingWidget
  *   isOpen={showFunding}
  *   onClose={() => setShowFunding(false)}
- *   defaultToken="APE"  // or "USDC"
+ *   defaultToken="APE"  // or "USDC" - this LOCKS the destination
  * />
  * ```
  */
 
-import React, { useState, useCallback, Component, Suspense, lazy, type ReactNode } from 'react';
+import React, { useState, useCallback, useEffect, Component, Suspense, lazy, type ReactNode } from 'react';
+import { useAccount, useWalletClient, useSwitchChain, useDisconnect } from 'wagmi';
 import {
   thirdwebClient,
   apechain,
-  APECHAIN_TOKENS,
+  APECHAIN_TOKEN_METADATA,
   isThirdwebConfigured,
 } from '../../services/thirdwebConfig';
 
@@ -97,7 +103,10 @@ export type FundingToken = 'APE' | 'USDC';
 export interface FundingWidgetProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Default token to fund (APE or USDC.e) */
+  /**
+   * Token to fund (APE or USDC.e) - this LOCKS the destination.
+   * Users cannot change the destination token in the widget.
+   */
   defaultToken?: FundingToken;
   /** Optional callback when funding completes */
   onFundingComplete?: () => void;
@@ -161,36 +170,22 @@ const styles = {
     marginBottom: '16px',
     lineHeight: '1.5',
   },
-  tokenSelector: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '16px',
-  },
-  tokenButton: {
-    flex: 1,
-    padding: '12px',
-    border: '2px solid #444',
-    backgroundColor: '#2a2a2a',
-    color: '#888',
-    cursor: 'pointer',
-    fontFamily: "'Courier New', monospace",
+  tokenBadge: {
+    display: 'inline-block',
+    padding: '4px 12px',
+    borderRadius: '4px',
     fontSize: '14px',
     fontWeight: 'bold',
-    transition: 'all 0.1s',
+    marginBottom: '16px',
   },
-  tokenButtonActive: {
-    borderColor: '#00ff88',
-    backgroundColor: '#1a3a2a',
-    color: '#00ff88',
-  },
-  tokenButtonApe: {
-    borderColor: '#ffcc00',
+  tokenBadgeApe: {
     backgroundColor: '#3a3a1a',
+    border: '2px solid #ffcc00',
     color: '#ffcc00',
   },
-  tokenButtonUsdc: {
-    borderColor: '#00ff00',
+  tokenBadgeUsdc: {
     backgroundColor: '#1a3a1a',
+    border: '2px solid #00ff00',
     color: '#00ff00',
   },
   featureList: {
@@ -252,6 +247,18 @@ const styles = {
     fontSize: '12px',
     lineHeight: '1.6',
   },
+  walletRequiredBox: {
+    padding: '24px',
+    backgroundColor: '#2a2a1a',
+    border: '2px solid #ffcc00',
+    textAlign: 'center' as const,
+    marginBottom: '16px',
+  },
+  walletRequiredText: {
+    color: '#ffcc00',
+    fontSize: '14px',
+    fontWeight: 'bold',
+  },
   poweredBy: {
     marginTop: '12px',
     textAlign: 'center' as const,
@@ -261,6 +268,15 @@ const styles = {
   widgetContainer: {
     minHeight: '400px',
     backgroundColor: '#1a1a1a',
+  },
+  infoBox: {
+    padding: '10px 12px',
+    backgroundColor: '#1a2a3a',
+    border: '2px solid #4488ff',
+    marginBottom: '16px',
+    fontSize: '11px',
+    color: '#88aaff',
+    lineHeight: '1.5',
   },
 };
 
@@ -296,7 +312,14 @@ function ErrorFallback({ error, onRetry }: { error?: string; onRetry?: () => voi
   );
 }
 
-/** Inner PayEmbed wrapper with ThirdwebProvider */
+/**
+ * Inner PayEmbed wrapper with ThirdwebProvider and wallet adapter
+ *
+ * This component:
+ * 1. Uses the existing wagmi wallet (no separate connect UI)
+ * 2. Adapts it to thirdweb's wallet format via EIP1193
+ * 3. Locks the destination token (no user selection)
+ */
 function PayEmbedWithProvider({
   selectedToken,
   onComplete,
@@ -304,62 +327,203 @@ function PayEmbedWithProvider({
   selectedToken: FundingToken;
   onComplete?: () => void;
 }) {
+  const { address, connector } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const { switchChainAsync } = useSwitchChain();
+  const { disconnectAsync } = useDisconnect();
+  const [activeWallet, setActiveWallet] = useState<unknown>(null);
+  const [isAdapting, setIsAdapting] = useState(true);
+  const [adapterError, setAdapterError] = useState<string | null>(null);
+
+  // Adapt wagmi wallet to thirdweb wallet format
+  useEffect(() => {
+    const adaptWallet = async () => {
+      if (!thirdwebClient || !walletClient || !connector || !address) {
+        setIsAdapting(false);
+        return;
+      }
+
+      try {
+        setIsAdapting(true);
+        setAdapterError(null);
+
+        // Dynamic import of thirdweb wallet adapters
+        const [{ viemAdapter }, { createWalletAdapter }, { defineChain }] = await Promise.all([
+          import('thirdweb/adapters/viem'),
+          import('thirdweb/wallets'),
+          import('thirdweb/chains'),
+        ]);
+
+        // Convert viem wallet client to thirdweb adapted account
+        const adaptedAccount = viemAdapter.walletClient.fromViem({
+          walletClient: walletClient as any,
+        });
+
+        // Get current chain ID from wallet
+        const chainId = await walletClient.getChainId();
+
+        // Create the wallet adapter with callbacks for disconnect and chain switching
+        const thirdwebWallet = createWalletAdapter({
+          adaptedAccount,
+          chain: defineChain(chainId),
+          client: thirdwebClient,
+          onDisconnect: async () => {
+            await disconnectAsync();
+          },
+          switchChain: async (chain) => {
+            await switchChainAsync({ chainId: chain.id as any });
+          },
+        });
+
+        setActiveWallet(thirdwebWallet);
+        console.log('[FundingWidget] Wallet adapted successfully for address:', address);
+      } catch (err) {
+        console.error('[FundingWidget] Wallet adapter error:', err);
+        setAdapterError(err instanceof Error ? err.message : 'Failed to adapt wallet');
+      } finally {
+        setIsAdapting(false);
+      }
+    };
+
+    adaptWallet();
+  }, [walletClient, connector, address, disconnectAsync, switchChainAsync]);
+
   if (!thirdwebClient) {
     return <ErrorFallback error="ThirdWeb client not initialized" />;
   }
 
-  // Configure token address for destination
-  // For APE (native), we don't pass a token address - just the chain
+  if (!address) {
+    return (
+      <div style={styles.walletRequiredBox}>
+        <div style={styles.walletRequiredText}>
+          Please connect your wallet first
+        </div>
+        <div style={{ color: '#888', fontSize: '11px', marginTop: '8px' }}>
+          Use the "Connect Wallet" button above
+        </div>
+      </div>
+    );
+  }
+
+  if (isAdapting) {
+    return <LoadingFallback />;
+  }
+
+  if (adapterError) {
+    return <ErrorFallback error={`Wallet adapter error: ${adapterError}`} />;
+  }
+
+  // Configure prefillBuy based on selected token
+  // For APE (native), we don't pass a token - just the chain
   // For USDC.e, we pass the token address
-  const tokenConfig = selectedToken === 'USDC'
+  // CRITICAL: allowEdits.token = false to LOCK the destination
+  const prefillBuyConfig = selectedToken === 'USDC'
     ? {
-        address: APECHAIN_TOKENS.USDC,
-        symbol: 'USDC.e',
-        name: 'USDC.e (Stargate)',
+        chain: apechain,
+        token: {
+          address: APECHAIN_TOKEN_METADATA.USDC.address,
+          symbol: APECHAIN_TOKEN_METADATA.USDC.symbol,
+          name: APECHAIN_TOKEN_METADATA.USDC.name,
+        },
+        allowEdits: {
+          amount: true,   // User can change amount
+          token: false,   // LOCKED - user cannot change destination token
+          chain: false,   // LOCKED - user cannot change destination chain
+        },
       }
-    : undefined; // Native APE - no token address needed
+    : {
+        // Native APE - no token address, just chain
+        chain: apechain,
+        allowEdits: {
+          amount: true,   // User can change amount
+          token: false,   // LOCKED - user cannot change destination token
+          chain: false,   // LOCKED - user cannot change destination chain
+        },
+      };
 
   return (
     <LazyThirdwebProvider>
-      <div style={styles.widgetContainer}>
-        <LazyPayEmbed
-          client={thirdwebClient}
-          theme="dark"
-          payOptions={{
-            mode: 'fund_wallet',
-            metadata: {
-              name: `Get ${selectedToken} on ApeChain`,
-            },
-            prefillBuy: {
-              chain: apechain,
-              token: tokenConfig,
-              allowEdits: {
-                amount: true,
-                token: true,
-                chain: false, // Lock to ApeChain
+      <Suspense fallback={<LoadingFallback />}>
+        <LazyWalletActivator wallet={activeWallet}>
+          <div style={styles.widgetContainer}>
+            <LazyPayEmbed
+            client={thirdwebClient}
+            theme="dark"
+            payOptions={{
+              mode: 'fund_wallet',
+              metadata: {
+                name: `Get ${selectedToken} on ApeChain`,
               },
-            },
-            // Enable crypto purchases (bridge/swap) with source configuration
-            buyWithCrypto: {
-              // Allow user to select source chain/token
-              prefillSource: undefined,
-            },
-            // Enable fiat purchases
-            buyWithFiat: {
-              // Use default fiat providers
-              prefillSource: undefined,
-            },
-            // Callback when transaction completes
-            onPurchaseSuccess: () => {
-              console.log('[FundingWidget] Purchase successful');
-              onComplete?.();
-            },
-          }}
-        />
-      </div>
+              prefillBuy: prefillBuyConfig,
+              // Enable crypto purchases (bridge/swap)
+              buyWithCrypto: {
+                // Allow user to select source chain/token (but NOT destination)
+                prefillSource: undefined,
+              },
+              // Enable fiat purchases
+              buyWithFiat: {
+                // Use default fiat providers
+                prefillSource: undefined,
+              },
+              // Callback when transaction completes
+              onPurchaseSuccess: () => {
+                console.log('[FundingWidget] Purchase successful');
+                onComplete?.();
+              },
+            }}
+          />
+          </div>
+        </LazyWalletActivator>
+      </Suspense>
     </LazyThirdwebProvider>
   );
 }
+
+/**
+ * Component that activates the adapted wallet in ThirdwebProvider context.
+ * This is a separate component so we can use the useSetActiveWallet hook
+ * which requires being inside ThirdwebProvider.
+ */
+const LazyWalletActivator = lazy(async () => {
+  const { useSetActiveWallet } = await import('thirdweb/react');
+
+  // Define the component
+  function WalletActivatorInner({
+    wallet,
+    children,
+  }: {
+    wallet: unknown;
+    children: ReactNode;
+  }) {
+    const setActiveWallet = useSetActiveWallet();
+    const [isActivated, setIsActivated] = useState(false);
+
+    useEffect(() => {
+      if (!wallet) {
+        setIsActivated(true);
+        return;
+      }
+
+      try {
+        // Set the adapted wallet as the active wallet in thirdweb context
+        setActiveWallet(wallet as any);
+        console.log('[FundingWidget] Wallet set as active in ThirdwebProvider');
+        setIsActivated(true);
+      } catch (err) {
+        console.error('[FundingWidget] Failed to set active wallet:', err);
+        setIsActivated(true); // Proceed anyway, PayEmbed may still work
+      }
+    }, [wallet, setActiveWallet]);
+
+    if (!isActivated) {
+      return <LoadingFallback />;
+    }
+
+    return <>{children}</>;
+  }
+
+  return { default: WalletActivatorInner };
+});
 
 // ============================================================
 // MAIN COMPONENT
@@ -371,21 +535,24 @@ export function FundingWidget({
   defaultToken = 'APE',
   onFundingComplete,
 }: FundingWidgetProps) {
-  const [selectedToken, setSelectedToken] = useState<FundingToken>(defaultToken);
+  // The selected token is LOCKED to the defaultToken - no user selection
+  const selectedToken = defaultToken;
   const [widgetError, setWidgetError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const { address } = useAccount();
 
-  // Reset error state when modal opens/closes or token changes
-  React.useEffect(() => {
+  // Reset error state when modal opens/closes
+  useEffect(() => {
     if (!isOpen) {
       setWidgetError(null);
     }
   }, [isOpen]);
 
-  React.useEffect(() => {
+  // Reset on token change (in case parent changes defaultToken)
+  useEffect(() => {
     setWidgetError(null);
     setRetryKey((k) => k + 1);
-  }, [selectedToken]);
+  }, [defaultToken]);
 
   const handleError = useCallback((error: Error) => {
     console.error('[FundingWidget] Widget error:', error);
@@ -403,44 +570,39 @@ export function FundingWidget({
 
   if (!isOpen) return null;
 
+  const tokenDisplayName = selectedToken === 'APE' ? 'APE' : 'USDC.e';
+  const tokenBadgeStyle = selectedToken === 'APE'
+    ? { ...styles.tokenBadge, ...styles.tokenBadgeApe }
+    : { ...styles.tokenBadge, ...styles.tokenBadgeUsdc };
+
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={styles.header}>
-          <h3 style={styles.title}>FUND YOUR WALLET</h3>
+          <h3 style={styles.title}>GET {tokenDisplayName}</h3>
           <button style={styles.closeButton} onClick={onClose}>
             X
           </button>
         </div>
 
-        {/* Description */}
-        <div style={styles.description}>
-          Bridge, swap, or buy crypto to get APE or USDC.e on ApeChain.
-          Use any token on any chain - we'll handle the conversion automatically.
+        {/* Token Badge - shows locked destination */}
+        <div style={tokenBadgeStyle}>
+          Destination: {tokenDisplayName} on ApeChain
         </div>
 
-        {/* Token Selector */}
-        <div style={styles.tokenSelector}>
-          <button
-            style={{
-              ...styles.tokenButton,
-              ...(selectedToken === 'APE' ? styles.tokenButtonApe : {}),
-            }}
-            onClick={() => setSelectedToken('APE')}
-          >
-            Get APE
-          </button>
-          <button
-            style={{
-              ...styles.tokenButton,
-              ...(selectedToken === 'USDC' ? styles.tokenButtonUsdc : {}),
-            }}
-            onClick={() => setSelectedToken('USDC')}
-          >
-            Get USDC.e
-          </button>
+        {/* Description */}
+        <div style={styles.description}>
+          Bridge, swap, or buy crypto to get {tokenDisplayName} on ApeChain.
+          Use any token on any chain - the destination is locked to {tokenDisplayName}.
         </div>
+
+        {/* Info box about wallet usage */}
+        {address && (
+          <div style={styles.infoBox}>
+            Using your connected wallet: {address.slice(0, 6)}...{address.slice(-4)}
+          </div>
+        )}
 
         {/* Features List */}
         <div style={styles.featureList}>

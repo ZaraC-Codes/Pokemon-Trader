@@ -67,12 +67,33 @@ export const apechain = defineChain({
  * For ERC-20 APE payments, use WAPE (Wrapped APE).
  */
 export const APECHAIN_TOKENS = {
+  /** Native APE - undefined means native gas token (no contract address) */
+  APE: undefined as undefined,
   /** USDC.e (Stargate Bridged) - 6 decimals */
   USDC: '0xF1815bd50389c46847f0Bda824eC8da914045D14' as const,
   /** WAPE (Wrapped APE) - ERC-20 token for APE payments - 18 decimals */
   WAPE: '0x48b62137EdfA95a428D35C09E44256a739F6B557' as const,
   /** @deprecated Use WAPE for ERC-20 APE payments. This was the wrong Ethereum mainnet address. */
   APE_DEPRECATED: '0x4d224452801aced8b2f0aebe155379bb5d594381' as const,
+};
+
+/**
+ * Token metadata for ThirdWeb PayEmbed prefillBuy configuration.
+ * Used to specify destination tokens when funding wallets.
+ */
+export const APECHAIN_TOKEN_METADATA = {
+  /** Native APE token metadata - no address needed for native token */
+  APE: {
+    symbol: 'APE',
+    name: 'ApeCoin',
+    // No address for native tokens in ThirdWeb - just pass chain
+  },
+  /** USDC.e token metadata */
+  USDC: {
+    address: APECHAIN_TOKENS.USDC,
+    symbol: 'USDC.e',
+    name: 'USDC.e (Stargate)',
+  },
 };
 
 // ============================================================
