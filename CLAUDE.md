@@ -45,6 +45,13 @@ npx hardhat test     # Run contract tests
 npx hardhat run contracts/deployment/deployProxies.cjs --network apechain  # Deploy both contracts
 npx hardhat run scripts/spawnInitialPokemon.cjs --network apechain  # Spawn 3 initial Pokemon (slots 0-2)
 npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Pokemon in slots 3-19 (v1.2.0)
+
+# Hardhat Tasks (Reserve Management)
+npx hardhat checkReserves --network apechain                                    # View all reserves with health status
+npx hardhat withdrawApeReserve --contract PokeballGame --keep-minimum 0.5 --network apechain  # Withdraw APE
+npx hardhat withdrawUsdceReserve --keep-buffer 100 --network apechain           # Withdraw USDC.e from SlabNFTManager
+npx hardhat withdrawTreasuryFunds --all --network apechain                      # Withdraw 3% platform fees
+npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all --network apechain  # Emergency
 ```
 
 ## Project Structure
@@ -192,10 +199,10 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   │   ├── abi_PokeballGameV5.json  # PokeballGame ABI v1.5.0 (unified payments)
 │   │   ├── abi_PokeballGameV6.json  # PokeballGame ABI v1.6.0 (Pyth Entropy)
 │   │   ├── abi_PokeballGameV7.json  # PokeballGame ABI v1.7.0 (random NFT selection)
-│   │   ├── abi_PokeballGameV8.json  # PokeballGame ABI v1.8.0 (gasless throws, **planned**)
+│   │   ├── abi_PokeballGameV8.json  # PokeballGame ABI v1.8.0 (gasless throws, **current**)
 │   │   ├── abi_SlabNFTManager.json  # SlabNFTManager ABI (legacy)
-│   │   ├── abi_SlabNFTManagerV2_3.json  # SlabNFTManager ABI v2.3.0 (**current**)
-│   │   └── abi_SlabNFTManagerV2_4.json  # SlabNFTManager ABI v2.4.0 (APE reserves, **planned**)
+│   │   ├── abi_SlabNFTManagerV2_3.json  # SlabNFTManager ABI v2.3.0
+│   │   └── abi_SlabNFTManagerV2_4.json  # SlabNFTManager ABI v2.4.0 (APE reserves, **current**)
 │   ├── deployment/
 │   │   ├── deployProxies.cjs        # Unified proxy deployment (both contracts)
 │   │   ├── deploy_PokeballGame.js   # PokeballGame standalone deployment
@@ -233,12 +240,25 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 │   ├── verify_revenue_flow.cjs  # Verify 3%/97% fee/revenue split (v1.7.0)
 │   ├── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.7.0)
 │   ├── update_ape_price.cjs     # Auto-update APE/USD price from CoinGecko
+│   ├── fund_ape_reserves.cjs    # Fund APE reserves for both contracts (v1.8.0)
+│   ├── init_pokeball_v180.cjs   # Initialize PokeballGame v1.8.0 after upgrade
+│   ├── init_slab_v240.cjs       # Initialize SlabNFTManager v2.4.0 after upgrade
 │   └── debug/                   # Debug/inspection utilities (48 scripts)
 │       ├── check_*.cjs          # State inspection scripts
 │       ├── debug_*.cjs          # Debug utilities
 │       ├── trace_*.cjs          # Transaction tracing
 │       ├── verify_*.cjs         # Verification scripts
 │       └── ...                  # Other diagnostic tools
+│
+├── hardhat-tasks/           # Hardhat custom tasks (reserve management)
+│   ├── checkReserves.cjs        # View APE/USDC.e balances with health status
+│   ├── withdrawApeReserve.cjs   # Withdraw APE keeping minimum reserve
+│   ├── withdrawUsdceReserve.cjs # Withdraw USDC.e keeping buffer
+│   ├── withdrawTreasuryFunds.cjs # Withdraw 3% platform fees
+│   ├── emergencyWithdraw.cjs    # Dangerous bypass with confirmation
+│   └── helpers/                 # Task helper modules
+│       ├── formatOutput.cjs         # Colored console output
+│       └── getContractBalances.cjs  # Contract state utilities
 │
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
@@ -276,10 +296,10 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | `contracts/abi/abi_PokeballGameV4.json` | PokeballGame ABI v1.4.x (native APE) |
 | `contracts/abi/abi_PokeballGameV5.json` | PokeballGame ABI v1.5.0 (unified payments) |
 | `contracts/abi/abi_PokeballGameV6.json` | PokeballGame ABI v1.6.0 (Pyth Entropy) |
-| `contracts/abi/abi_PokeballGameV7.json` | PokeballGame ABI v1.7.0 (random NFT selection, **current**) |
-| `contracts/abi/abi_PokeballGameV8.json` | PokeballGame ABI v1.8.0 (gasless throws, **planned**) |
-| `contracts/abi/abi_SlabNFTManagerV2_3.json` | SlabNFTManager ABI v2.3.0 (random NFT selection, **current**) |
-| `contracts/abi/abi_SlabNFTManagerV2_4.json` | SlabNFTManager ABI v2.4.0 (APE reserves, **planned**) |
+| `contracts/abi/abi_PokeballGameV7.json` | PokeballGame ABI v1.7.0 (random NFT selection) |
+| `contracts/abi/abi_PokeballGameV8.json` | PokeballGame ABI v1.8.0 (gasless throws, **current**) |
+| `contracts/abi/abi_SlabNFTManagerV2_3.json` | SlabNFTManager ABI v2.3.0 (random NFT selection) |
+| `contracts/abi/abi_SlabNFTManagerV2_4.json` | SlabNFTManager ABI v2.4.0 (APE reserves, auto-purchase loop, **current**) |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
 | `contracts/deployment/upgrade_PokeballGame.js` | UUPS upgrade example script |
 | `contracts/deployment/upgrade_PokeballGameV2.cjs` | Upgrade to v1.2.0 (20 Pokemon) |
@@ -327,17 +347,15 @@ npx hardhat run scripts/spawnMorePokemon.cjs --network apechain     # Spawn Poke
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
 | **WAPE (Wrapped APE)** | `0x48b62137EdfA95a428D35C09E44256a739F6B557` |
-| **PokeballGame Implementation (v1.7.0)** | `0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4` |
-| **SlabNFTManager Implementation (v2.3.0)** | `0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13` |
+| **PokeballGame Implementation (v1.8.0)** | `0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c` |
+| **SlabNFTManager Implementation (v2.4.0)** | `0xCaFcB2606F8Fae7A2B44f9293920d4cE179ABd2c` |
 | **Camelot Router (AMMv3)** | `0xC69Dc28924930583024E067b2B3d773018F4EB52` |
 | **Pyth Entropy** | `0x36825bf3Fbdf5a29E2d5148bfe7Dcf7B5639e320` |
 | **Pyth Entropy Provider** | `0x52DeaA1c84233F7bb8C8A45baeDE41091c616506` |
 
 **Note:** On ApeChain, APE is the native gas token. PokeballGame uses **Pyth Entropy** for randomness (replaced POP VRNG which required whitelisting). Both APE and USDC.e payments result in USDC.e for the NFT pool. APE is auto-swapped via Camelot DEX.
 
-**v1.7.0 (Current):** 97% revenue goes to SlabNFTManager, 3% platform fees to treasury. `throwBall()` requires ~0.073 APE for the Entropy fee paid by players via `msg.value`. Random NFT selection reuses the catch determination random number.
-
-**v1.8.0 (Planned):** New revenue split: 0.5% APE to PokeballGame reserves, 0.5% APE to SlabNFTManager reserves, 96% USDC.e to NFT pool, 3% USDC.e to treasury. **Gasless throws** - players only sign ball purchases; throws are executed by a relayer using the contract's APE reserve. Both contracts maintain APE reserves for Entropy fees and gas. Meta-transaction support via `throwBallFor()` with signature verification.
+**v1.8.0 (Current - Deployed 2026-01-25):** New revenue split: 0.5% APE to PokeballGame reserves, 0.5% APE to SlabNFTManager reserves, 96% USDC.e to NFT pool, 3% USDC.e to treasury. **Gasless throws** - players only sign ball purchases; throws are executed by a relayer using the contract's APE reserve. Both contracts maintain APE reserves for Entropy fees and gas. Meta-transaction support via `throwBallFor()` with signature verification. SlabNFTManager v2.4.0 includes auto-purchase loop (continues until 20 NFTs OR funds depleted).
 
 ### Multicall3 Configuration
 
@@ -1804,6 +1822,57 @@ node scripts/withdraw_test_funds.cjs allape
 - Must run with owner wallet (`0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06`)
 - Requires `DEPLOYER_PRIVATE_KEY` in `.env`
 - All withdrawals go to treasury wallet (`0x1D1d0E6eF415f2BAe0c21939c50Bc4ffBeb65c74`)
+
+### Hardhat Tasks for Reserve Management (v1.8.0+)
+Custom Hardhat tasks for inspecting and withdrawing funds from contracts with safety checks.
+
+**Location:** `hardhat-tasks/`
+
+**Available Tasks:**
+| Task | Description |
+|------|-------------|
+| `checkReserves` | View APE/USDC.e balances with health status indicators |
+| `withdrawApeReserve` | Withdraw APE while keeping a minimum reserve |
+| `withdrawUsdceReserve` | Withdraw USDC.e from SlabNFTManager with buffer |
+| `withdrawTreasuryFunds` | Withdraw accumulated 3% USDC.e fees to treasury |
+| `emergencyWithdraw` | Dangerous bypass requiring typed "YES" confirmation |
+
+**Usage Examples:**
+```bash
+# Check all reserves with health status
+npx hardhat checkReserves --network apechain
+
+# Withdraw APE from PokeballGame, keep 0.5 APE minimum
+npx hardhat withdrawApeReserve --contract PokeballGame --keep-minimum 0.5 --network apechain
+
+# Withdraw APE from SlabNFTManager (only supports all-or-nothing)
+npx hardhat withdrawApeReserve --contract SlabNFTManager --keep-minimum 0 --network apechain
+
+# Withdraw USDC.e from SlabNFTManager, keep $100 buffer
+npx hardhat withdrawUsdceReserve --keep-buffer 100 --network apechain
+
+# Withdraw all 3% platform fees to treasury
+npx hardhat withdrawTreasuryFunds --all --network apechain
+
+# Emergency withdraw (requires typing "YES" to confirm)
+npx hardhat emergencyWithdraw --contract SlabNFTManager --token APE --amount all --network apechain
+```
+
+**Health Status Indicators:**
+- **✅ HEALTHY**: APE reserve ≥ 0.5 APE
+- **⚠️ LOW**: APE reserve < 0.5 APE
+- **✅ AUTO-BUY ELIGIBLE**: USDC.e ≥ $51
+- **❌ AUTO-BUY BLOCKED**: USDC.e < $51
+
+**Safety Features:**
+- `withdrawApeReserve`: Enforces minimum reserve (default 0.5 APE)
+- `withdrawUsdceReserve`: Enforces buffer and shows auto-buy eligibility after
+- `emergencyWithdraw`: Requires explicit "YES" confirmation, bypasses all minimums
+- All tasks verify signer is contract owner before execution
+
+**Helper Modules:**
+- `helpers/formatOutput.cjs`: Colored console output, formatting functions
+- `helpers/getContractBalances.cjs`: Contract state reading utilities
 
 ### APE Price Auto-Update Script
 Automatically updates the on-chain `apePriceUSD` value from CoinGecko market data. Run hourly to keep APE payment pricing accurate.
