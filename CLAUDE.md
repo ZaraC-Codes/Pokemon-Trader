@@ -882,7 +882,26 @@ Custom Wagmi connectors for EthereumPhone dGen1 and Glyph wallets.
 | `glyphConnector.ts` | Wagmi connector for Glyph (with SDK fallback) |
 | `customWallets.ts` | RainbowKit wallet factory functions |
 | `walletDetection.ts` | Detection utilities for both wallets |
-| `touchscreen.css` | Touch-friendly responsive styles |
+| `touchscreen.css` | Touch-friendly responsive styles + mobile modal scrolling |
+
+**Mobile Modal CSS Classes:**
+All modals use standardized CSS classes for mobile-responsive scrolling:
+- `modal-overlay` - Fixed overlay container with flex centering
+- `modal-inner` - Modal box with constrained max-height on mobile
+- `modal-scroll` - Enables internal scrolling for large modals
+- `modal--compact` - Opt-out class for small dialogs (disables scroll constraints)
+
+**CSS breakpoints (in `touchscreen.css`):**
+| Breakpoint | max-height |
+|------------|------------|
+| ≤768px width OR ≤700px height | `calc(100vh - 80px)` |
+| ≤480px width OR ≤500px height | `calc(100vh - 60px)` |
+
+**Modal class usage:**
+| Modal | Classes |
+|-------|---------|
+| PokeBallShop, HelpModal, FundingWidget, TransactionHistory, CatchAttemptModal, CatchWinModal | `modal-overlay`, `modal-inner modal-scroll` |
+| BikeRentalModal, CatchResultModal | `modal-overlay modal--compact`, `modal-inner` |
 
 **RainbowKit Integration:**
 Uses `connectorsForWallets` API (not `getDefaultConfig`) to ensure custom wallets appear at TOP:
@@ -3736,6 +3755,14 @@ function AppContent() {
 **CSS Classes:**
 - `.wallet-connector` - Wallet button positioning (defined in GameHUD styles)
 - `.game-hud-container` - HUD panel positioning and layout
+- `.help-button` - Help "?" button (shrinks on mobile to be secondary to SHOP)
+
+**Help Button Mobile Behavior:**
+| Breakpoint | Size | Transform |
+|------------|------|-----------|
+| Desktop | 14px font, 10px 12px padding | None |
+| ≤768px | 11px font, 6px 8px padding, 36×36px min | `scale(0.85)` |
+| ≤480px | 10px font, 4px 6px padding, 32×32px min | `scale(0.75)` |
 
 **Sub-Components:**
 - `BallInventorySection` - 2x2 grid showing ball counts by type (circular icons), clickable with cyan hover effect

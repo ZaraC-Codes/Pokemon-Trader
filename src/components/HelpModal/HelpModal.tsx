@@ -211,8 +211,8 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" style={styles.overlay} onClick={onClose}>
+      <div className="modal-inner modal-scroll" style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* Close X button */}
         <button
           style={styles.closeButton}

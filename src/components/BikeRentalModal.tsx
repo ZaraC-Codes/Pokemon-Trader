@@ -6,6 +6,7 @@ interface BikeRentalModalProps {
 export default function BikeRentalModal({ onRent, onClose }: BikeRentalModalProps) {
   return (
     <div
+      className="modal-overlay modal--compact"
       style={{
         position: 'fixed',
         top: 0,
@@ -23,6 +24,7 @@ export default function BikeRentalModal({ onRent, onClose }: BikeRentalModalProp
       onClick={onClose}
     >
       <div
+        className="modal-inner"
         style={{
           backgroundColor: '#2a2a2a',
           border: '4px solid #fff',

@@ -159,6 +159,29 @@ const responsiveStyles = `
   }
 
   /* ============================================================
+   * HELP BUTTON - Shrink on mobile to be secondary to SHOP
+   * ============================================================ */
+  @media (max-width: 768px) {
+    .help-button {
+      transform: scale(0.85);
+      padding: 6px 8px !important;
+      font-size: 11px !important;
+      min-width: 36px !important;
+      min-height: 36px !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .help-button {
+      transform: scale(0.75);
+      padding: 4px 6px !important;
+      font-size: 10px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+    }
+  }
+
+  /* ============================================================
    * ANIMATIONS
    * ============================================================ */
   @keyframes hudPulse {
@@ -379,6 +402,7 @@ export function GameHUD({ playerAddress, onShowHelp }: GameHUDProps) {
         {/* Help Button */}
         {onShowHelp && (
           <button
+            className="help-button"
             style={{
               ...styles.helpButton,
               ...(helpButtonHover ? styles.helpButtonHover : {}),

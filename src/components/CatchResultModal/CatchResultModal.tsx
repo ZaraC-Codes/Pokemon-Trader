@@ -523,9 +523,9 @@ export function CatchResultModal({
       {/* Confetti for success */}
       {showConfetti && <SimpleConfetti />}
 
-      <div style={styles.overlay} onClick={onClose}>
+      <div className="modal-overlay modal--compact" style={styles.overlay} onClick={onClose}>
         <div
-          className={animationClass}
+          className={`modal-inner ${animationClass}`}
           style={{
             ...styles.modal,
             ...(isSuccess ? styles.successModal : styles.failureModal),

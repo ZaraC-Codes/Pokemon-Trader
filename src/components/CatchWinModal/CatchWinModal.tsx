@@ -561,9 +561,9 @@ export function CatchWinModal({
       {showConfetti && <CelebrationConfetti />}
 
       {/* Modal Overlay */}
-      <div style={styles.overlay} onClick={onClose}>
+      <div className="modal-overlay" style={styles.overlay} onClick={onClose}>
         <div
-          className="catch-win-modal"
+          className="modal-inner modal-scroll catch-win-modal"
           style={styles.modal}
           onClick={(e) => e.stopPropagation()}
         >

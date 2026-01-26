@@ -1248,8 +1248,8 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   const isAnyPending = isTransactionPending || isApprovalPending;
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" style={styles.overlay} onClick={onClose}>
+      <div className="modal-inner modal-scroll" style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={styles.header}>
           <h2 style={styles.title}>POKE BALL SHOP</h2>

@@ -253,6 +253,63 @@
 }
 
 /* ============================================================
+   MOBILE MODAL SCROLLING
+   Ensures large modals scroll properly on small screens
+   ============================================================ */
+
+/* Apply to small screens (mobile width OR short height) */
+@media (max-width: 768px), (max-height: 700px) {
+  /* Generic modal scroll container */
+  .modal-scroll {
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Modal content area - ensure it can scroll */
+  .modal-content {
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ensure modal overlay allows inner scroll */
+  .modal-overlay {
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Modal inner container */
+  .modal-inner {
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+/* Very small screens - more aggressive constraints */
+@media (max-width: 480px), (max-height: 500px) {
+  .modal-scroll,
+  .modal-content {
+    max-height: calc(100vh - 60px);
+  }
+
+  .modal-inner {
+    max-height: calc(100vh - 24px);
+  }
+}
+
+/* Opt-out class for compact modals (toasts, small dialogs) */
+.modal--compact .modal-scroll,
+.modal--compact .modal-content {
+  max-height: none;
+  overflow: visible;
+}
+
+/* ============================================================
    PREVENT DOUBLE-TAP ZOOM
    ============================================================ */
 
