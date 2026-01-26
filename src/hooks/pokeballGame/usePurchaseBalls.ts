@@ -390,20 +390,26 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
 
         try {
           // Build the transaction object for eth_sendTransaction
-          // NOTE: Standard eth_sendTransaction does NOT accept chainId in the params
-          // The chain is determined by the connected network, not passed in tx params
-          const txParams = {
-            from: userAddress,
-            to: POKEBALL_GAME_ADDRESS,
+          // IMPORTANT: ethOS/dGen1 browser provider may be strict about params format
+          // - `from` must be lowercase
+          // - `to` must be lowercase
+          // - Only include minimal required fields
+          // - For value=0, omit the field entirely (some providers reject '0x0')
+          const txParams: Record<string, string> = {
+            from: userAddress!.toLowerCase(),
+            to: POKEBALL_GAME_ADDRESS.toLowerCase(),
             data: callData,
-            value: useAPE ? toHex(totalCostAPE) : '0x0',
-            // Don't specify gas - let the wallet/bundler estimate
           };
+
+          // Only add value if sending APE (non-zero value)
+          if (useAPE && totalCostAPE > 0n) {
+            txParams.value = toHex(totalCostAPE);
+          }
 
           console.log('[usePurchaseBalls] dGen1 eth_sendTransaction params:', {
             ...txParams,
             valueInAPE: useAPE ? formatEther(totalCostAPE) : '0',
-            note: 'chainId NOT passed in tx params - determined by connected network',
+            note: 'Minimal params - lowercase addresses, no gas/chainId',
           });
 
           // Send transaction directly via provider

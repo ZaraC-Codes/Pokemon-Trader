@@ -392,24 +392,21 @@ export function useTokenApproval(
         setDgen1Hash(undefined);
         setDgen1LastStep('building_tx');
 
-        // Get bundler RPC URL for dGen1 ERC-4337 transactions
-        const bundlerRpcUrl = getBundlerRpcUrl();
-
         // Build the transaction object for eth_sendTransaction
-        // NOTE: Standard eth_sendTransaction does NOT accept chainId in the params
-        // The chain is determined by the connected network, not passed in tx params
+        // IMPORTANT: ethOS/dGen1 browser provider may be strict about params format
+        // - `from` must be lowercase
+        // - `to` must be lowercase
+        // - Only include minimal required fields
         const txParams = {
-          from: account,
-          to: tokenAddress,
+          from: account.toLowerCase(),
+          to: tokenAddress.toLowerCase(),
           data: approveCallData,
-          value: '0x0',
-          // Don't specify gas - let the wallet/bundler estimate
+          // Note: Some providers reject '0x0', expecting '0x00' or just omitting value for 0
         };
 
         console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', {
           ...txParams,
-          bundlerRpcUrl,
-          note: 'chainId NOT passed in tx params - determined by connected network',
+          note: 'Minimal params - no value/gas/chainId - let provider handle defaults',
         });
 
         setDgen1LastStep('sending_tx');
