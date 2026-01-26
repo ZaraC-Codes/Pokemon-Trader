@@ -271,6 +271,14 @@ npx hardhat returnPokemonBatch --token-ids 101,102,103 --network apechain       
 │       ├── formatOutput.cjs         # Colored console output
 │       └── getContractBalances.cjs  # Contract state utilities
 │
+├── relayer/                 # Cloudflare Workers gasless relayer (v1.8.0)
+│   ├── src/
+│   │   └── index.ts             # Relayer worker entry point
+│   ├── package.json             # Relayer dependencies
+│   ├── wrangler.toml            # Cloudflare Workers config
+│   ├── tsconfig.json            # TypeScript config
+│   └── README.md                # Deployment instructions
+│
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
     ├── abi_SlabMachine.json     # Slab Machine ABI
@@ -3163,6 +3171,60 @@ The relayer endpoint must:
 - `[useGaslessThrow] Mode: PRODUCTION (relayer)` - Production mode active
 - `[useGaslessThrow] DEV MODE: Calling throwBall with fee: X` - Direct call
 - `[useGaslessThrow] Submitting to relayer: URL` - Relayer submission
+
+### Gasless Relayer Deployment (v1.8.0)
+
+The `/relayer` folder contains a Cloudflare Workers-based relayer for production gasless throws.
+
+**Setup:**
+```bash
+cd relayer
+npm install
+wrangler login
+wrangler secret put RELAYER_PRIVATE_KEY  # Enter relayer wallet private key
+npm run deploy
+```
+
+**Contract Configuration:**
+The relayer wallet must be authorized on the PokeballGame contract:
+```javascript
+// Run as contract owner
+await pokeballGame.setRelayerAddress("0xYourRelayerWalletAddress");
+```
+
+**Frontend Configuration:**
+```env
+VITE_GASLESS_DEV_MODE=false
+VITE_RELAYER_API_URL=https://pokeball-relayer.YOUR_SUBDOMAIN.workers.dev
+```
+
+**Relayer Requirements:**
+1. Cloudflare account (free tier works)
+2. Relayer wallet with APE for gas
+3. Wallet authorized via `setRelayerAddress()` on contract
+4. PokeballGame contract has APE reserves for Entropy fees
+
+**API Endpoint:**
+```
+POST https://pokeball-relayer.xxx.workers.dev
+
+Request Body:
+{
+  "player": "0x...",
+  "pokemonSlot": 0,
+  "ballType": 1,
+  "nonce": "0",
+  "signature": "0x..."
+}
+
+Success Response:
+{ "success": true, "txHash": "0x..." }
+
+Error Response:
+{ "success": false, "error": "...", "code": "ERROR_CODE" }
+```
+
+See `/relayer/README.md` for complete documentation.
 
 ### usePurchaseBalls Error Handling
 The `usePurchaseBalls` hook now includes robust error handling that prevents failed transactions:
