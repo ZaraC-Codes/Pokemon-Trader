@@ -250,6 +250,7 @@ npx hardhat returnPokemonBatch --token-ids 101,102,103 --network apechain       
 │   ├── withdraw_test_funds.cjs  # Withdraw fees/revenue for testing (v1.7.0)
 │   ├── update_ape_price.cjs     # Auto-update APE/USD price from CoinGecko
 │   ├── fund_ape_reserves.cjs    # Fund APE reserves for both contracts (v1.8.0)
+│   ├── setRelayerAddress.cjs    # Authorize relayer wallet for gasless throws (v1.8.0)
 │   ├── init_pokeball_v180.cjs   # Initialize PokeballGame v1.8.0 after upgrade
 │   ├── init_slab_v240.cjs       # Initialize SlabNFTManager v2.4.0 after upgrade
 │   └── debug/                   # Debug/inspection utilities (48 scripts)
