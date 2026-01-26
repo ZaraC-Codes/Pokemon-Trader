@@ -3090,10 +3090,11 @@ VITE_RELAYER_API_URL=https://your-relayer.workers.dev/api/throwBallFor
 **Flow (Production - with relayer):**
 1. Player clicks "Throw" button
 2. Frontend fetches player's current nonce from contract
-3. Player signs EIP-712 typed message (no wallet gas popup)
-4. Frontend POSTs signature + params to relayer API
-5. Relayer validates signature, calls `throwBallFor()` on-chain
-6. Player sees catch result via contract events
+3. Frontend builds message hash: `keccak256(abi.encodePacked(player, pokemonSlot, ballType, nonce, chainId, contractAddress))`
+4. Player signs the hash via personal_sign (no wallet gas popup)
+5. Frontend POSTs signature + params to relayer API
+6. Relayer validates signature, calls `throwBallFor()` on-chain
+7. Player sees catch result via contract events
 
 **Flow (Dev Mode - no relayer):**
 1. Player clicks "Throw" button
@@ -3140,23 +3141,31 @@ console.log(isDevMode ? 'Using direct throwBall()' : 'Using relayer');
 | `success` | Throw completed successfully |
 | `error` | Something went wrong |
 
-**EIP-712 Configuration (Production Mode):**
-```typescript
-const EIP712_DOMAIN = {
-  name: 'PokeballGame',
-  version: '1',
-  chainId: 33139,  // ApeChain
-  verifyingContract: POKEBALL_GAME_ADDRESS,
-};
+**Signature Format (Production Mode):**
 
-const EIP712_TYPES = {
-  ThrowBall: [
-    { name: 'player', type: 'address' },
-    { name: 'pokemonSlot', type: 'uint8' },
-    { name: 'ballType', type: 'uint8' },
-    { name: 'nonce', type: 'uint256' },
-  ],
-};
+The contract uses personal_sign format (NOT EIP-712). The frontend builds the message hash to match the contract's verification:
+
+```typescript
+// Frontend builds hash:
+const messageHash = keccak256(
+  encodePacked(
+    ['address', 'uint8', 'uint8', 'uint256', 'uint256', 'address'],
+    [player, pokemonSlot, ballType, nonce, BigInt(chainId), contractAddress]
+  )
+);
+
+// Wallet signs with personal_sign (adds "\x19Ethereum Signed Message:\n32" prefix)
+const signature = await signMessageAsync({ message: { raw: messageHash } });
+```
+
+The contract verifies:
+```solidity
+bytes32 messageHash = keccak256(abi.encodePacked(
+    "\x19Ethereum Signed Message:\n32",
+    keccak256(abi.encodePacked(player, pokemonSlot, ballType, nonce, block.chainid, address(this)))
+));
+address signer = _recoverSigner(messageHash, signature);
+require(signer == player, "NotAuthorizedRelayer");
 ```
 
 **Relayer API (Production Mode):**
@@ -3167,12 +3176,12 @@ const EIP712_TYPES = {
 
 **Relayer Implementation Requirements:**
 The relayer endpoint must:
-1. Validate the EIP-712 signature matches the player address
-2. Check player has sufficient balls of the requested type
-3. Verify the Pokemon slot is active
+1. Validate the personal_sign signature matches the player address (contract does this)
+2. Check player has sufficient balls of the requested type (contract does this)
+3. Verify the Pokemon slot is active (contract does this)
 4. Call `throwBallFor(player, pokemonSlot, ballType, nonce, signature)` on PokeballGame v1.8.0
-5. Return `{ txHash: "0x...", requestId: "123" }` on success
-6. Return `{ error: "message" }` on failure
+5. Return `{ success: true, txHash: "0x..." }` on success
+6. Return `{ success: false, error: "message", code: "ERROR_CODE" }` on failure
 
 **Error Handling:**
 - "Wallet not connected" - No wallet address
@@ -3187,6 +3196,26 @@ The relayer endpoint must:
 - `[useGaslessThrow] Mode: PRODUCTION (relayer)` - Production mode active
 - `[useGaslessThrow] DEV MODE: Calling throwBall with fee: X` - Direct call
 - `[useGaslessThrow] Submitting to relayer: URL` - Relayer submission
+- `[useGaslessThrow] Building message hash...` - Hash construction started
+- `[useGaslessThrow] Message hash: 0x...` - Shows computed hash for debugging
+
+**Troubleshooting Signature Errors:**
+
+If you see `NotAuthorizedRelayer` error (selector `0x17fb2066`) despite correct relayer authorization:
+- This error is **misleadingly named** - it's actually a signature verification failure
+- The contract checks `signer != player` and reverts with this error
+- **Root cause**: Frontend and contract using different signing methods
+
+**CRITICAL**: The contract uses `personal_sign`, NOT EIP-712:
+```solidity
+// Contract expects THIS format:
+keccak256(abi.encodePacked(
+    "\x19Ethereum Signed Message:\n32",  // personal_sign prefix
+    keccak256(abi.encodePacked(player, pokemonSlot, ballType, nonce, chainId, address(this)))
+))
+```
+
+If using EIP-712 `signTypedData`, the signature will NEVER verify correctly. Must use `signMessage` with raw hash.
 
 ### Gasless Relayer Deployment (v1.8.0)
 
