@@ -8,6 +8,13 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("@openzeppelin/hardhat-upgrades");
 
+// Load custom Hardhat tasks
+require("./hardhat-tasks/checkReserves.cjs");
+require("./hardhat-tasks/withdrawApeReserve.cjs");
+require("./hardhat-tasks/withdrawUsdceReserve.cjs");
+require("./hardhat-tasks/withdrawTreasuryFunds.cjs");
+require("./hardhat-tasks/emergencyWithdraw.cjs");
+
 // Load environment variables if available
 let deployerKey = [];
 let rpcUrl = "https://apechain.calderachain.xyz/http";
