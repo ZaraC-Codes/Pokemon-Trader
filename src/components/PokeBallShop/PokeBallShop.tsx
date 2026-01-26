@@ -27,7 +27,7 @@
  * ```
  */
 
-import React, { useState, useCallback, useMemo, useEffect, Component, Suspense, lazy, type ReactNode } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef, Component, Suspense, lazy, type ReactNode } from 'react';
 import {
   usePurchaseBalls,
   usePlayerBallInventory,
@@ -963,6 +963,9 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
     costUSD: number;
   } | null>(null);
 
+  // Track processed receipts to prevent duplicate processing
+  const processedReceiptRef = useRef<string | null>(null);
+
   // Hooks
   const { write, isLoading, isPending, error, receipt, reset } = usePurchaseBalls();
   const inventory = usePlayerBallInventory(playerAddress);
@@ -1170,6 +1173,14 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
   // Show success message when receipt arrives
   useEffect(() => {
     if (receipt && lastPurchaseAttempt) {
+      // Guard: Don't process the same receipt twice
+      // This prevents quantity reset when user changes other state
+      const receiptHash = receipt.transactionHash;
+      if (processedReceiptRef.current === receiptHash) {
+        return; // Already processed this receipt
+      }
+      processedReceiptRef.current = receiptHash;
+
       setShowSuccess(true);
 
       // Build success details
