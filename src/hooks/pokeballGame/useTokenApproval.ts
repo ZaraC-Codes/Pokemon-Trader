@@ -46,6 +46,7 @@ import {
   isEthereumPhoneAvailable,
   getDGen1Diagnostic,
   getEthereumPhoneProvider,
+  getRawEthereumProvider,
   getBundlerRpcUrl,
   type DGen1Diagnostic,
 } from '../../utils/walletDetection';
@@ -352,12 +353,24 @@ export function useTokenApproval(
     if (isDGen1) {
       console.log('[useTokenApproval] dGen1 detected - using direct eth_sendTransaction...');
 
-      const provider = getEthereumPhoneProvider();
+      // Try the normal provider first, fall back to raw window.ethereum
+      let provider = getEthereumPhoneProvider();
       if (!provider) {
-        console.error('[useTokenApproval] dGen1 provider not available');
+        console.log('[useTokenApproval] getEthereumPhoneProvider returned null, trying raw provider...');
+        provider = getRawEthereumProvider();
+      }
+
+      if (!provider) {
+        console.error('[useTokenApproval] No provider available for dGen1');
         setDgen1Error(new Error('dGen1 wallet provider not available'));
         return;
       }
+
+      console.log('[useTokenApproval] Using provider:', {
+        hasRequest: typeof provider.request === 'function',
+        isEthereumPhone: provider.isEthereumPhone,
+        isMetaMask: provider.isMetaMask,
+      });
 
       try {
         setDgen1Approving(true);

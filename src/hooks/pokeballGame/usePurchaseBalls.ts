@@ -59,6 +59,7 @@ import {
   isEthereumPhoneAvailable,
   getDGen1Diagnostic,
   getEthereumPhoneProvider,
+  getRawEthereumProvider,
 } from '../../utils/walletDetection';
 
 // ============================================================
@@ -368,12 +369,24 @@ export function usePurchaseBalls(): UsePurchaseBallsReturn {
       if (isDGen1) {
         console.log('[usePurchaseBalls] dGen1 detected - using direct eth_sendTransaction...');
 
-        const provider = getEthereumPhoneProvider();
+        // Try the normal provider first, fall back to raw window.ethereum
+        let provider = getEthereumPhoneProvider();
         if (!provider) {
-          console.error('[usePurchaseBalls] dGen1 provider not available');
+          console.log('[usePurchaseBalls] getEthereumPhoneProvider returned null, trying raw provider...');
+          provider = getRawEthereumProvider();
+        }
+
+        if (!provider) {
+          console.error('[usePurchaseBalls] No provider available for dGen1');
           setLocalError(new Error('dGen1 wallet provider not available'));
           return;
         }
+
+        console.log('[usePurchaseBalls] Using provider:', {
+          hasRequest: typeof provider.request === 'function',
+          isEthereumPhone: provider.isEthereumPhone,
+          isMetaMask: provider.isMetaMask,
+        });
 
         try {
           // Build the transaction object for eth_sendTransaction

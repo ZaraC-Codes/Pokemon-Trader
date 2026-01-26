@@ -63,7 +63,31 @@ declare global {
     glyph?: GlyphProvider;
     /** ethOS-specific flag set by the system */
     __ETHOS_WALLET__?: boolean;
+    /** Force dGen1 mode for testing (set via console) */
+    __FORCE_DGEN1_MODE__?: boolean;
   }
+}
+
+// ============================================================
+// FORCE DGEN1 MODE (for debugging)
+// ============================================================
+
+/**
+ * Force dGen1 detection mode for testing.
+ * Can be set from browser console: window.__FORCE_DGEN1_MODE__ = true
+ */
+export function setForceDGen1Mode(enabled: boolean): void {
+  if (typeof window !== 'undefined') {
+    window.__FORCE_DGEN1_MODE__ = enabled;
+    console.log(`[walletDetection] Force dGen1 mode: ${enabled ? 'ENABLED' : 'DISABLED'}`);
+  }
+}
+
+/**
+ * Check if dGen1 mode is forced on.
+ */
+export function isForceDGen1Mode(): boolean {
+  return typeof window !== 'undefined' && window.__FORCE_DGEN1_MODE__ === true;
 }
 
 // ============================================================
@@ -77,12 +101,20 @@ declare global {
  * 1. Check window.ethereum.isEthereumPhone flag (primary)
  * 2. Check window.__ETHOS_WALLET__ flag (fallback)
  * 3. Check user agent for ethOS patterns (secondary fallback)
+ * 4. Check for ethOS-specific window properties
+ * 5. Check for square screen + touch + Android combination (heuristic)
  *
  * @returns true if running on dGen1 device with ethOS
  */
 export function isEthereumPhoneAvailable(): boolean {
   if (typeof window === 'undefined') {
     return false;
+  }
+
+  // Check for forced dGen1 mode (for debugging)
+  if (isForceDGen1Mode()) {
+    console.log('[walletDetection] dGen1 FORCED via window.__FORCE_DGEN1_MODE__');
+    return true;
   }
 
   // Primary detection: ethOS injects ethereum provider with flag
@@ -99,8 +131,48 @@ export function isEthereumPhoneAvailable(): boolean {
 
   // Tertiary: Check user agent for ethOS patterns
   const userAgent = navigator.userAgent.toLowerCase();
-  if (userAgent.includes('ethos') || userAgent.includes('ethereumphone')) {
-    console.log('[walletDetection] dGen1 detected via user agent');
+  if (userAgent.includes('ethos') || userAgent.includes('ethereumphone') || userAgent.includes('dgen1')) {
+    console.log('[walletDetection] dGen1 detected via user agent:', userAgent);
+    return true;
+  }
+
+  // Check for ethOS-specific provider properties
+  // ethOS may expose the wallet differently
+  if (window.ethereum) {
+    const provider = window.ethereum;
+    // Log all provider properties for debugging
+    console.log('[walletDetection] window.ethereum properties:', {
+      isEthereumPhone: provider.isEthereumPhone,
+      isMetaMask: provider.isMetaMask,
+      isCoinbaseWallet: provider.isCoinbaseWallet,
+      isRabby: provider.isRabby,
+      isBraveWallet: provider.isBraveWallet,
+      isTokenPocket: provider.isTokenPocket,
+      // Check for ethOS-specific
+      isEthOS: provider.isEthOS,
+      _isEthereumPhone: provider._isEthereumPhone,
+      providerType: provider.providerType,
+      // Log constructor name
+      constructorName: provider.constructor?.name,
+    });
+  }
+
+  // Heuristic: Square screen + touch + Android + window.ethereum present
+  // This is a fallback for when ethOS doesn't set expected flags
+  const isAndroid = userAgent.includes('android');
+  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isSquare = Math.abs(window.innerWidth - window.innerHeight) < 50; // Within 50px
+  const hasEthereum = !!window.ethereum;
+  const isSmallScreen = window.innerWidth <= 500 && window.innerHeight <= 500;
+
+  if (isAndroid && hasTouch && isSquare && hasEthereum && isSmallScreen) {
+    console.log('[walletDetection] dGen1 detected via heuristic (Android + square + touch + small):', {
+      isAndroid,
+      hasTouch,
+      isSquare,
+      hasEthereum,
+      screenSize: `${window.innerWidth}x${window.innerHeight}`,
+    });
     return true;
   }
 
@@ -113,12 +185,31 @@ export function isEthereumPhoneAvailable(): boolean {
  * @returns The ethereum provider on dGen1 devices, or null otherwise
  */
 export function getEthereumPhoneProvider(): EthereumPhoneProvider | null {
-  if (!isEthereumPhoneAvailable()) {
+  if (typeof window === 'undefined') {
     return null;
   }
 
+  // First check if dGen1 is detected
+  if (isEthereumPhoneAvailable()) {
+    console.log('[walletDetection] getEthereumPhoneProvider: returning window.ethereum (dGen1 detected)');
+    return window.ethereum ?? null;
+  }
+
   // On ethOS, the system wallet is exposed via window.ethereum
-  return window.ethereum ?? null;
+  return null;
+}
+
+/**
+ * Force get the raw window.ethereum provider for dGen1.
+ * Use this as a fallback when isEthereumPhoneAvailable() detection may have failed.
+ *
+ * @returns The raw window.ethereum provider, or null if not available
+ */
+export function getRawEthereumProvider(): EthereumPhoneProvider | null {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    return null;
+  }
+  return window.ethereum;
 }
 
 /**
@@ -334,6 +425,7 @@ export function getGlyphApiKey(): string | undefined {
 export default {
   isEthereumPhoneAvailable,
   getEthereumPhoneProvider,
+  getRawEthereumProvider,
   isGlyphAvailable,
   getGlyphProvider,
   isSquareScreen,
@@ -343,4 +435,6 @@ export default {
   getGlyphApiKey,
   getDGen1Diagnostic,
   logDGen1Diagnostic,
+  setForceDGen1Mode,
+  isForceDGen1Mode,
 };
