@@ -3070,6 +3070,9 @@ import { PokeBallShop } from './components/PokeBallShop';
 - Shows current APE and USDC.e balances with USD value
 - Player inventory display (color-coded circular ball icons)
 - Quantity input per ball type (safe handling of NaN/empty values)
+  - Shows empty when value is 0 for easier typing
+  - Auto-selects on focus if value is "0"
+  - Just click and type - no need to delete the 0 first
 - Insufficient balance warning per row
 - **Token approval flow**: Shows orange "Approve" button when approval needed
 - **Approval status**: Shows loading state during approval transaction
