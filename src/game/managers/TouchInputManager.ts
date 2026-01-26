@@ -187,6 +187,14 @@ export class TouchInputManager {
   private handleTapStart = (pointer: Phaser.Input.Pointer): void => {
     if (!this.isEnabled) return;
 
+    // IMPORTANT: Only handle actual touch events, not mouse clicks
+    // This allows mouse clicks to be handled by GameScene for Pokemon interaction
+    // On desktop with touchscreen, this lets mouse override touch behavior
+    if (pointer.wasTouch === false) {
+      // This is a mouse click, not a touch - let other handlers deal with it
+      return;
+    }
+
     // Check if pointer is over an interactive game object (like a Pokemon)
     // If so, let the object handle the click instead of moving
     const objectsUnderPointer = this.scene.input.hitTestPointer(pointer);
@@ -220,13 +228,15 @@ export class TouchInputManager {
     // Show tap indicator
     this.showTapIndicator(worldPoint.x, worldPoint.y);
 
-    console.log('[TouchInputManager] Tap at world position:', worldPoint.x, worldPoint.y);
+    console.log('[TouchInputManager] Touch at world position:', worldPoint.x, worldPoint.y);
   };
 
   /**
    * Handle tap/click end
    */
   private handleTapEnd = (pointer: Phaser.Input.Pointer): void => {
+    // Only handle touch events, not mouse
+    if (pointer.wasTouch === false) return;
     if (pointer.id !== this.activeTouchId) return;
 
     // Check if it was a quick tap (< 200ms) vs a hold
@@ -411,6 +421,7 @@ export class TouchInputManager {
    */
   private handleDPadStart = (pointer: Phaser.Input.Pointer): void => {
     if (!this.isEnabled || !this.dpadContainer) return;
+    // D-Pad works with both mouse and touch for accessibility
 
     const button = this.getDPadButtonAt(pointer.x, pointer.y);
     if (button) {
