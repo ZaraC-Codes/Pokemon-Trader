@@ -1301,19 +1301,20 @@ Pokemon catching mini-game with provably fair mechanics:
 | v1.4.2 | 20 | Division by zero fix in calculateAPEAmount() | Superseded |
 | v1.5.0 | 20 | Unified payments: APE auto-swap to USDC.e, 97% to SlabNFTManager | Superseded |
 | v1.6.0 | 20 | Pyth Entropy for randomness (replaces POP VRNG, no whitelist needed) | Superseded |
-| v1.7.0 | 20 | Random NFT selection using Pyth Entropy random number | **Current** |
-| v1.8.0 | 20 | **Gasless throws, APE reserves, meta-transactions** | **Planned** |
+| v1.7.0 | 20 | Random NFT selection using Pyth Entropy random number | Superseded |
+| v1.8.0 | 20 | **Gasless throws, APE reserves, meta-transactions** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
-- Implementation (v1.7.0): `0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4` (deployed 2026-01-24)
+- Implementation (v1.8.0): `0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c` (deployed 2026-01-25)
+- Implementation (v1.7.0): `0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4` (superseded)
 - Implementation (v1.6.0): `0x363f32ca7Cf83a215aDef4B139a47cAd323F1482` (superseded)
 - Implementation (v1.5.0): `0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E` (superseded)
 - Implementation (v1.4.2): `0x2cbF8E954D29E2e08E4E521ac031930543962F13` (superseded)
 - Implementation (v1.4.1): `0xac45C2104c49eCD51f1B570e6c5d962EB10B72Cc` (superseded)
 - Implementation (v1.2.0): `0x71ED694476909FD5182afE1fDc9098a9975EA6b5` (legacy)
 
-**v1.7.0 Unified Payment Flow:**
+**v1.8.0 Unified Payment Flow:**
 All payments (APE or USDC.e) follow the same economics:
 ```
 User pays in APE or USDC.e
@@ -1322,49 +1323,28 @@ APE → auto-swap to USDC.e via Camelot DEX
 USDC.e → pass through directly
     ↓
 Split: 3% → treasury (accumulatedUSDCFees)
-       ~96.5% → SlabNFTManager.depositRevenue() (NFT pool)
-       ~0.5% → APE buffer for Entropy fees + SlabMachine pull gas
+       95% → SlabNFTManager.depositRevenue() (NFT pool)
+       1% → PokeballGame APE reserve (for Entropy fees)
+       1% → SlabNFTManager APE reserve (for SlabMachine pulls)
     ↓
-SlabNFTManager.checkAndPurchaseNFT() triggers auto-buy if ≥$51
+SlabNFTManager.checkAndPurchaseNFT() triggers auto-buy loop if ≥$51
     ↓
 On catch success: random NFT selected from pool via Pyth Entropy
 ```
 
-**APE Buffer for Entropy/Ops (~0.5%):**
-A small slice of revenue is retained in APE to fund:
-- Pyth Entropy fees for catch randomness (~0.073 APE per throw)
-- SlabMachine pull gas when auto-purchasing NFTs
-- Future randomness requests
+**APE Reserves (v1.8.0):**
+Both contracts maintain APE reserves for operational costs:
+- **PokeballGame APE reserve (1%)**: Funds Pyth Entropy fees for catch randomness (~0.073 APE per throw)
+- **SlabNFTManager APE reserve (1%)**: Funds SlabMachine pull gas when auto-purchasing NFTs
 
-This buffer is platform-controlled and not withdrawable as player rewards. It ensures players pay only ball prices while the platform covers Entropy and gas costs. Effective RTP for players remains ~97%.
+These reserves are platform-controlled and funded automatically from revenue. Players pay only ball prices while the platform covers Entropy and gas costs. Effective RTP for players remains ~95%.
 
-**v1.8.0 Payment Flow (Planned):**
-```
-User buys balls (APE or USDC.e) - only transaction player signs
-    ↓
-APE purchases:
-  - 0.5% APE → PokeballGame reserve (for throw fees)
-  - 0.5% APE → SlabNFTManager reserve (for NFT selection fees)
-  - 99% APE → swap to USDC.e via Camelot
-      → 96% USDC.e → SlabNFTManager (NFT pool)
-      → 3% USDC.e → Treasury
-    ↓
-USDC.e purchases:
-  - 1% USDC.e → swap to APE (0.5% each to PokeballGame + SlabNFTManager)
-  - 96% USDC.e → SlabNFTManager (NFT pool)
-  - 3% USDC.e → Treasury
-    ↓
-Player clicks Pokemon → Relayer calls throwBallFor() using APE reserve
-    ↓
-Catch result → Random NFT selected (if won) using SlabNFTManager APE reserve
-```
-
-**v1.8.0 Gasless Throws:**
-- Players only sign ball purchase transactions
-- `throwBall()` is executed by authorized relayer via `throwBallFor()`
-- Uses EIP-712 style signature verification
-- Entropy fees paid from contract's APE reserve
-- Nonce tracking prevents replay attacks
+**Gasless Throws (v1.8.0):**
+The `throwBallFor()` function enables meta-transactions where a relayer pays gas:
+- Player signs an EIP-712 typed message with throw parameters
+- Relayer submits transaction calling `throwBallFor(player, slot, ballType, nonce, signature)`
+- Contract verifies signature and executes throw on behalf of player
+- Nonce tracking prevents replay attacks (`playerThrowNonces` mapping)
 
 **Payment Methods (v1.5.0):**
 | Token | Method | Approval Required | What Happens |
@@ -1377,16 +1357,16 @@ Catch result → Random NFT selected (if won) using SlabNFTManager APE reserve
 - WAPE: `0x48b62137EdfA95a428D35C09E44256a739F6B557`
 - Slippage: Configurable (default 1%)
 
-**Fee Structure (v1.7.0 - Unified USDC.e + APE Buffer):**
+**Fee Structure (v1.8.0 - APE Reserves):**
 Users pay the **exact ball price** with no markup. Fees are split internally:
-| User Pays | Treasury (3%) | NFT Pool (~96.5%) | APE Buffer (~0.5%) |
-|-----------|--------------|-------------------|-------------------|
-| $1.00 | $0.03 | ~$0.965 | ~$0.005 |
-| $10.00 | $0.30 | ~$9.65 | ~$0.05 |
-| $25.00 | $0.75 | ~$24.13 | ~$0.12 |
-| $49.90 | $1.50 | ~$48.15 | ~$0.25 |
+| User Pays | Treasury (3%) | NFT Pool (95%) | PokeballGame APE (1%) | SlabNFTManager APE (1%) |
+|-----------|--------------|----------------|----------------------|------------------------|
+| $1.00 | $0.03 | $0.95 | $0.01 | $0.01 |
+| $10.00 | $0.30 | $9.50 | $0.10 | $0.10 |
+| $25.00 | $0.75 | $23.75 | $0.25 | $0.25 |
+| $49.90 | $1.50 | $47.41 | $0.50 | $0.50 |
 
-The APE buffer funds Entropy fees and SlabMachine pull gas. Players still see ~97% RTP.
+The APE reserves fund Entropy fees and SlabMachine pull gas. Players see ~95% RTP.
 
 **v1.4.1 Bug Fix:** Previous versions calculated fees from `msg.value` (which could include user-sent buffer), causing users to overpay. Now fees are calculated from the exact required amount.
 
@@ -1601,12 +1581,13 @@ NFT inventory management and auto-purchase from SlabMachine:
 | v2.0.0 | 20 | Max 20 NFTs, setOwnerWallet, enhanced events | Superseded |
 | v2.1.0 | 20 | Fixed SlabMachine pull price bug, emergency revenue withdrawal | Superseded |
 | v2.2.0 | 20 | NFT recovery functions, transferFrom fix, pending request clearing | Superseded |
-| v2.3.0 | 20 | Random NFT selection using Pyth Entropy, O(1) swap-and-pop | **Current** |
-| v2.4.0 | 20 | **APE reserves, auto-purchase loop, Pyth Entropy integration** | **Planned** |
+| v2.3.0 | 20 | Random NFT selection using Pyth Entropy, O(1) swap-and-pop | Superseded |
+| v2.4.0 | 20 | **APE reserves, auto-purchase loop, Pyth Entropy integration** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71`
-- Implementation (v2.3.0): `0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13` (deployed 2026-01-24)
+- Implementation (v2.4.0): `0xCaFcB2606F8Fae7A2B44f9293920d4cE179ABd2c` (deployed 2026-01-25)
+- Implementation (v2.3.0): `0xC4DDe9b1BaE8f77e08c035e0D5E8aBA59238Ad13` (superseded)
 - Implementation (v2.2.0): `0x05c0e3aD3DB67285b7CDaA396f3993A3130b6E25` (superseded)
 - Implementation (v2.1.0): `0xd12644fba183c4bea6f7d8b92c068640929631b6` (superseded)
 
