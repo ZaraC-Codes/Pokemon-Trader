@@ -930,65 +930,73 @@ VITE_GLYPH_API_KEY=
 
 **dGen1 Transaction Troubleshooting:**
 
-The dGen1 uses ERC-4337 Account Abstraction, which requires a bundler RPC for transactions.
+The dGen1 uses ERC-4337 Account Abstraction with an ethOS browser (modified Firefox fork) that injects `window.ethereum`.
 
-**Symptom: USDC.e approval stuck on "Confirming approval…"**
-- No wallet popup appears on dGen1
-- No transaction is mined
-- Console shows `isApproving: true` indefinitely
+**IMPORTANT: Integration Approach**
+- The web dApp uses the **injected `window.ethereum` provider** only
+- Native SDKs (`EthereumPhone/WalletSDK`, `WalletSDK-react-native`) are for native apps, NOT browser dApps
+- Those SDKs serve as **documentation reference** for expected transaction formats
+- All transactions go through `window.ethereum.request()` via our Wagmi connector
 
-**Root Causes & Solutions:**
+**Current Issue: "INVALID PARAMETERS WERE PROVIDED TO THE RPC METHOD"**
+- USDC.e approval fails immediately at the RPC level
+- Transaction never reaches wallet confirmation UI
+- Error occurs with minimal transaction parameters
 
-1. **Missing Bundler RPC URL**
-   - dGen1 requires `VITE_BUNDLER_RPC_URL` configured for ApeChain (chainId 33139)
-   - Without it, transactions may not reach the bundler
-   - Set: `VITE_BUNDLER_RPC_URL=https://your-bundler-for-apechain`
-   - Note: Pimlico's free tier may not support ApeChain
+**On-Screen Debug Panel:**
+Since console logs are inaccessible on dGen1, the PokeBallShop displays debug info:
+- `isDGen1: true/false`
+- `isApproving: true/false`
+- `lastStep`: `idle | building_tx | sending_tx | request_failed | trying_sendTransaction | sendTransaction_failed | trying_send | send_failed | tx_submitted | error`
+- `hash: 0x...` (if successful)
+- `error: ...` (the error message)
+- `Provider: req:true/false send:true/false sendTx:true/false`
 
-2. **Chain Mismatch**
-   - dGen1's bundler must be configured for the same chainId as the app
-   - Check console for `chainId` in diagnostic logs
-   - Ensure dGen1 is on ApeChain (33139)
+**Multi-Method Provider Fallback:**
+The `useTokenApproval` hook tries three provider methods in sequence:
 
-3. **Transaction Format Issues**
-   - dGen1 WalletSDK expects specific transaction format via `sendTransaction()`
-   - Standard `eth_sendTransaction` may not work correctly
-   - Check console for `dGen1 approve() transaction request:` logs
-
-**Diagnostic Console Logs (look for these):**
-```
-[ethereumPhoneConnector] === dGen1 SETUP DIAGNOSTIC ===
-[useTokenApproval] === dGen1 APPROVAL DIAGNOSTIC ===
-[usePurchaseBalls] === dGen1 PURCHASE DIAGNOSTIC ===
-```
-
-**Diagnostic Object Structure:**
 ```typescript
-interface DGen1Diagnostic {
-  walletType: 'dgen1' | 'standard';
-  isEthereumPhone: boolean;
-  hasEthosWalletFlag: boolean;
-  hasBundlerUrl: boolean;        // ← Must be true for dGen1
-  bundlerUrl: string | undefined;
-  chainId: number | undefined;   // ← Must be 33139 for ApeChain
-  providerFlags: {
-    isEthereumPhone?: boolean;
-    isMetaMask?: boolean;
-  };
-}
+// Transaction parameters (minimal, no gas/chainId)
+const txParams = {
+  from: account.toLowerCase(),
+  to: tokenAddress.toLowerCase(),
+  data: approveCallData,  // approve(spender, maxUint256)
+};
+
+// Method 1: Standard EIP-1193
+txHash = await provider.request({
+  method: 'eth_sendTransaction',
+  params: [txParams],
+});
+
+// Method 2: Direct sendTransaction (non-standard)
+txHash = await provider.sendTransaction(txParams);
+
+// Method 3: Legacy web3 style
+txHash = await provider.send('eth_sendTransaction', [txParams]);
+```
+
+**Provider Inspection:**
+Before sending, we log available methods:
+```typescript
+const providerInfo = {
+  keys: Object.keys(provider).slice(0, 10),
+  hasRequest: typeof provider.request === 'function',
+  hasSend: typeof provider.send === 'function',
+  hasSendTransaction: typeof provider.sendTransaction === 'function',
+  isEthereumPhone: provider.isEthereumPhone,
+};
 ```
 
 **Testing dGen1 Approvals:**
-1. Connect dGen1 wallet via RainbowKit
-2. Open PokeBallShop, select USDC.e payment
-3. Click "Approve" button
-4. Check console for:
-   - `[useTokenApproval] dGen1 approve() transaction request:` - transaction details
-   - `[useTokenApproval] writeContract called - waiting for wallet response...`
-5. If no wallet UI appears:
-   - Check `hasBundlerUrl` in diagnostic
-   - Verify chainId matches ApeChain (33139)
-   - Check dGen1 device for any pending approval prompts
+1. Open game in ethOS built-in browser (NOT Chrome/Firefox)
+2. Connect dGen1 wallet via RainbowKit
+3. Open PokeBallShop, select USDC.e payment
+4. Click "Approve" button
+5. Watch the debug panel for:
+   - Which provider method was attempted
+   - Which step failed (`request_failed`, `sendTransaction_failed`, `send_failed`)
+   - The error message
 
 **Programmatic Diagnostics:**
 ```typescript
@@ -1002,7 +1010,7 @@ console.log(diag);
 await logDGen1Diagnostic('before-approval');
 ```
 
-**Documentation:** See `docs/WALLET_INTEGRATION.md` for full setup and troubleshooting guide.
+**Documentation:** See `docs/DGEN1_TRANSACTION_ISSUE.md` for full troubleshooting details and `docs/WALLET_INTEGRATION.md` for setup guide.
 
 ### FundingWidget (Bridge/Swap/Buy)
 Comprehensive wallet funding widget using ThirdWeb Universal Bridge with existing wallet integration:
