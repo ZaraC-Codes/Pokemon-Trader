@@ -53,13 +53,14 @@ async function main() {
   console.log('✅ Signer is contract owner');
 
   // Get contract
+  const pokeballGameAddress = addresses.contracts.pokeballGame.proxy;
   const pokeballGame = new ethers.Contract(
-    addresses.apechain.pokeballGameProxy,
+    pokeballGameAddress,
     abi,
     signer
   );
   console.log('');
-  console.log('Contract:', addresses.apechain.pokeballGameProxy);
+  console.log('Contract:', pokeballGameAddress);
 
   // Get relayer address from env or use signer
   const relayerAddress = process.env.RELAYER_ADDRESS || signerAddress;
