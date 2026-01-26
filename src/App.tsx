@@ -561,8 +561,18 @@ function AppContent() {
     });
   }, []);
 
-  // Handle out-of-range catch attempt
+  // Debounce ref for out-of-range toast to prevent double firing
+  const lastOutOfRangeAtRef = useRef<number>(0);
+
+  // Handle out-of-range catch attempt (with debounce to prevent double toast)
   const handleCatchOutOfRange = useCallback((_data: CatchOutOfRangeData) => {
+    const now = Date.now();
+    // Debounce: ignore if last toast was within 400ms
+    if (now - lastOutOfRangeAtRef.current < 400) {
+      console.log('[App] handleCatchOutOfRange debounced, skipping duplicate toast');
+      return;
+    }
+    lastOutOfRangeAtRef.current = now;
     addToast('Move closer to the Pokémon!', 'warning');
   }, [addToast]);
 
