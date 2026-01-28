@@ -86,6 +86,60 @@ export interface UseTokenApprovalReturn {
     error: string | undefined;
     lastStep: string;
     providerMethods?: string; // Available methods on the provider
+    txParams?: DGen1TxParams; // The transaction params sent to the wallet
+    method?: string; // Which method was used/attempted
+  };
+}
+
+// ============================================================
+// dGen1 WalletSDK-STYLE TRANSACTION PARAMS
+// ============================================================
+
+/**
+ * Transaction parameters shaped to match the EthereumPhone WalletSDK.
+ * Shape modeled on https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md
+ *
+ * The WalletSDK expects these fields for transactions:
+ * - to: Target contract address (required)
+ * - value: ETH/APE value in Wei as string (required, "0" for no value)
+ * - data: Encoded function call data (required, "0x" for empty)
+ *
+ * Additional fields we add for context:
+ * - from: Sender address (standard EIP-1193)
+ * - chainId: Chain ID as string (for routing)
+ * - chainRPCUrl: RPC URL for the chain (may help wallet resolve chain)
+ */
+export interface DGen1TxParams {
+  /** Sender address (lowercased) */
+  from: string;
+  /** Target contract address (lowercased) */
+  to: string;
+  /** APE/ETH value in Wei as decimal string (e.g., "0" for no value) */
+  value: string;
+  /** ABI-encoded function call data */
+  data: string;
+  /** Chain ID as decimal string (e.g., "33139" for ApeChain) */
+  chainId: string;
+  /** RPC URL for the chain (helps wallet resolve chain context) */
+  chainRPCUrl: string;
+}
+
+/**
+ * Debug object structure for dGen1 transaction attempts.
+ * This can be sent back to the EthereumPhone team for troubleshooting.
+ */
+export interface DGen1TxDebug {
+  isDGen1: boolean;
+  method: string;
+  txParams: DGen1TxParams | null;
+  error: string | null;
+  hash: string | null;
+  timestamp: string;
+  providerInfo: {
+    hasRequest: boolean;
+    hasSend: boolean;
+    hasSendTransaction: boolean;
+    isEthereumPhone: boolean | undefined;
   };
 }
 
@@ -233,6 +287,8 @@ export function useTokenApproval(
   const [dgen1Error, setDgen1Error] = useState<Error | undefined>(undefined);
   const [dgen1LastStep, setDgen1LastStep] = useState<string>('idle');
   const [dgen1ProviderMethods, setDgen1ProviderMethods] = useState<string>('');
+  const [dgen1TxParams, setDgen1TxParams] = useState<DGen1TxParams | undefined>(undefined);
+  const [dgen1Method, setDgen1Method] = useState<string>('');
 
   // Check if this is a dGen1 device (cached value for debug display)
   const isDGen1 = isEthereumPhoneAvailable();
@@ -361,12 +417,15 @@ export function useTokenApproval(
       chainId: POKEBALL_GAME_CHAIN_ID,
     });
 
-    // ====== dGen1: Use direct provider.request() instead of wagmi ======
-    // The dGen1 wallet may not properly receive wagmi's writeContract calls
-    // because it needs transactions routed through its ERC-4337 bundler
+    // ====== dGen1: Use WalletSDK-style transaction params ======
+    // Shape modeled on https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md
+    // The dGen1 wallet expects specific fields: to, value, data (required)
+    // Plus chainId and chainRPCUrl for context
     if (isDGen1) {
-      console.log('[useTokenApproval] dGen1 detected - using direct eth_sendTransaction...');
+      console.log('[useTokenApproval] dGen1 detected - using WalletSDK-style eth_sendTransaction...');
       setDgen1LastStep('getting_provider');
+      setDgen1TxParams(undefined);
+      setDgen1Method('');
 
       // Try the normal provider first, fall back to raw window.ethereum
       let provider = getEthereumPhoneProvider();
@@ -409,75 +468,134 @@ export function useTokenApproval(
         const methodsStr = `req:${providerInfo.hasRequest} send:${providerInfo.hasSend} sendTx:${providerInfo.hasSendTransaction}`;
         setDgen1ProviderMethods(methodsStr);
 
-        // Build the transaction object for eth_sendTransaction
-        // EIP-1193 standard format
-        const txParams = {
+        // Get the RPC URL for dGen1 context
+        const chainRPCUrl = getBundlerRpcUrl() || 'https://apechain-mainnet.g.alchemy.com/v2/demo';
+
+        // ============================================================
+        // Build WalletSDK-style transaction params for dGen1
+        // Shape modeled on https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md
+        // ============================================================
+        const txParams: DGen1TxParams = {
+          // Standard EIP-1193 fields
           from: account.toLowerCase(),
           to: tokenAddress.toLowerCase(),
           data: approveCallData,
+          // WalletSDK required field: value as decimal string
+          value: '0', // No APE being sent for approve()
+          // WalletSDK context fields
+          chainId: String(POKEBALL_GAME_CHAIN_ID), // "33139" for ApeChain
+          chainRPCUrl: chainRPCUrl,
         };
 
-        console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', txParams);
+        // Store txParams for debug display
+        setDgen1TxParams(txParams);
+
+        // Build debug object for the dGen1 team
+        const debugObject: DGen1TxDebug = {
+          isDGen1: true,
+          method: 'request:eth_sendTransaction',
+          txParams: txParams,
+          error: null,
+          hash: null,
+          timestamp: new Date().toISOString(),
+          providerInfo: {
+            hasRequest: providerInfo.hasRequest,
+            hasSend: providerInfo.hasSend,
+            hasSendTransaction: providerInfo.hasSendTransaction,
+            isEthereumPhone: provider.isEthereumPhone,
+          },
+        };
+
+        console.log('[useTokenApproval] === dGen1 DEBUG OBJECT (for EthereumPhone team) ===');
+        console.log(JSON.stringify(debugObject, null, 2));
+        console.log('[useTokenApproval] dGen1 WalletSDK-style txParams:', txParams);
 
         setDgen1LastStep('sending_tx');
 
         // Try multiple provider methods in order of preference
         // The ethOS injected provider may use a non-standard API
-        let txHash: `0x${string}`;
+        let txHash: `0x${string}` | undefined;
         let lastError: unknown;
+        let usedMethod = '';
 
-        // Method 1: Standard EIP-1193 provider.request()
+        // Method 1: Standard EIP-1193 provider.request() with WalletSDK-style params
         if (typeof provider.request === 'function') {
           try {
-            console.log('[useTokenApproval] Trying provider.request({ method: eth_sendTransaction })...');
+            usedMethod = 'request:eth_sendTransaction';
+            setDgen1Method(usedMethod);
+            console.log(`[useTokenApproval] Trying ${usedMethod} with WalletSDK-style params...`);
             txHash = await provider.request({
               method: 'eth_sendTransaction',
               params: [txParams],
             }) as `0x${string}`;
-            console.log('[useTokenApproval] provider.request succeeded:', txHash);
+            console.log(`[useTokenApproval] ${usedMethod} succeeded:`, txHash);
           } catch (err) {
-            console.error('[useTokenApproval] provider.request failed:', err);
+            console.error(`[useTokenApproval] ${usedMethod} failed:`, err);
             lastError = err;
             setDgen1LastStep('request_failed');
+            // Update debug object with error
+            debugObject.error = err instanceof Error ? err.message : String(err);
+            console.log('[useTokenApproval] === dGen1 DEBUG OBJECT (FAILED) ===');
+            console.log(JSON.stringify(debugObject, null, 2));
           }
         }
 
         // Method 2: Direct sendTransaction method (some providers expose this)
         if (!txHash && typeof (provider as any).sendTransaction === 'function') {
           try {
-            console.log('[useTokenApproval] Trying provider.sendTransaction()...');
+            usedMethod = 'sendTransaction';
+            setDgen1Method(usedMethod);
+            console.log(`[useTokenApproval] Trying provider.${usedMethod}() with WalletSDK-style params...`);
             setDgen1LastStep('trying_sendTransaction');
             txHash = await (provider as any).sendTransaction(txParams) as `0x${string}`;
-            console.log('[useTokenApproval] provider.sendTransaction succeeded:', txHash);
+            console.log(`[useTokenApproval] provider.${usedMethod} succeeded:`, txHash);
           } catch (err) {
-            console.error('[useTokenApproval] provider.sendTransaction failed:', err);
+            console.error(`[useTokenApproval] provider.${usedMethod} failed:`, err);
             lastError = err;
             setDgen1LastStep('sendTransaction_failed');
+            debugObject.method = usedMethod;
+            debugObject.error = err instanceof Error ? err.message : String(err);
           }
         }
 
         // Method 3: Legacy provider.send() (older web3 style)
         if (!txHash && typeof (provider as any).send === 'function') {
           try {
-            console.log('[useTokenApproval] Trying provider.send(eth_sendTransaction, [...])...');
+            usedMethod = 'send:eth_sendTransaction';
+            setDgen1Method(usedMethod);
+            console.log(`[useTokenApproval] Trying provider.send('eth_sendTransaction', [...]) with WalletSDK-style params...`);
             setDgen1LastStep('trying_send');
             txHash = await (provider as any).send('eth_sendTransaction', [txParams]) as `0x${string}`;
-            console.log('[useTokenApproval] provider.send succeeded:', txHash);
+            console.log(`[useTokenApproval] provider.send succeeded:`, txHash);
           } catch (err) {
-            console.error('[useTokenApproval] provider.send failed:', err);
+            console.error(`[useTokenApproval] provider.send failed:`, err);
             lastError = err;
             setDgen1LastStep('send_failed');
+            debugObject.method = usedMethod;
+            debugObject.error = err instanceof Error ? err.message : String(err);
           }
         }
 
         // If all methods failed, throw the last error
         if (!txHash) {
+          // Final debug log with failure info
+          debugObject.method = usedMethod || 'none';
+          debugObject.error = lastError instanceof Error ? lastError.message : String(lastError);
+          console.log('[useTokenApproval] === dGen1 DEBUG OBJECT (ALL METHODS FAILED) ===');
+          console.log(JSON.stringify(debugObject, null, 2));
           throw lastError || new Error('No transaction method worked on this provider');
         }
 
+        // Success!
         console.log('[useTokenApproval] dGen1 transaction submitted! Hash:', txHash);
+        debugObject.hash = txHash;
+        debugObject.error = null;
+        console.log('[useTokenApproval] === dGen1 DEBUG OBJECT (SUCCESS) ===');
+        console.log(JSON.stringify(debugObject, null, 2));
+
         setDgen1Hash(txHash);
         setDgen1LastStep('tx_submitted');
+        setDgen1Method(usedMethod);
         // Note: setDgen1Approving(false) will be called when tx confirms via useEffect
 
       } catch (error) {
@@ -512,6 +630,7 @@ export function useTokenApproval(
   const isLoading = isNativeCurrency ? false : isAllowanceLoading;
 
   // Build dGen1 debug state for on-screen debugging (since console logs aren't accessible on device)
+  // This can be displayed in a debug panel and sent to the EthereumPhone team
   const dgen1Debug = isDGen1 ? {
     isDGen1: true,
     isApproving: dgen1Approving,
@@ -519,6 +638,8 @@ export function useTokenApproval(
     error: dgen1Error?.message,
     lastStep: dgen1LastStep,
     providerMethods: dgen1ProviderMethods,
+    txParams: dgen1TxParams, // WalletSDK-style params that were sent
+    method: dgen1Method, // Which method was used/attempted
   } : undefined;
 
   return {

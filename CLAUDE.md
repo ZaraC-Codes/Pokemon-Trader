@@ -962,24 +962,43 @@ The dGen1 uses ERC-4337 Account Abstraction with an ethOS browser (modified Fire
 - Transaction never reaches wallet confirmation UI
 - Error occurs with minimal transaction parameters
 
+**WalletSDK-Style Transaction Params:**
+The `useTokenApproval` hook now builds transaction params matching the EthereumPhone WalletSDK format:
+```typescript
+// Shape modeled on https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md
+interface DGen1TxParams {
+  from: string;        // Sender address (lowercased)
+  to: string;          // Target contract (lowercased)
+  value: string;       // Wei value as decimal string ("0" for approve)
+  data: string;        // ABI-encoded function call
+  chainId: string;     // Chain ID as decimal string ("33139")
+  chainRPCUrl: string; // RPC URL for chain context
+}
+```
+
 **On-Screen Debug Panel:**
 Since console logs are inaccessible on dGen1, the PokeBallShop displays debug info:
 - `isDGen1: true/false`
 - `isApproving: true/false`
 - `lastStep`: `idle | building_tx | sending_tx | request_failed | trying_sendTransaction | sendTransaction_failed | trying_send | send_failed | tx_submitted | error`
+- `method`: Which provider method was used (`request:eth_sendTransaction`, `sendTransaction`, `send:eth_sendTransaction`)
 - `hash: 0x...` (if successful)
 - `error: ...` (the error message)
 - `Provider: req:true/false send:true/false sendTx:true/false`
+- `txParams`: Full WalletSDK-style params (to, value, data, chainId, chainRPCUrl)
 
 **Multi-Method Provider Fallback:**
 The `useTokenApproval` hook tries three provider methods in sequence:
 
 ```typescript
-// Transaction parameters (minimal, no gas/chainId)
-const txParams = {
+// WalletSDK-style transaction params for dGen1
+const txParams: DGen1TxParams = {
   from: account.toLowerCase(),
   to: tokenAddress.toLowerCase(),
   data: approveCallData,  // approve(spender, maxUint256)
+  value: '0',             // No APE being sent for approve()
+  chainId: '33139',       // ApeChain mainnet
+  chainRPCUrl: 'https://apechain-mainnet.g.alchemy.com/v2/...',
 };
 
 // Method 1: Standard EIP-1193
@@ -995,17 +1014,31 @@ txHash = await provider.sendTransaction(txParams);
 txHash = await provider.send('eth_sendTransaction', [txParams]);
 ```
 
-**Provider Inspection:**
-Before sending, we log available methods:
+**Debug Object for EthereumPhone Team:**
+The hook generates a structured debug object that can be sent to the EthereumPhone team:
 ```typescript
-const providerInfo = {
-  keys: Object.keys(provider).slice(0, 10),
-  hasRequest: typeof provider.request === 'function',
-  hasSend: typeof provider.send === 'function',
-  hasSendTransaction: typeof provider.sendTransaction === 'function',
-  isEthereumPhone: provider.isEthereumPhone,
-};
+interface DGen1TxDebug {
+  isDGen1: boolean;
+  method: string;           // Which method was attempted
+  txParams: DGen1TxParams;  // Full params sent to wallet
+  error: string | null;     // Error message if failed
+  hash: string | null;      // Tx hash if succeeded
+  timestamp: string;        // ISO timestamp
+  providerInfo: {
+    hasRequest: boolean;
+    hasSend: boolean;
+    hasSendTransaction: boolean;
+    isEthereumPhone: boolean | undefined;
+  };
+}
 ```
+
+**Console Logs for Debugging:**
+When dGen1 is detected, detailed logs are output:
+- `[useTokenApproval] === dGen1 DEBUG OBJECT (for EthereumPhone team) ===`
+- `[useTokenApproval] dGen1 WalletSDK-style txParams: {...}`
+- On failure: `[useTokenApproval] === dGen1 DEBUG OBJECT (FAILED) ===`
+- On success: `[useTokenApproval] === dGen1 DEBUG OBJECT (SUCCESS) ===`
 
 **Testing dGen1 Approvals:**
 1. Open game in ethOS built-in browser (NOT Chrome/Firefox)
@@ -1014,12 +1047,14 @@ const providerInfo = {
 4. Click "Approve" button
 5. Watch the debug panel for:
    - Which provider method was attempted
+   - The WalletSDK-style txParams that were sent
    - Which step failed (`request_failed`, `sendTransaction_failed`, `send_failed`)
    - The error message
 
 **Programmatic Diagnostics:**
 ```typescript
 import { getDGen1Diagnostic, logDGen1Diagnostic } from './utils/walletDetection';
+import { type DGen1TxParams, type DGen1TxDebug } from './hooks/pokeballGame';
 
 // Get diagnostic object
 const diag = await getDGen1Diagnostic();

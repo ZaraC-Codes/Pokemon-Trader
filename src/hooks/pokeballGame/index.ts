@@ -126,6 +126,9 @@ export {
   calculateTotalCost,
   type TokenType,
   type UseTokenApprovalReturn,
+  // dGen1 WalletSDK-style types (for debugging)
+  type DGen1TxParams,
+  type DGen1TxDebug,
 } from './useTokenApproval';
 
 // Contract diagnostics hook (environment sanity checks)

@@ -1518,6 +1518,7 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
         )}
 
         {/* dGen1 Debug Panel - Visible on-screen debugging since console isn't accessible on device */}
+        {/* Enhanced for WalletSDK-style debugging: shows txParams that can be sent to EthereumPhone team */}
         {isDGen1 && dgen1Debug && (
           <div style={{
             padding: '8px',
@@ -1529,11 +1530,16 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             fontFamily: 'monospace',
           }}>
             <div style={{ color: '#ff6600', fontWeight: 'bold', marginBottom: '4px' }}>
-              dGen1 Debug Panel
+              dGen1 Debug Panel (WalletSDK-style)
             </div>
             <div style={{ color: '#ccc' }}>
               Step: <span style={{ color: '#ffcc00' }}>{dgen1Debug.lastStep}</span>
             </div>
+            {dgen1Debug.method && (
+              <div style={{ color: '#ccc' }}>
+                Method: <span style={{ color: '#4488ff' }}>{dgen1Debug.method}</span>
+              </div>
+            )}
             <div style={{ color: '#ccc' }}>
               Approving: <span style={{ color: dgen1Debug.isApproving ? '#ff4444' : '#44ff44' }}>
                 {dgen1Debug.isApproving ? 'YES' : 'NO'}
@@ -1552,6 +1558,17 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
             {dgen1Debug.providerMethods && (
               <div style={{ color: '#888', marginTop: '4px', fontSize: '9px' }}>
                 Provider: {dgen1Debug.providerMethods}
+              </div>
+            )}
+            {/* WalletSDK-style txParams display */}
+            {dgen1Debug.txParams && (
+              <div style={{ color: '#888', marginTop: '4px', fontSize: '9px', wordBreak: 'break-all' }}>
+                <div style={{ color: '#ff6600', fontWeight: 'bold' }}>txParams:</div>
+                <div>to: {dgen1Debug.txParams.to}</div>
+                <div>value: {dgen1Debug.txParams.value}</div>
+                <div>data: {dgen1Debug.txParams.data.slice(0, 20)}...{dgen1Debug.txParams.data.slice(-8)}</div>
+                <div>chainId: {dgen1Debug.txParams.chainId}</div>
+                <div>chainRPCUrl: {dgen1Debug.txParams.chainRPCUrl.slice(0, 30)}...</div>
               </div>
             )}
             <div style={{ color: '#888', marginTop: '4px', fontSize: '9px' }}>
