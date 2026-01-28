@@ -970,16 +970,19 @@ Since console logs are inaccessible on dGen1, the PokeBallShop displays debug in
 - `hash: 0x...` (if successful)
 - `error: ...` (the error message)
 - `Provider: req:true/false send:true/false sendTx:true/false`
+- `txParams`: JSON of the eth_sendTransaction params sent
 
 **Multi-Method Provider Fallback:**
 The `useTokenApproval` hook tries three provider methods in sequence:
 
 ```typescript
-// Transaction parameters (minimal, no gas/chainId)
+// Standard EIP-1193/JSON-RPC eth_sendTransaction format
+// https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_sendtransaction
 const txParams = {
-  from: account.toLowerCase(),
-  to: tokenAddress.toLowerCase(),
-  data: approveCallData,  // approve(spender, maxUint256)
+  from: account,         // Sender address (checksummed)
+  to: tokenAddress,      // USDC.e token contract (checksummed)
+  value: '0x0',          // No ETH/APE value for approve (hex format)
+  data: approveCallData, // Encoded approve(spender, maxUint256)
 };
 
 // Method 1: Standard EIP-1193

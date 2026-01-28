@@ -1554,6 +1554,11 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
                 Provider: {dgen1Debug.providerMethods}
               </div>
             )}
+            {dgen1Debug.txParams && (
+              <div style={{ color: '#888', marginTop: '4px', fontSize: '8px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: '80px', overflow: 'auto' }}>
+                <span style={{ color: '#ff6600' }}>txParams:</span> {dgen1Debug.txParams}
+              </div>
+            )}
             <div style={{ color: '#888', marginTop: '4px', fontSize: '9px' }}>
               isApproved: {isApproved ? 'YES' : 'NO'} | isApprovalConfirming: {isApprovalConfirming ? 'YES' : 'NO'}
             </div>

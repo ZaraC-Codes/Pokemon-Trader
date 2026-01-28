@@ -86,6 +86,7 @@ export interface UseTokenApprovalReturn {
     error: string | undefined;
     lastStep: string;
     providerMethods?: string; // Available methods on the provider
+    txParams?: string; // JSON string of the eth_sendTransaction params
   };
 }
 
@@ -233,6 +234,7 @@ export function useTokenApproval(
   const [dgen1Error, setDgen1Error] = useState<Error | undefined>(undefined);
   const [dgen1LastStep, setDgen1LastStep] = useState<string>('idle');
   const [dgen1ProviderMethods, setDgen1ProviderMethods] = useState<string>('');
+  const [dgen1TxParams, setDgen1TxParams] = useState<string>(''); // JSON string of txParams for debug display
 
   // Check if this is a dGen1 device (cached value for debug display)
   const isDGen1 = isEthereumPhoneAvailable();
@@ -410,14 +412,18 @@ export function useTokenApproval(
         setDgen1ProviderMethods(methodsStr);
 
         // Build the transaction object for eth_sendTransaction
-        // EIP-1193 standard format
+        // Standard EIP-1193/JSON-RPC format with all expected fields
+        // https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_sendtransaction
         const txParams = {
-          from: account.toLowerCase(),
-          to: tokenAddress.toLowerCase(),
-          data: approveCallData,
+          from: account,           // Sender address (checksummed)
+          to: tokenAddress,        // USDC.e token contract (checksummed)
+          value: '0x0',            // No ETH/APE value for approve (hex format)
+          data: approveCallData,   // Encoded approve(spender, maxUint256)
         };
 
-        console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', txParams);
+        // Store for debug display
+        setDgen1TxParams(JSON.stringify(txParams, null, 2));
+        console.log('[useTokenApproval] dGen1 eth_sendTransaction params:', JSON.stringify(txParams, null, 2));
 
         setDgen1LastStep('sending_tx');
 
@@ -519,6 +525,7 @@ export function useTokenApproval(
     error: dgen1Error?.message,
     lastStep: dgen1LastStep,
     providerMethods: dgen1ProviderMethods,
+    txParams: dgen1TxParams, // JSON string of the params sent
   } : undefined;
 
   return {
