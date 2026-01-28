@@ -963,16 +963,25 @@ The dGen1 uses ERC-4337 Account Abstraction with an ethOS browser (modified Fire
 - Error occurs with minimal transaction parameters
 
 **WalletSDK-Style Transaction Params:**
-The `useTokenApproval` hook now builds transaction params matching the EthereumPhone WalletSDK format:
+The `useTokenApproval` hook builds transaction params matching the EthereumPhone WalletSDK.TxParams format.
+
+From the [WalletSDK Transaction Guide](https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md), TxParams has ONLY 3 fields:
+```kotlin
+WalletSDK.TxParams(
+    to: String,     // Target contract address
+    value: String,  // ETH value in WEI
+    data: String    // Encoded function call data
+)
+```
+
+**IMPORTANT:** The WalletSDK internally handles chainId, RPC, bundler, and gas estimation. The web dApp should NOT pass extra fields that may confuse the injected provider.
+
 ```typescript
-// Shape modeled on https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md
+// Minimal TxParams matching WalletSDK.TxParams
 interface DGen1TxParams {
-  from: string;        // Sender address (lowercased)
-  to: string;          // Target contract (lowercased)
-  value: string;       // Wei value as decimal string ("0" for approve)
-  data: string;        // ABI-encoded function call
-  chainId: string;     // Chain ID as decimal string ("33139")
-  chainRPCUrl: string; // RPC URL for chain context
+  to: string;    // Target contract address
+  value: string; // Wei value as string ("0" for approve)
+  data: string;  // ABI-encoded function call
 }
 ```
 
@@ -985,20 +994,17 @@ Since console logs are inaccessible on dGen1, the PokeBallShop displays debug in
 - `hash: 0x...` (if successful)
 - `error: ...` (the error message)
 - `Provider: req:true/false send:true/false sendTx:true/false`
-- `txParams`: Full WalletSDK-style params (to, value, data, chainId, chainRPCUrl)
+- `txParams`: Minimal params (to, value, data) - matches WalletSDK.TxParams
 
 **Multi-Method Provider Fallback:**
 The `useTokenApproval` hook tries three provider methods in sequence:
 
 ```typescript
-// WalletSDK-style transaction params for dGen1
+// Minimal TxParams matching WalletSDK.TxParams (to, value, data only)
 const txParams: DGen1TxParams = {
-  from: account.toLowerCase(),
-  to: tokenAddress.toLowerCase(),
-  data: approveCallData,  // approve(spender, maxUint256)
+  to: tokenAddress,       // USDC.e token address
   value: '0',             // No APE being sent for approve()
-  chainId: '33139',       // ApeChain mainnet
-  chainRPCUrl: 'https://apechain-mainnet.g.alchemy.com/v2/...',
+  data: approveCallData,  // Encoded approve(spender, maxUint256)
 };
 
 // Method 1: Standard EIP-1193
@@ -1020,10 +1026,11 @@ The hook generates a structured debug object that can be sent to the EthereumPho
 interface DGen1TxDebug {
   isDGen1: boolean;
   method: string;           // Which method was attempted
-  txParams: DGen1TxParams;  // Full params sent to wallet
+  txParams: DGen1TxParams;  // Minimal params (to, value, data)
   error: string | null;     // Error message if failed
   hash: string | null;      // Tx hash if succeeded
   timestamp: string;        // ISO timestamp
+  chainId: number;          // For context only (not in txParams)
   providerInfo: {
     hasRequest: boolean;
     hasSend: boolean;

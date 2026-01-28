@@ -47,7 +47,6 @@ import {
   getDGen1Diagnostic,
   getEthereumPhoneProvider,
   getRawEthereumProvider,
-  getBundlerRpcUrl,
   type DGen1Diagnostic,
 } from '../../utils/walletDetection';
 
@@ -96,32 +95,28 @@ export interface UseTokenApprovalReturn {
 // ============================================================
 
 /**
- * Transaction parameters shaped to match the EthereumPhone WalletSDK.
+ * Transaction parameters shaped to match the EthereumPhone WalletSDK.TxParams.
  * Shape modeled on https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md
  *
- * The WalletSDK expects these fields for transactions:
- * - to: Target contract address (required)
- * - value: ETH/APE value in Wei as string (required, "0" for no value)
- * - data: Encoded function call data (required, "0x" for empty)
+ * From the guide, WalletSDK.TxParams has ONLY 3 fields:
+ * ```kotlin
+ * WalletSDK.TxParams(
+ *     to: String,     // Target contract address
+ *     value: String,  // ETH value in WEI
+ *     data: String    // Encoded function call data
+ * )
+ * ```
  *
- * Additional fields we add for context:
- * - from: Sender address (standard EIP-1193)
- * - chainId: Chain ID as string (for routing)
- * - chainRPCUrl: RPC URL for the chain (may help wallet resolve chain)
+ * IMPORTANT: The WalletSDK internally handles chainId, RPC, bundler, gas estimation.
+ * We should NOT pass extra fields that may confuse the injected provider.
  */
 export interface DGen1TxParams {
-  /** Sender address (lowercased) */
-  from: string;
-  /** Target contract address (lowercased) */
+  /** Target contract address */
   to: string;
-  /** APE/ETH value in Wei as decimal string (e.g., "0" for no value) */
+  /** APE/ETH value in Wei as string (e.g., "0" for no value) */
   value: string;
   /** ABI-encoded function call data */
   data: string;
-  /** Chain ID as decimal string (e.g., "33139" for ApeChain) */
-  chainId: string;
-  /** RPC URL for the chain (helps wallet resolve chain context) */
-  chainRPCUrl: string;
 }
 
 /**
@@ -131,10 +126,12 @@ export interface DGen1TxParams {
 export interface DGen1TxDebug {
   isDGen1: boolean;
   method: string;
+  /** The minimal TxParams sent to the wallet (to, value, data only) */
   txParams: DGen1TxParams | null;
   error: string | null;
   hash: string | null;
   timestamp: string;
+  chainId: number; // For context in debug logs
   providerInfo: {
     hasRequest: boolean;
     hasSend: boolean;
@@ -468,23 +465,16 @@ export function useTokenApproval(
         const methodsStr = `req:${providerInfo.hasRequest} send:${providerInfo.hasSend} sendTx:${providerInfo.hasSendTransaction}`;
         setDgen1ProviderMethods(methodsStr);
 
-        // Get the RPC URL for dGen1 context
-        const chainRPCUrl = getBundlerRpcUrl() || 'https://apechain-mainnet.g.alchemy.com/v2/demo';
-
         // ============================================================
         // Build WalletSDK-style transaction params for dGen1
-        // Shape modeled on https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md
+        // From the WalletSDK guide, TxParams has ONLY 3 fields: to, value, data
+        // The wallet/bundler handles chainId, RPC, gas estimation internally
+        // https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md
         // ============================================================
         const txParams: DGen1TxParams = {
-          // Standard EIP-1193 fields
-          from: account.toLowerCase(),
-          to: tokenAddress.toLowerCase(),
-          data: approveCallData,
-          // WalletSDK required field: value as decimal string
-          value: '0', // No APE being sent for approve()
-          // WalletSDK context fields
-          chainId: String(POKEBALL_GAME_CHAIN_ID), // "33139" for ApeChain
-          chainRPCUrl: chainRPCUrl,
+          to: tokenAddress,  // Target contract (USDC.e token)
+          value: '0',        // No APE being sent for approve() - decimal string
+          data: approveCallData, // Encoded approve(spender, maxUint256)
         };
 
         // Store txParams for debug display
@@ -498,6 +488,7 @@ export function useTokenApproval(
           error: null,
           hash: null,
           timestamp: new Date().toISOString(),
+          chainId: POKEBALL_GAME_CHAIN_ID, // For context only, not sent in txParams
           providerInfo: {
             hasRequest: providerInfo.hasRequest,
             hasSend: providerInfo.hasSend,

@@ -50,7 +50,10 @@
       "Bash(echo:*)",
       "Bash(node scripts/repositionPokemonV9.cjs:*)",
       "Bash(node scripts/debug/decode_pokemon_data.cjs:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git log:*)",
+      "Bash(git stash:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

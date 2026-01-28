@@ -1560,15 +1560,13 @@ export function PokeBallShop({ isOpen, onClose, playerAddress }: PokeBallShopPro
                 Provider: {dgen1Debug.providerMethods}
               </div>
             )}
-            {/* WalletSDK-style txParams display */}
+            {/* WalletSDK-style txParams display (minimal: to, value, data only) */}
             {dgen1Debug.txParams && (
               <div style={{ color: '#888', marginTop: '4px', fontSize: '9px', wordBreak: 'break-all' }}>
-                <div style={{ color: '#ff6600', fontWeight: 'bold' }}>txParams:</div>
+                <div style={{ color: '#ff6600', fontWeight: 'bold' }}>txParams (WalletSDK.TxParams):</div>
                 <div>to: {dgen1Debug.txParams.to}</div>
                 <div>value: {dgen1Debug.txParams.value}</div>
                 <div>data: {dgen1Debug.txParams.data.slice(0, 20)}...{dgen1Debug.txParams.data.slice(-8)}</div>
-                <div>chainId: {dgen1Debug.txParams.chainId}</div>
-                <div>chainRPCUrl: {dgen1Debug.txParams.chainRPCUrl.slice(0, 30)}...</div>
               </div>
             )}
             <div style={{ color: '#888', marginTop: '4px', fontSize: '9px' }}>
