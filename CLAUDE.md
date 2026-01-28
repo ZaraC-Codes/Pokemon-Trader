@@ -976,13 +976,16 @@ Since console logs are inaccessible on dGen1, the PokeBallShop displays debug in
 The `useTokenApproval` hook tries three provider methods in sequence:
 
 ```typescript
-// Standard EIP-1193/JSON-RPC eth_sendTransaction format
-// https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_sendtransaction
+// Transaction params based on WalletSDK-react-native TransactionParams interface:
+// - value is a DECIMAL string (not hex) e.g., "0" not "0x0"
+// - chainId is a number (optional)
+// - No 'from' field (SDK gets it internally from connected wallet)
+// See: https://github.com/EthereumPhone/WalletSDK-react-native/blob/main/src/index.tsx
 const txParams = {
-  from: account,         // Sender address (checksummed)
   to: tokenAddress,      // USDC.e token contract (checksummed)
-  value: '0x0',          // No ETH/APE value for approve (hex format)
+  value: '0',            // DECIMAL string, NOT hex "0x0"
   data: approveCallData, // Encoded approve(spender, maxUint256)
+  chainId: 33139,        // ApeChain mainnet as number
 };
 
 // Method 1: Standard EIP-1193
@@ -997,6 +1000,13 @@ txHash = await provider.sendTransaction(txParams);
 // Method 3: Legacy web3 style
 txHash = await provider.send('eth_sendTransaction', [txParams]);
 ```
+
+**Key Finding from WalletSDK-react-native:**
+The React Native SDK's `TransactionParams` interface reveals the expected format:
+- `value` must be a **decimal string** (e.g., `"1000000000000000000"` for 1 ETH), NOT hex format
+- `chainId` is a **number**, not a string
+- No `from` field - the SDK determines sender internally
+- See example: https://github.com/EthereumPhone/WalletSDK-react-native/blob/main/example/src/App.tsx
 
 **Provider Inspection:**
 Before sending, we log available methods:

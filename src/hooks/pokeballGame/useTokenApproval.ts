@@ -368,6 +368,7 @@ export function useTokenApproval(
     // because it needs transactions routed through its ERC-4337 bundler
     if (isDGen1) {
       console.log('[useTokenApproval] dGen1 detected - using direct eth_sendTransaction...');
+      console.log('[useTokenApproval] Using WalletSDK-react-native format: value as decimal string, no from field');
       setDgen1LastStep('getting_provider');
 
       // Try the normal provider first, fall back to raw window.ethereum
@@ -412,13 +413,16 @@ export function useTokenApproval(
         setDgen1ProviderMethods(methodsStr);
 
         // Build the transaction object for eth_sendTransaction
-        // Standard EIP-1193/JSON-RPC format with all expected fields
-        // https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_sendtransaction
+        // Based on WalletSDK-react-native TransactionParams interface:
+        // - value is a DECIMAL string (not hex) e.g., "0" not "0x0"
+        // - chainId is a number (optional)
+        // - No 'from' field (SDK gets it internally)
+        // See: https://github.com/EthereumPhone/WalletSDK-react-native/blob/main/src/index.tsx
         const txParams = {
-          from: account,           // Sender address (checksummed)
           to: tokenAddress,        // USDC.e token contract (checksummed)
-          value: '0x0',            // No ETH/APE value for approve (hex format)
+          value: '0',              // No ETH/APE value for approve (DECIMAL string, not hex)
           data: approveCallData,   // Encoded approve(spender, maxUint256)
+          chainId: POKEBALL_GAME_CHAIN_ID, // Chain ID as number (33139)
         };
 
         // Store for debug display
