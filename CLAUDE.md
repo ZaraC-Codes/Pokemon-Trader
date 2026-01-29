@@ -1142,6 +1142,79 @@ prefillBuy: {
 - Destination token/chain cannot be changed by user
 - `LazyWalletActivator` component ensures proper hook usage in ThirdwebProvider
 
+**Bridge Source Chain Configuration:**
+The ThirdWeb Universal Bridge needs to switch the user's wallet to source chains (e.g., Ethereum) during bridging. The wagmi config must include these chains:
+
+```typescript
+// src/services/apechainConfig.ts
+import { mainnet, arbitrum, base, optimism, polygon } from 'wagmi/chains';
+
+export const config = createConfig({
+  connectors,
+  chains: [apeChainMainnet, mainnet, arbitrum, base, optimism, polygon],
+  transports: {
+    [apeChainMainnet.id]: http(PRIMARY_RPC_URL),
+    [mainnet.id]: http(),      // Public RPC for bridge source chains
+    [arbitrum.id]: http(),
+    [base.id]: http(),
+    [optimism.id]: http(),
+    [polygon.id]: http(),
+  },
+  ssr: false,
+});
+```
+
+**Without these chains**, the bridge fails with: `"Chain not configured"` when attempting to switch to the source chain.
+
+**ThirdWeb ApeChain RPC Requirement:**
+The `defineChain` for ApeChain in `thirdwebConfig.ts` **must** include an explicit `rpc` field:
+
+```typescript
+export const apechain = defineChain({
+  id: 33139,
+  name: 'ApeChain Mainnet',
+  rpc: 'https://rpc.apechain.com/http',  // REQUIRED for bridge completion monitoring
+  // ...
+});
+```
+
+**Without the `rpc` field**, the bridge completes the source transaction but gets stuck in a waiting state because ThirdWeb cannot monitor ApeChain for the bridged tokens arriving.
+
+**Custom Theme (Pixel Art Style):**
+The PayEmbed widget uses a custom `pokemonTraderTheme` to match the game's pixel-art aesthetic:
+
+```typescript
+const pokemonTraderTheme = {
+  type: 'dark' as const,
+  fontFamily: "'Courier New', Courier, monospace",
+  colors: {
+    modalBg: '#1a1a1a',
+    accentText: '#00ff88',
+    accentButtonBg: '#00ff88',
+    accentButtonText: '#000000',
+    primaryButtonBg: '#00ff88',
+    primaryButtonText: '#000000',
+    borderColor: '#444444',
+    danger: '#ff4444',
+    success: '#00ff88',
+    // ... (28 color properties total)
+  },
+};
+```
+
+Key design choices:
+- Dark background (#1a1a1a) matching game UI
+- Green accent (#00ff88) for primary actions
+- Monospace font (Courier New) for pixel-art feel
+- Red danger (#ff4444) matching ball/error colors
+
+**Troubleshooting Bridge Issues:**
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "Chain not configured" error | wagmi config missing source chains | Add mainnet, arbitrum, etc. to `chains` and `transports` |
+| Bridge stuck in waiting state | ThirdWeb ApeChain `defineChain` missing `rpc` | Add `rpc: 'https://rpc.apechain.com/http'` |
+| Widget doesn't match game style | Using default `theme="dark"` | Use custom `pokemonTraderTheme` object |
+
 **Supported Methods:**
 - 95+ EVM chains supported as source
 - 17,000+ tokens supported for swapping
