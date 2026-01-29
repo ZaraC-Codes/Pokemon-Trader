@@ -39,10 +39,15 @@ export function isThirdwebConfigured(): boolean {
 
 /**
  * ApeChain Mainnet chain definition for ThirdWeb SDK v5
+ *
+ * IMPORTANT: The rpc field is required for ThirdWeb to monitor bridge
+ * transaction completion on ApeChain. Without it, the Universal Bridge
+ * cannot detect that bridged tokens arrived and gets stuck in a waiting state.
  */
 export const apechain = defineChain({
   id: 33139,
   name: 'ApeChain Mainnet',
+  rpc: 'https://rpc.apechain.com/http',
   nativeCurrency: {
     name: 'ApeCoin',
     symbol: 'APE',
