@@ -1260,7 +1260,7 @@ Set `DEBUG_TX_HISTORY = true` in the hook to enable verbose console logging:
 **Event Querying:**
 - Uses **Caldera public RPC** (`https://apechain.calderachain.xyz/http`) for historical queries
 - Caldera has NO block range limits (unlike Alchemy's 10-block free tier limit)
-- Queries 25,000 blocks (~14 hours at 2s/block) by default
+- Queries ~2.4M blocks (~7 days at 0.25s/block) by default
 - Creates separate viem `PublicClient` for historical event fetching
 - Uses manual `eth_getLogs` polling for real-time updates (2s interval)
 - Filters events by player address (indexed parameter: `buyer`, `thrower`, `catcher`)
