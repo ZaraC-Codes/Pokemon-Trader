@@ -25,7 +25,7 @@ Pokemon Trader is a 2D pixel-art, Pokemon-style game on **ApeChain** where playe
 - **Gasless Throws** – Sign a message to throw; the platform pays Entropy fees from reserves
 - **Multi-Wallet Support** – Connect via RainbowKit with 50+ options including MetaMask, Rainbow, and WalletConnect
 - **Glyph Wallet** – ApeChain-optimized wallet with fast onboarding and built-in swaps
-- **dGen1/EthereumPhone** – Experimental support for ethOS devices with ERC-4337 (square touchscreen UI)
+- **dGen1/EthereumPhone** – Experimental support for ethOS devices with ERC-4337 (square touchscreen UI). Requires the ethOS system wallet browser and may not support all transaction types yet (see `docs/WALLET_INTEGRATION.md`)
 - **Cross-Chain Funding** – Buy APE or USDC.e from any chain via ThirdWeb Universal Bridge
 - **Provably Fair** – Pyth Entropy provides verifiable randomness for catches and NFT selection
 - **Bike Rental** – 2x movement speed boost for faster exploration
@@ -53,7 +53,7 @@ This implementation was selected as the **winner** of the Pixelverse / Slab.cash
 - npm or yarn
 - A Web3 wallet connected to **ApeChain Mainnet (Chain ID 33139)**:
   - Desktop: MetaMask, Rainbow, WalletConnect, Coinbase, Ledger, and 50+ more via RainbowKit
-  - Mobile: **Glyph Wallet** (recommended), or any WalletConnect-compatible wallet
+  - Mobile: **Glyph Wallet** (recommended), or any WalletConnect-compatible wallet. On mobile, open the game URL in the wallet's built-in browser (e.g., Glyph's in-app browser); regular mobile browsers won't be connected to your wallet.
   - Experimental: **dGen1/EthereumPhone** (ethOS, square touchscreen)
 
 ### Environment Setup
@@ -111,6 +111,7 @@ The app supports multiple wallet options out of the box:
 
 3. **dGen1/EthereumPhone** (experimental)
    - For ethOS Android devices with square touchscreens
+   - Requires the ethOS system wallet browser; other browsers on the device are not supported
    - Appears at the top of the wallet picker on compatible devices
    - Supports ERC-4337 Account Abstraction
    - Some transaction types may have known issues (see `docs/WALLET_INTEGRATION.md`)
@@ -275,9 +276,9 @@ See `CLAUDE.md` for full script documentation and Hardhat tasks.
 
 ### Devices
 - Desktop (Windows, macOS, Linux)
-- Mobile (iPhone, Android)
+- Mobile (iPhone, Android) – via wallet in-app browsers such as Glyph or WalletConnect; standalone mobile browsers are not supported
 - Tablet
-- **dGen1/EthereumPhone** (ethOS, 2.5"–3" square touchscreen) – experimental
+- **dGen1/EthereumPhone** (ethOS, 2.5"–3" square touchscreen) – use the ethOS system wallet browser; still experimental
 
 ### Screen Sizes
 - Desktop: 1024px+
