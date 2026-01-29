@@ -95,6 +95,50 @@ const LazyThirdwebProvider = lazy(async () => {
 });
 
 // ============================================================
+// CUSTOM THEME - Pixel art style matching game UI
+// ============================================================
+
+/**
+ * Custom ThirdWeb theme matching the Pokemon Trader pixel-art aesthetic.
+ * Dark background, green accents, monospace font.
+ */
+const pokemonTraderTheme = {
+  type: 'dark' as const,
+  fontFamily: "'Courier New', Courier, monospace",
+  colors: {
+    modalBg: '#1a1a1a',
+    modalOverlayBg: 'rgba(0, 0, 0, 0.9)',
+    primaryText: '#e0e0e0',
+    secondaryText: '#888888',
+    accentText: '#00ff88',
+    accentButtonBg: '#00ff88',
+    accentButtonText: '#000000',
+    primaryButtonBg: '#00ff88',
+    primaryButtonText: '#000000',
+    secondaryButtonBg: '#2a2a2a',
+    secondaryButtonHoverBg: '#3a3a3a',
+    secondaryButtonText: '#e0e0e0',
+    connectedButtonBg: '#2a2a2a',
+    connectedButtonBgHover: '#3a3a3a',
+    borderColor: '#444444',
+    separatorLine: '#333333',
+    tertiaryBg: '#2a2a2a',
+    skeletonBg: '#333333',
+    selectedTextBg: '#00ff88',
+    selectedTextColor: '#000000',
+    scrollbarBg: '#333333',
+    danger: '#ff4444',
+    success: '#00ff88',
+    tooltipBg: '#2a2a2a',
+    tooltipText: '#e0e0e0',
+    inputAutofillBg: '#2a2a2a',
+    secondaryIconColor: '#888888',
+    secondaryIconHoverBg: '#3a3a3a',
+    secondaryIconHoverColor: '#00ff88',
+  },
+};
+
+// ============================================================
 // TYPE DEFINITIONS
 // ============================================================
 
@@ -448,7 +492,7 @@ function PayEmbedWithProvider({
           <div style={styles.widgetContainer}>
             <LazyPayEmbed
             client={thirdwebClient}
-            theme="dark"
+            theme={pokemonTraderTheme}
             payOptions={{
               mode: 'fund_wallet',
               metadata: {
