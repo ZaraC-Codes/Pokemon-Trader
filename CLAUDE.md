@@ -769,6 +769,15 @@ npm run dev
 - Requires DEPLOYER_PRIVATE_KEY set in .env.local and must be owner wallet
 - Withdrawn funds go to treasury wallet, can be reused for more testing
 
+**Player catches Pokemon but wins no NFT (nftTokenId is 0):**
+- Cause: SlabMachine delivers NFTs via `transferFrom()` (not `safeTransferFrom()`), so `onERC721Received()` never fires and NFTs are not tracked in `nftInventory`
+- Symptom: `CaughtPokemon` event emits `nftTokenId: 0`, win modal showed broken display (now fixed)
+- Fix 1: **NFT Recovery Worker** (`nft-recovery-worker/`) runs every minute via Cloudflare Cron, auto-recovers untracked NFTs by calling `batchRecoverUntrackedNFTs()` and `resetPendingRequestCount()`
+- Fix 2: **App.tsx** now checks `nftTokenId > 0` before showing CatchWinModal; shows warning toast when inventory was empty
+- Recovery window: ~60 seconds max between NFT arriving and being tracked
+- Health check: `curl https://nft-recovery-worker.pokeballgame.workers.dev/`
+- Manual recovery: `curl -X POST https://nft-recovery-worker.pokeballgame.workers.dev/recover`
+
 **Ball inventory shows in UI but throws fail with "InsufficientBalls":**
 - Cause: `BallInventoryManager` singleton not synced from on-chain data
 - Symptom: `usePlayerBallInventory` shows correct counts but Phaser's `CatchMechanicsManager` sees 0 balls
@@ -4129,7 +4138,9 @@ When metadata includes `attributes` array, they're shown in a 2-column grid:
 - `catchWinShimmer` - Loading skeleton shimmer
 
 **Integration in App.tsx:**
-Already wired - listens for `CaughtPokemon` events and shows modal automatically for current user's catches.
+Already wired — listens for `CaughtPokemon` events and shows modal automatically for current user's catches.
+- **Only shows when `nftTokenId > 0`** — if inventory was empty at catch time, a warning toast is shown instead of the win modal
+- This prevents a broken modal displaying token ID 0 when no NFT was actually awarded
 
 ### useNFTMetadata Hook
 Hook for fetching NFT metadata from tokenURI:
