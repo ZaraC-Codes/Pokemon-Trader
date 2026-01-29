@@ -292,6 +292,13 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   ├── tsconfig.json            # TypeScript config
 │   └── README.md                # Deployment instructions
 │
+├── nft-recovery-worker/     # Cloudflare Worker for auto-recovering untracked NFTs
+│   ├── src/
+│   │   └── index.ts             # Recovery worker entry point (cron every 1 min)
+│   ├── package.json             # Worker dependencies
+│   ├── wrangler.toml            # Cloudflare Workers config + cron trigger
+│   └── tsconfig.json            # TypeScript config
+│
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
     ├── abi_SlabMachine.json     # Slab Machine ABI
@@ -431,6 +438,7 @@ See `contracts/addresses.json` and `contracts/wallets.json` for full configurati
 |---------|-----|
 | **Frontend (Vercel)** | `https://pokemon-trader-gamma.vercel.app` |
 | **Gasless Relayer (Cloudflare)** | `https://pokeball-relayer.pokeballgame.workers.dev` |
+| **NFT Recovery Worker (Cloudflare)** | `https://nft-recovery-worker.pokeballgame.workers.dev` |
 
 ## Coding Conventions
 
@@ -3586,6 +3594,65 @@ Error Response:
 ```
 
 See `/relayer/README.md` for complete documentation.
+
+### NFT Recovery Worker (Cloudflare)
+
+Automated Cloudflare Worker that detects and recovers untracked NFTs in SlabNFTManager.
+
+**Problem:** SlabMachine uses `transferFrom()` instead of `safeTransferFrom()` when delivering NFTs after VRF callback. This means `onERC721Received()` is never called and NFTs arrive without being tracked in the `nftInventory` array. Players who catch Pokemon when inventory appears empty get `nftTokenId: 0` (no NFT awarded).
+
+**Solution:** Cron-triggered worker (every 1 minute) that:
+1. Compares `balanceOf()` (actual NFTs owned) vs `getInventoryCount()` (tracked inventory)
+2. If mismatch → calls `batchRecoverUntrackedNFTs()` to add them to inventory
+3. Resets stuck `pendingRequestCount` if > 0
+
+**Location:** `nft-recovery-worker/`
+
+**Deployed:** `https://nft-recovery-worker.pokeballgame.workers.dev`
+
+**Endpoints:**
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` or `/health` | Health check with inventory status JSON |
+| POST | `/recover` | Manual trigger for recovery |
+| Cron | `* * * * *` | Auto-recovery every minute |
+
+**Health Check Response:**
+```json
+{
+  "status": "ok",
+  "worker": "nft-recovery-worker",
+  "contract": "0xbbdfa19f9719f9d9348F494E07E0baB96A85AA71",
+  "actualNFTBalance": "2",
+  "trackedInventory": "2",
+  "untrackedNFTs": "0",
+  "pendingRequests": "0",
+  "needsRecovery": false
+}
+```
+
+**Setup:**
+```bash
+cd nft-recovery-worker
+npm install
+npx wrangler login                           # If not already logged in
+npx wrangler secret put RELAYER_PRIVATE_KEY   # Same owner wallet key
+npx wrangler deploy                           # Deploy with cron trigger
+```
+
+**Configuration (`wrangler.toml`):**
+- `SLAB_NFT_MANAGER_ADDRESS`: SlabNFTManager proxy
+- `SLAB_NFT_ADDRESS`: Slab NFT (ERC-721) contract
+- `SCAN_START_ID` / `SCAN_END_ID`: Token ID range to scan for untracked NFTs (default 0-500)
+- `RELAYER_PRIVATE_KEY`: Owner wallet (secret, set via `wrangler secret put`)
+
+**Recovery Window:** NFTs arriving via SlabMachine `transferFrom` will be auto-recovered within ~60 seconds. Players catching Pokemon during that brief window will see a warning toast ("NFT inventory was empty") instead of a broken win modal.
+
+**Frontend Safeguard (App.tsx):**
+When `CaughtPokemon` event has `nftTokenId === 0`:
+- Does NOT show CatchWinModal (prevents false NFT display)
+- Shows warning toast: "Pokémon caught! But the NFT inventory was empty — no NFT awarded this time."
+- This is a fallback — with the worker running, this should rarely trigger
 
 ### usePurchaseBalls Error Handling
 The `usePurchaseBalls` hook now includes robust error handling that prevents failed transactions:
