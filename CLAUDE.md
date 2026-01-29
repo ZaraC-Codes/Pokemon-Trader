@@ -962,49 +962,30 @@ The dGen1 uses ERC-4337 Account Abstraction with an ethOS browser (modified Fire
 - Transaction never reaches wallet confirmation UI
 - Error occurs with minimal transaction parameters
 
-**WalletSDK-Style Transaction Params:**
-The `useTokenApproval` hook builds transaction params matching the EthereumPhone WalletSDK.TxParams format.
-
-From the [WalletSDK Transaction Guide](https://github.com/EthereumPhone/WalletSDK/blob/main/WalletSDK_Transaction_Guide.md), TxParams has ONLY 3 fields:
-```kotlin
-WalletSDK.TxParams(
-    to: String,     // Target contract address
-    value: String,  // ETH value in WEI
-    data: String    // Encoded function call data
-)
-```
-
-**IMPORTANT:** The WalletSDK internally handles chainId, RPC, bundler, and gas estimation. The web dApp should NOT pass extra fields that may confuse the injected provider.
-
-```typescript
-// Minimal TxParams matching WalletSDK.TxParams
-interface DGen1TxParams {
-  to: string;    // Target contract address
-  value: string; // Wei value as string ("0" for approve)
-  data: string;  // ABI-encoded function call
-}
-```
-
 **On-Screen Debug Panel:**
 Since console logs are inaccessible on dGen1, the PokeBallShop displays debug info:
 - `isDGen1: true/false`
 - `isApproving: true/false`
 - `lastStep`: `idle | building_tx | sending_tx | request_failed | trying_sendTransaction | sendTransaction_failed | trying_send | send_failed | tx_submitted | error`
-- `method`: Which provider method was used (`request:eth_sendTransaction`, `sendTransaction`, `send:eth_sendTransaction`)
 - `hash: 0x...` (if successful)
 - `error: ...` (the error message)
 - `Provider: req:true/false send:true/false sendTx:true/false`
-- `txParams`: Minimal params (to, value, data) - matches WalletSDK.TxParams
+- `txParams`: JSON of the eth_sendTransaction params sent
 
 **Multi-Method Provider Fallback:**
 The `useTokenApproval` hook tries three provider methods in sequence:
 
 ```typescript
-// Minimal TxParams matching WalletSDK.TxParams (to, value, data only)
-const txParams: DGen1TxParams = {
-  to: tokenAddress,       // USDC.e token address
-  value: '0',             // No APE being sent for approve()
-  data: approveCallData,  // Encoded approve(spender, maxUint256)
+// Transaction params based on WalletSDK-react-native TransactionParams interface:
+// - value is a DECIMAL string (not hex) e.g., "0" not "0x0"
+// - chainId is a number (optional)
+// - No 'from' field (SDK gets it internally from connected wallet)
+// See: https://github.com/EthereumPhone/WalletSDK-react-native/blob/main/src/index.tsx
+const txParams = {
+  to: tokenAddress,      // USDC.e token contract (checksummed)
+  value: '0',            // DECIMAL string, NOT hex "0x0"
+  data: approveCallData, // Encoded approve(spender, maxUint256)
+  chainId: 33139,        // ApeChain mainnet as number
 };
 
 // Method 1: Standard EIP-1193
@@ -1020,32 +1001,24 @@ txHash = await provider.sendTransaction(txParams);
 txHash = await provider.send('eth_sendTransaction', [txParams]);
 ```
 
-**Debug Object for EthereumPhone Team:**
-The hook generates a structured debug object that can be sent to the EthereumPhone team:
-```typescript
-interface DGen1TxDebug {
-  isDGen1: boolean;
-  method: string;           // Which method was attempted
-  txParams: DGen1TxParams;  // Minimal params (to, value, data)
-  error: string | null;     // Error message if failed
-  hash: string | null;      // Tx hash if succeeded
-  timestamp: string;        // ISO timestamp
-  chainId: number;          // For context only (not in txParams)
-  providerInfo: {
-    hasRequest: boolean;
-    hasSend: boolean;
-    hasSendTransaction: boolean;
-    isEthereumPhone: boolean | undefined;
-  };
-}
-```
+**Key Finding from WalletSDK-react-native:**
+The React Native SDK's `TransactionParams` interface reveals the expected format:
+- `value` must be a **decimal string** (e.g., `"1000000000000000000"` for 1 ETH), NOT hex format
+- `chainId` is a **number**, not a string
+- No `from` field - the SDK determines sender internally
+- See example: https://github.com/EthereumPhone/WalletSDK-react-native/blob/main/example/src/App.tsx
 
-**Console Logs for Debugging:**
-When dGen1 is detected, detailed logs are output:
-- `[useTokenApproval] === dGen1 DEBUG OBJECT (for EthereumPhone team) ===`
-- `[useTokenApproval] dGen1 WalletSDK-style txParams: {...}`
-- On failure: `[useTokenApproval] === dGen1 DEBUG OBJECT (FAILED) ===`
-- On success: `[useTokenApproval] === dGen1 DEBUG OBJECT (SUCCESS) ===`
+**Provider Inspection:**
+Before sending, we log available methods:
+```typescript
+const providerInfo = {
+  keys: Object.keys(provider).slice(0, 10),
+  hasRequest: typeof provider.request === 'function',
+  hasSend: typeof provider.send === 'function',
+  hasSendTransaction: typeof provider.sendTransaction === 'function',
+  isEthereumPhone: provider.isEthereumPhone,
+};
+```
 
 **Testing dGen1 Approvals:**
 1. Open game in ethOS built-in browser (NOT Chrome/Firefox)
@@ -1054,14 +1027,12 @@ When dGen1 is detected, detailed logs are output:
 4. Click "Approve" button
 5. Watch the debug panel for:
    - Which provider method was attempted
-   - The WalletSDK-style txParams that were sent
    - Which step failed (`request_failed`, `sendTransaction_failed`, `send_failed`)
    - The error message
 
 **Programmatic Diagnostics:**
 ```typescript
 import { getDGen1Diagnostic, logDGen1Diagnostic } from './utils/walletDetection';
-import { type DGen1TxParams, type DGen1TxDebug } from './hooks/pokeballGame';
 
 // Get diagnostic object
 const diag = await getDGen1Diagnostic();
@@ -1289,7 +1260,7 @@ Set `DEBUG_TX_HISTORY = true` in the hook to enable verbose console logging:
 **Event Querying:**
 - Uses **Caldera public RPC** (`https://apechain.calderachain.xyz/http`) for historical queries
 - Caldera has NO block range limits (unlike Alchemy's 10-block free tier limit)
-- Queries 25,000 blocks (~14 hours at 2s/block) by default
+- Queries ~2.4M blocks (~7 days at 0.25s/block) by default
 - Creates separate viem `PublicClient` for historical event fetching
 - Uses manual `eth_getLogs` polling for real-time updates (2s interval)
 - Filters events by player address (indexed parameter: `buyer`, `thrower`, `catcher`)

@@ -136,8 +136,11 @@ const PUBLIC_RPC_URL = 'https://rpc.apechain.com/http';
 // Debug flag - set to true to enable verbose logging
 const DEBUG_TX_HISTORY = true;
 
-// How many blocks to search (~12 hours at 2s/block = 21,600 blocks)
-const DEFAULT_LOOKBACK_BLOCKS = BigInt(25000);
+// How many blocks to search
+// ApeChain has ~0.25s block time (Arbitrum Orbit L2)
+// 2,419,200 blocks = ~7 days at 0.25s/block
+// Caldera public RPC has no block range limits, so this is safe
+const DEFAULT_LOOKBACK_BLOCKS = BigInt(2_419_200);
 
 // Ball prices in USDC (6 decimals)
 const BALL_PRICES_USDC: Record<number, bigint> = {
