@@ -248,6 +248,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   ├── EXECUTIVE_SUMMARY.md     # Project summary
 │   ├── implementation_plan.md   # Development roadmap
 │   ├── pop_vrng_integration.md  # POP VRNG integration guide
+│   ├── PRD.md                   # Product Requirements Document (v1)
 │   ├── WALLET_CONFIG.md         # Wallet setup guide
 │   ├── UUPS_UPGRADE_GUIDE.md    # UUPS proxy upgrade documentation
 │   ├── SETUP_POKEBALL_GAME.md   # PokeballGame integration setup guide
@@ -4600,6 +4601,7 @@ Helper functions:
 ## Documentation
 
 Comprehensive documentation available in `docs/`:
+- `PRD.md` - **Product Requirements Document (v1)** — goals, user flows, functional/non-functional requirements
 - `README_DOCUMENTATION.md` - Documentation index
 - `EXECUTIVE_SUMMARY.md` - Project overview
 - `implementation_plan.md` - Development roadmap
