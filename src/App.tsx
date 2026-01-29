@@ -182,21 +182,30 @@ function AppContent() {
       console.log('[App] Closing CatchAttemptModal via setSelectedPokemon(null)...');
       setSelectedPokemon(null);
 
-      // Show the win modal
-      console.log('[App] Setting catchWin state to show CatchWinModal:', {
-        tokenId: latestEvent.args.nftTokenId?.toString(),
-        pokemonId: latestEvent.args.pokemonId?.toString(),
-        txHash: latestEvent.transactionHash,
-      });
-      setCatchWin({
-        tokenId: latestEvent.args.nftTokenId,
-        pokemonId: latestEvent.args.pokemonId,
-        txHash: latestEvent.transactionHash ?? undefined,
-      });
+      // Check if an NFT was actually awarded (nftTokenId > 0)
+      // nftTokenId is 0 when inventory was empty at catch time (SlabMachine transferFrom bug)
+      const nftTokenId = latestEvent.args.nftTokenId;
+      const hasNFT = nftTokenId !== undefined && nftTokenId > 0n;
 
-      // Show a success toast
-      addToast('You caught a Pokemon!', 'success');
-      console.log('[App] CatchWinModal should now be visible');
+      if (hasNFT) {
+        // Show the win modal with NFT details
+        console.log('[App] Setting catchWin state to show CatchWinModal:', {
+          tokenId: nftTokenId.toString(),
+          pokemonId: latestEvent.args.pokemonId?.toString(),
+          txHash: latestEvent.transactionHash,
+        });
+        setCatchWin({
+          tokenId: nftTokenId,
+          pokemonId: latestEvent.args.pokemonId,
+          txHash: latestEvent.transactionHash ?? undefined,
+        });
+        addToast('You caught a Pokémon and won an NFT!', 'success');
+        console.log('[App] CatchWinModal should now be visible');
+      } else {
+        // Pokemon was caught but no NFT was available in inventory
+        console.log('[App] Pokemon caught but nftTokenId is 0 — no NFT in inventory');
+        addToast('Pokémon caught! But the NFT inventory was empty — no NFT awarded this time.', 'warning');
+      }
     }
   }, [caughtEvents, account, addToast, queryClient]);
 
