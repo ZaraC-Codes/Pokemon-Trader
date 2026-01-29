@@ -8,6 +8,7 @@ import {
 } from '@rainbow-me/rainbowkit/wallets';
 import { createConfig, http } from 'wagmi';
 import { defineChain } from 'viem';
+import { mainnet, arbitrum, base, optimism, polygon } from 'wagmi/chains';
 import { dGen1Wallet, glyphWallet } from '../connectors/customWallets';
 import { logWalletDetectionStatus } from '../utils/walletDetection';
 
@@ -117,10 +118,17 @@ const connectors = connectorsForWallets(
  */
 export const config = createConfig({
   connectors,
-  chains: [apeChainMainnet],
+  // ApeChain is the primary chain; others are included so the ThirdWeb
+  // FundingWidget bridge can switch to source chains (Ethereum, Arbitrum, etc.)
+  chains: [apeChainMainnet, mainnet, arbitrum, base, optimism, polygon],
   transports: {
-    // Use environment-appropriate RPC (proxy in dev, Caldera in prod)
     [apeChainMainnet.id]: http(PRIMARY_RPC_URL),
+    // Public RPCs for bridge source chains (only used for chain switching)
+    [mainnet.id]: http(),
+    [arbitrum.id]: http(),
+    [base.id]: http(),
+    [optimism.id]: http(),
+    [polygon.id]: http(),
   },
   ssr: false,
 });
