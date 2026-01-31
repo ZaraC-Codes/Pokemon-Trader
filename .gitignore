@@ -57,6 +57,7 @@ listings-output.txt
 .env
 .env.local
 .env.*.local
+.env.vercel
 *.key
 *.pem
 *private*
