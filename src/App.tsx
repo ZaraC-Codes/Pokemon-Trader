@@ -15,6 +15,8 @@ import { CatchWinModal } from './components/CatchWinModal';
 import { CatchResultModal, type CatchResultState } from './components/CatchResultModal';
 import { AdminDevTools } from './components/AdminDevTools';
 import { HelpModal } from './components/HelpModal';
+import { ModeSwitcher } from './components/ModeSwitcher';
+import { ComingSoon } from './components/ComingSoon';
 import { useCaughtPokemonEvents, useFailedCatchEvents, useBallPurchasedEvents, type BallType } from './hooks/pokeballGame';
 import { useActiveWeb3React } from './hooks/useActiveWeb3React';
 import { contractService } from './services/contractService';
@@ -93,6 +95,25 @@ function AppContent() {
   const [showHelp, setShowHelp] = useState(false);
   // Music disabled
   // const [isMusicPlaying, setIsMusicPlaying] = useState(true);
+
+  // Game mode: 'adventure' (overworld) or 'easy' (coming soon)
+  const [gameMode, setGameMode] = useState<'adventure' | 'easy'>(() =>
+    window.location.pathname === '/easy' ? 'easy' : 'adventure'
+  );
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handler = () => setGameMode(
+      window.location.pathname === '/easy' ? 'easy' : 'adventure'
+    );
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []);
+
+  const handleModeSwitch = useCallback((mode: 'adventure' | 'easy') => {
+    window.history.pushState({}, '', mode === 'easy' ? '/easy' : '/adventure');
+    setGameMode(mode);
+  }, []);
 
   // Check for dev mode via URL param or localStorage
   const isDevMode = typeof window !== 'undefined' && (
@@ -640,6 +661,13 @@ function AppContent() {
       }}
     >
       <WalletConnector />
+      <ModeSwitcher currentMode={gameMode} onSwitch={handleModeSwitch} />
+
+      {gameMode === 'easy' ? (
+        <ComingSoon onBack={() => handleModeSwitch('adventure')} />
+      ) : null}
+
+      {gameMode === 'adventure' && <>
       <GameCanvas
         onTradeClick={handleTradeClick}
         onPokemonClick={handlePokemonClick}
@@ -799,6 +827,7 @@ function AppContent() {
       <HelpModal isOpen={showHelp} onClose={handleCloseHelp} />
 
       {/* Music disabled */}
+      </>}
     </div>
   );
 }

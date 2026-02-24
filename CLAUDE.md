@@ -5,8 +5,9 @@
 Pokemon Trader is a 2D pixel art game built on ApeChain that integrates Web3 functionality. Users can explore a Pokemon-style game world, interact with NPCs, view OTC marketplace trade listings as in-game icons, manage NFT inventory, and participate in NFT transactions.
 
 - **Version**: 0.0.1
-- **Status**: Active development
+- **Status**: Active development, **mode routing** added (`/adventure` active, `/easy` coming soon), **Vercel SPA fallback** configured
 - **Network**: ApeChain Mainnet (Chain ID: 33139)
+- **Domain**: `ape.catchem.gg` (landing page at `catchem.gg` in Solana repo)
 
 ## Tech Stack
 
@@ -105,6 +106,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   │   ├── HelpModal/               # How to Play help modal
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── HelpModal.tsx            # Game instructions + ball info
+│   │   ├── ModeSwitcher.tsx           # ADVENTURE / EASY mode toggle buttons
+│   │   ├── ComingSoon.tsx             # "Easy Mode — Coming Soon" placeholder
 │   │   └── FundingWidget/           # Cross-chain funding widget
 │   │       ├── index.ts                 # Barrel export
 │   │       └── FundingWidget.tsx        # Bridge/swap/buy modal
@@ -300,6 +303,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   ├── wrangler.toml            # Cloudflare Workers config + cron trigger
 │   └── tsconfig.json            # TypeScript config
 │
+├── vercel.json             # Vercel SPA fallback rewrites (/ → index.html)
+│
 └── [root files]
     ├── abi.json                 # OTC Marketplace ABI
     ├── abi_SlabMachine.json     # Slab Machine ABI
@@ -360,6 +365,26 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 | `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
+| `src/components/ModeSwitcher.tsx` | ADVENTURE / EASY mode toggle (top center) |
+| `src/components/ComingSoon.tsx` | "Easy Mode — Coming Soon" full-screen placeholder |
+| `vercel.json` | Vercel SPA fallback rewrites for `/easy` and `/adventure` routes |
+
+## App Routing
+
+Uses vanilla History API pathname detection (no react-router-dom), matching the Solana port's approach.
+
+| URL | Behavior |
+|-----|----------|
+| `/` or `/adventure` | Adventure mode — full overworld game |
+| `/easy` | "Easy Mode — Coming Soon" placeholder |
+
+**Key components:**
+- `App.tsx`: `gameMode` state from `window.location.pathname`, `popstate` listener for browser back/forward, `handleModeSwitch()` updates URL via `history.pushState()`
+- `ModeSwitcher`: Two-button toggle (ADVENTURE / EASY) fixed at top center
+- `ComingSoon`: Full-screen overlay shown when `gameMode === 'easy'`
+- `vercel.json`: SPA fallback rewrite so direct navigation to `/easy` or `/adventure` doesn't 404
+
+**Domain:** `ape.catchem.gg` — landing page at `catchem.gg` (in Solana repo's `landing/` directory) redirects here.
 
 ## Architecture Patterns
 
