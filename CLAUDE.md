@@ -450,7 +450,7 @@ Uses vanilla History API pathname detection (no react-router-dom), matching the 
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | **USDC.e** | `0xF1815bd50389c46847f0Bda824eC8da914045D14` |
 | **WAPE (Wrapped APE)** | `0x48b62137EdfA95a428D35C09E44256a739F6B557` |
-| **PokeballGame Implementation (v1.9.0)** | `0x308c619d850fc3C38CD61dD286A2a6B4Fa387Ef4` |
+| **PokeballGame Implementation (v1.10.0)** | `0x99D5eF99a4C404Ff81f09EB2942D8BFfe0be6304` |
 | **SlabNFTManager Implementation (v2.4.0)** | `0xCaFcB2606F8Fae7A2B44f9293920d4cE179ABd2c` |
 | **Camelot Router (AMMv3)** | `0xC69Dc28924930583024E067b2B3d773018F4EB52` |
 | **Pyth Entropy** | `0x36825bf3Fbdf5a29E2d5148bfe7Dcf7B5639e320` |
@@ -1797,7 +1797,9 @@ Pokemon catching mini-game with provably fair mechanics:
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
-- Implementation (v1.8.0): `0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c` (deployed 2026-01-25)
+- Implementation (v1.10.0): `0x99D5eF99a4C404Ff81f09EB2942D8BFfe0be6304` (deployed 2026-02-24)
+- Implementation (v1.9.0): `0x308c619d850fc3C38CD61dD286A2a6B4Fa387Ef4` (superseded)
+- Implementation (v1.8.0): `0x22a82EBBC2BC26fAd59C932Dc2376667b056B06c` (superseded)
 - Implementation (v1.7.0): `0xc087bCcFF99431787d4C38bb3378d45726Dc7DE4` (superseded)
 - Implementation (v1.6.0): `0x363f32ca7Cf83a215aDef4B139a47cAd323F1482` (superseded)
 - Implementation (v1.5.0): `0xc3EB6a8C02b6E6013B95492eC3Dc15333c52A89E` (superseded)

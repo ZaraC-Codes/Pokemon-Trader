@@ -6,8 +6,8 @@
   "contracts": {
     "pokeballGame": {
       "proxy": "0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f",
-      "implementation": "0x308c619d850fc3C38CD61dD286A2a6B4Fa387Ef4",
-      "version": "1.9.0"
+      "implementation": "0x99D5eF99a4C404Ff81f09EB2942D8BFfe0be6304",
+      "version": "1.10.0"
     },
     "camelotRouter": "0xC69Dc28924930583024E067b2B3d773018F4EB52",
     "slabNFTManager": {
@@ -203,6 +203,24 @@
       "getEffectiveMaxActivePokemon() - View current effective max",
       "PokemonRepositioned, PokemonDespawned, MaxActivePokemonUpdated events",
       "SlotNotOccupied, InvalidCoordinate, MaxActivePokemonExceeded, InvalidMaxActivePokemon errors"
+    ]
+  },
+  "upgrade_v1_10_0": {
+    "timestamp": "2026-02-24T00:00:00.000Z",
+    "oldImplementation": "0x308c619d850fc3C38CD61dD286A2a6B4Fa387Ef4",
+    "newImplementation": "0x99D5eF99a4C404Ff81f09EB2942D8BFfe0be6304",
+    "upgrader": "0x47c11427B9f0DF4e8bdB674f5e23C8E994befC06",
+    "upgradeTxHash": "0x7af344afe49c2651af9ff1f9766d655b22ea53027476e0c5c26350eb596cfe3f",
+    "initTxHash": "0xe600b4847af62bba208367f24b2b9518cb81767004ddf8b30756a48ddfdfff04",
+    "treasuryWalletB": "0x1D1d0E6eF415f2BAe0c21939c50Bc4ffBeb65c74",
+    "changes": [
+      "Dual treasury split: 3% fee split into 1.5% treasury A + 1.5% treasury B",
+      "treasuryWalletB storage variable for second treasury",
+      "accumulatedUSDCFeesB separate fee accumulator for treasury B",
+      "setTreasuryWalletB(address) - Set treasury wallet B independently",
+      "setTreasuryWallets(addressA, addressB) - Set both treasury wallets atomically",
+      "initializeV1100() splits existing accumulated fees 50/50",
+      "APE withdrawal functions unchanged (operational, single wallet)"
     ]
   }
 }
