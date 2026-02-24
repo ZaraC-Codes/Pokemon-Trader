@@ -2,10 +2,13 @@
 
 Pokemon Trader is a 2D pixel-art, Pokemon-style game on **ApeChain** where players buy Poke Balls with APE or USDC.e, explore the map, and attempt to catch Pokemon for a chance to win real **Pokemon card NFTs** from the Slab collection. The game features gasless throws, provably fair randomness via Pyth Entropy, and a self-sustaining NFT pool that auto-purchases new cards as players spend.
 
+> **Solana Version:** A separate Solana implementation exists in its own repository with a dedicated README. This README covers the **ApeChain** build only (Wagmi/Viem/RainbowKit, APE/USDC.e, Pyth Entropy). The landing page at `catchem.gg` redirects to this ApeChain app at `ape.catchem.gg`.
+
 ---
 
 ## What's New (v1.9.0 / v2.4.0)
 
+- **Two Game Modes** – Adventure (overworld exploration) and Encounter (single-screen practice scene).
 - **Gasless Throws (v1.8.0+)** – Players sign a message; a relayer pays gas. No wallet popups for throws.
 - **Spawn Management (v1.9.0)** – Owner can reposition or despawn Pokemon without disrupting gameplay.
 - **Auto-Purchase Loop (v2.4.0)** – SlabNFTManager now loops purchases until 20 NFTs OR funds depleted.
@@ -21,6 +24,9 @@ Pokemon Trader is a 2D pixel-art, Pokemon-style game on **ApeChain** where playe
 ## Features
 
 - **Pixel Art Pokemon Game** – Explore a 2D world, find wild Pokemon, and throw balls to catch them
+- **Two Game Modes**
+  - **Adventure** – Full overworld exploration with up to 20 scattered Pokemon, limited attempts per Pokemon, and relocation after 3 failed throws
+  - **Encounter** – Single-screen encounter scene with one centered Pokemon, unlimited throws, no visible relocation — ideal for learning the mechanics
 - **Win Real NFTs** – Successful catches award Pokemon card NFTs from the Slab collection
 - **Gasless Throws** – Sign a message to throw; the platform pays Entropy fees from reserves
 - **Multi-Wallet Support** – Connect via RainbowKit with 50+ options including MetaMask, Rainbow, and WalletConnect
@@ -150,15 +156,14 @@ This generates an optimized build in the `dist` folder, which can be deployed to
    - Higher tier balls (Great, Ultra, Master) have better catch rates
    - Max $49.90 per transaction
 
-2. **Explore the map**
-   - Use keyboard (WASD/arrows) or tap-to-move on touch devices
-   - Look for wild Pokemon spawns (up to 20 active at once)
-   - Rent a bike for 2x movement speed
+2. **Choose your mode**
+   - Use the **ADVENTURE / ENCOUNTER** toggle at the top of the screen (or navigate to `/adventure` or `/easy`)
+   - **Adventure** – Full overworld map with up to 20 scattered Pokemon. Walk around using keyboard (WASD/arrows) or tap-to-move, rent a bike for 2x speed, and get within catch range to throw. Each Pokemon allows 3 attempts before relocating to a new spot.
+   - **Encounter** – A dedicated single-screen scene with one centered Pokemon. Tap the Pokemon or swipe up to throw. Unlimited throws, no relocation, and simplified UI (no attempt bars or progress indicators). Great for learning the mechanics or quick sessions.
 
-3. **Get close and throw**
-   - Click/tap a nearby Pokemon to open the Throw modal
-   - Choose a ball type and throw (gasless – no wallet popup!)
-   - Each Pokemon relocates after 3 failed attempts
+3. **Throw!**
+   - Click/tap a Pokemon to open the Throw modal, choose a ball type, and throw (gasless — just a wallet signature, no gas confirmation)
+   - A ball-throw animation plays immediately; the on-chain result arrives in 1-2 blocks
 
 4. **Win a Pokemon NFT**
    - On success, Pyth Entropy randomly selects an NFT from the pool
@@ -203,6 +208,9 @@ An in-game Help modal (accessible via the "?" button) summarizes these steps.
 
 - **React + TypeScript + Vite** for UI and build tooling
 - **Phaser 3** for the 2D pixel-art game world (movement, Pokemon entities, animations)
+  - **`GameScene`** – Adventure mode overworld (player movement, NPCs, scattered Pokemon)
+  - **`EasyCatchScene`** – Encounter mode scene (single centered Pokemon, grass tilemap, simplified throw loop)
+  - **`GameCanvas`** selects the scene based on the current mode and remounts the Phaser instance on mode changes (`key={gameMode}`)
 - **Wagmi + Viem + RainbowKit** for wallet connection, contract calls, and event subscriptions
 - **Custom Wagmi connectors** for dGen1/EthereumPhone and Glyph Wallet
 - **ThirdWeb Checkout / Universal Bridge** for multi-chain APE/USDC.e funding
@@ -212,15 +220,29 @@ An in-game Help modal (accessible via the "?" button) summarizes these steps.
 
 | Component | Purpose |
 |-----------|---------|
-| `GameCanvas` | Phaser game wrapper + Web3 spawn sync |
+| `GameCanvas` | Phaser game wrapper, scene switching (Adventure vs Encounter), Web3 spawn sync |
+| `GameScene` | Adventure mode Phaser scene — full overworld with player, NPCs, 20 Pokemon |
+| `EasyCatchScene` | Encounter mode Phaser scene — centered single Pokemon, grass tilemap, throw arcs |
+| `ModeSwitcher` | ADVENTURE / ENCOUNTER toggle buttons (top center) |
 | `PokeBallShop` | Ball purchase modal with APE/USDC.e toggle |
-| `CatchAttemptModal` | Ball selection + gasless throw UI |
+| `CatchAttemptModal` | Ball selection + gasless throw UI (hides attempts UI in Encounter mode) |
+| `CatchResultModal` | Catch result feedback (simplified escape message in Encounter mode) |
 | `CatchWinModal` | NFT win celebration with card display |
 | `TransactionHistory` | Player's purchase/throw/catch history |
 | `OperatorDashboard` | Owner diagnostics (APE reserves, pool status) |
 | `AdminDevTools` | Dev-mode NFT recovery and state inspection |
 | `FundingWidget` | Cross-chain bridge/swap/buy modal |
-| `HelpModal` | In-game instructions |
+| `HelpModal` | In-game instructions with mode explanation |
+
+### Mode-Specific Modal Behavior
+
+| Modal | Adventure Mode | Encounter Mode |
+|-------|---------------|----------------|
+| **CatchAttemptModal** | Shows attempts remaining with color-coded indicator and progress | Hides attempts UI; throw buttons always enabled |
+| **CatchResultModal** (failure) | Shows attempts remaining, progress bar, and relocation warning after 3 misses | Shows "The Pokemon escaped! Try again with another throw." — no attempt counts or relocation messaging |
+| **HelpModal** | Documents limited attempts and relocation | Step 3 says "Keep throwing until you catch it! Pokemon won't relocate." |
+
+All encounter mode behavior is **frontend-only** — the on-chain contract still tracks attempts and relocates after 3 misses, but the Encounter UI hides this complexity from the player.
 
 For a detailed breakdown of files, hooks, contracts, and troubleshooting notes, see `CLAUDE.md`.
 
@@ -290,6 +312,7 @@ See `CLAUDE.md` for full script documentation and Hardhat tasks.
 ## Documentation
 
 - `CLAUDE.md` – Full technical documentation, contract ABIs, debugging history
+- `docs/PRD.md` – Product Requirements Document (v1) — goals, user flows, functional requirements
 - `docs/WALLET_INTEGRATION.md` – dGen1 and Glyph wallet setup guide
 - `docs/UUPS_UPGRADE_GUIDE.md` – UUPS proxy upgrade documentation
 - `docs/SETUP_POKEBALL_GAME.md` – PokeballGame integration setup
