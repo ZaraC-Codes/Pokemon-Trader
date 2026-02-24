@@ -650,7 +650,7 @@ function AppContent() {
       }}
     >
       <WalletConnector />
-      <ModeSwitcher currentMode={gameMode} onSwitch={handleModeSwitch} />
+      <ModeSwitcher currentMode={gameMode} onSwitch={handleModeSwitch} onShowHelp={handleShowHelp} />
 
       <GameCanvas
         key={gameMode}
@@ -662,42 +662,6 @@ function AppContent() {
         onCatchResultRef={catchResultRef}
       />
       <GameHUD playerAddress={account} onShowHelp={handleShowHelp} />
-
-      {/* Standalone Help button — visible even without wallet connected */}
-      {!account && (
-        <button
-          onClick={handleShowHelp}
-          title="How to Play"
-          style={{
-            position: 'fixed',
-            top: '20px',
-            right: '280px',
-            zIndex: 100,
-            padding: '10px 12px',
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            border: '2px solid #ffcc00',
-            color: '#ffcc00',
-            fontFamily: "'Courier New', monospace",
-            fontSize: '14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            textAlign: 'center',
-            transition: 'all 0.1s',
-            whiteSpace: 'nowrap',
-            lineHeight: 1,
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 204, 0, 0.15)';
-            e.currentTarget.style.borderColor = '#ffdd44';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
-            e.currentTarget.style.borderColor = '#ffcc00';
-          }}
-        >
-          ?
-        </button>
-      )}
 
       {/* Toast Notifications */}
       <div style={{
