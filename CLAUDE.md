@@ -1648,7 +1648,7 @@ interface HelpModalProps {
 **? Button (always visible):**
 - Yellow "?" button is rendered inside `ModeSwitcher` via `onShowHelp` prop
 - Always visible regardless of wallet connection (unlike GameHUD which is wallet-gated)
-- When wallet IS connected, GameHUD also renders a duplicate ? button in the HUD row
+- Only one ? button exists — GameHUD does NOT have its own help button
 - Modal does NOT auto-open on first visit — users must click ? to open
 
 **Z-Index Stacking:**
@@ -1669,8 +1669,8 @@ const [showHelp, setShowHelp] = useState(false);
 // ? button inside ModeSwitcher (always visible)
 <ModeSwitcher currentMode={gameMode} onSwitch={handleModeSwitch} onShowHelp={() => setShowHelp(true)} />
 
-// Also passed to GameHUD for wallet-connected duplicate
-<GameHUD playerAddress={account} onShowHelp={() => setShowHelp(true)} />
+// GameHUD does NOT have a ? button — only ModeSwitcher does
+<GameHUD playerAddress={account} />
 ```
 
 ### ThirdWeb Checkout Integration (Legacy)
@@ -4113,7 +4113,7 @@ function AppContent() {
 - Returns `null` when wallet not connected (WalletConnector handles connection UI)
 - Real-time updates via polling hooks (10s for inventory)
 
-**Layout:** `[Balls Panel (clickable)] [SHOP Button] ... [Wallet Connect]`
+**Layout:** `[Balls Panel (clickable)] [SHOP Button] ... [Wallet Connect]` (no ? button — help is in ModeSwitcher)
 
 **Responsive Layout (coordinated with WalletConnector):**
 | Breakpoint | Layout |
@@ -4126,14 +4126,6 @@ function AppContent() {
 **CSS Classes:**
 - `.wallet-connector` - Wallet button positioning (defined in GameHUD styles)
 - `.game-hud-container` - HUD panel positioning and layout
-- `.help-button` - Help "?" button (shrinks on mobile to be secondary to SHOP)
-
-**Help Button Mobile Behavior:**
-| Breakpoint | Size | Transform |
-|------------|------|-----------|
-| Desktop | 14px font, 10px 12px padding | None |
-| ≤768px | 11px font, 6px 8px padding, 36×36px min | `scale(0.85)` |
-| ≤480px | 10px font, 4px 6px padding, 32×32px min | `scale(0.75)` |
 
 **Sub-Components:**
 - `BallInventorySection` - 2x2 grid showing ball counts by type (circular icons), clickable with cyan hover effect
