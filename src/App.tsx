@@ -661,7 +661,7 @@ function AppContent() {
         onVisualThrowRef={visualThrowRef}
         onCatchResultRef={catchResultRef}
       />
-      <GameHUD playerAddress={account} onShowHelp={handleShowHelp} />
+      <GameHUD playerAddress={account} />
 
       {/* Toast Notifications */}
       <div style={{
