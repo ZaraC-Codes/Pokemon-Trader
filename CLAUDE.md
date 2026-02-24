@@ -5,7 +5,7 @@
 Pokemon Trader is a 2D pixel art game built on ApeChain that integrates Web3 functionality. Users can explore a Pokemon-style game world, interact with NPCs, view OTC marketplace trade listings as in-game icons, manage NFT inventory, and participate in NFT transactions.
 
 - **Version**: 0.0.1
-- **Status**: Active development, **mode routing** added (`/adventure` active, `/easy` coming soon), **Vercel SPA fallback** configured
+- **Status**: Active development, **mode routing** added (`/adventure` and `/easy` both active), **Vercel SPA fallback** configured
 - **Network**: ApeChain Mainnet (Chain ID: 33139)
 - **Domain**: `ape.catchem.gg` (landing page at `catchem.gg` in Solana repo)
 
@@ -107,7 +107,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── HelpModal.tsx            # Game instructions + ball info
 │   │   ├── ModeSwitcher.tsx           # ADVENTURE / ENCOUNTER mode toggle buttons
-│   │   ├── ComingSoon.tsx             # "Encounter Mode — Coming Soon" placeholder
+│   │   ├── ComingSoon.tsx             # "Encounter Mode — Coming Soon" placeholder (unused, kept for reference)
 │   │   └── FundingWidget/           # Cross-chain funding widget
 │   │       ├── index.ts                 # Barrel export
 │   │       └── FundingWidget.tsx        # Bridge/swap/buy modal
@@ -366,7 +366,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 | `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
 | `src/components/ModeSwitcher.tsx` | ADVENTURE / ENCOUNTER mode toggle (top center) |
-| `src/components/ComingSoon.tsx` | "Encounter Mode — Coming Soon" full-screen placeholder |
+| `src/components/ComingSoon.tsx` | "Encounter Mode — Coming Soon" placeholder (unused, kept for reference) |
 | `vercel.json` | Vercel SPA fallback rewrites for `/easy` and `/adventure` routes |
 
 ## App Routing
@@ -375,14 +375,21 @@ Uses vanilla History API pathname detection (no react-router-dom), matching the 
 
 | URL | Behavior |
 |-----|----------|
-| `/` or `/adventure` | Adventure mode — full overworld game |
-| `/easy` | "Encounter Mode — Coming Soon" placeholder |
+| `/` or `/adventure` | Adventure mode — full overworld game (3 attempts per Pokemon, relocation) |
+| `/easy` | Encounter mode — same game canvas, unlimited throws, no relocation, no attempt UI |
 
 **Key components:**
-- `App.tsx`: `gameMode` state from `window.location.pathname`, `popstate` listener for browser back/forward, `handleModeSwitch()` updates URL via `history.pushState()`
+- `App.tsx`: `gameMode` state from `window.location.pathname`, derives `isEasyMode = gameMode === 'easy'`, threads flag to GameCanvas + modals
 - `ModeSwitcher`: Two-button toggle (ADVENTURE / ENCOUNTER) fixed at top center; internal mode key remains `'easy'`
-- `ComingSoon`: Full-screen overlay shown when `gameMode === 'easy'`
 - `vercel.json`: SPA fallback rewrite so direct navigation to `/easy` or `/adventure` doesn't 404
+
+**Encounter Mode (isEasyMode) behavior:**
+- Same game canvas renders for both modes (no ComingSoon overlay)
+- `PokemonSpawnManager` freezes Pokemon positions — contract relocation is invisible
+- `CatchAttemptModal` hides "Attempts remaining" section, throw buttons always enabled
+- `CatchResultModal` shows "The Pokemon escaped! Try again with another throw." instead of attempt counts/progress bars
+- `HelpModal` Step 3 says "Keep throwing until you catch it! Pokemon won't relocate."
+- All encounter mode behavior is **frontend-only** — the on-chain contract still relocates after 3 misses
 
 **Domain:** `ape.catchem.gg` — landing page at `catchem.gg` (in Solana repo's `landing/` directory) redirects here.
 

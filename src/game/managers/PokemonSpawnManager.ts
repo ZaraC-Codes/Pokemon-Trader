@@ -139,6 +139,12 @@ export class PokemonSpawnManager {
   /** Debug catch range circles (shown when debug mode is enabled) */
   private debugRangeCircles: Map<bigint, Phaser.GameObjects.Arc> = new Map();
 
+  /** Easy/Encounter mode — suppresses relocation and attempt tracking */
+  private easyMode: boolean = false;
+
+  /** Frozen positions for easy mode — prevents visual relocation */
+  private frozenPositions: Map<bigint, { x: number; y: number }> = new Map();
+
   constructor(scene: GameScene) {
     this.scene = scene;
 
@@ -148,6 +154,37 @@ export class PokemonSpawnManager {
     }
 
     console.log('[PokemonSpawnManager] Initialized with max', SPAWN_CONFIG.MAX_ACTIVE_SPAWNS, 'spawns');
+  }
+
+  // ============================================================
+  // EASY MODE (Encounter Mode)
+  // ============================================================
+
+  /**
+   * Enable or disable easy (Encounter) mode.
+   * In easy mode:
+   * - Pokemon positions are frozen (relocation events are ignored visually)
+   * - Attempt counts are not incremented
+   */
+  setEasyMode(enabled: boolean): void {
+    if (this.easyMode === enabled) return;
+    this.easyMode = enabled;
+    this.frozenPositions.clear();
+
+    // If switching to easy mode, freeze all current positions
+    if (enabled) {
+      for (const [id, spawn] of this.spawnsById) {
+        this.frozenPositions.set(id, { x: spawn.x, y: spawn.y });
+      }
+    }
+
+    console.log('[PokemonSpawnManager] Easy mode:', enabled ? 'ON' : 'OFF',
+      enabled ? `(froze ${this.frozenPositions.size} positions)` : '');
+  }
+
+  /** Check if easy mode is active */
+  isEasyModeEnabled(): boolean {
+    return this.easyMode;
   }
 
   // ============================================================
@@ -419,6 +456,17 @@ export class PokemonSpawnManager {
     console.log('[PokemonSpawnManager] Adding', spawnsToAdd.length, 'spawns (after slice)');
 
     for (const spawn of spawnsToAdd) {
+      // In easy mode, use frozen position if available (prevents visual relocation)
+      if (this.easyMode) {
+        const frozen = this.frozenPositions.get(spawn.id);
+        if (frozen) {
+          spawn.x = frozen.x;
+          spawn.y = frozen.y;
+        } else {
+          // First time seeing this spawn in easy mode — freeze its position
+          this.frozenPositions.set(spawn.id, { x: spawn.x, y: spawn.y });
+        }
+      }
       this.addSpawn(spawn);
     }
 
@@ -484,11 +532,18 @@ export class PokemonSpawnManager {
    * @param newY - New Y position in pixels
    */
   onPokemonRelocated(pokemonId: bigint, newX: number, newY: number): void {
-    console.log('[PokemonSpawnManager] onPokemonRelocated:', pokemonId.toString(), 'to', newX, newY);
+    console.log('[PokemonSpawnManager] onPokemonRelocated:', pokemonId.toString(), 'to', newX, newY,
+      this.easyMode ? '(easy mode — keeping frozen position)' : '');
 
     const spawn = this.spawnsById.get(pokemonId);
     if (!spawn) {
       console.warn('[PokemonSpawnManager] Cannot relocate unknown Pokemon:', pokemonId.toString());
+      return;
+    }
+
+    // In easy mode, don't move the Pokemon visually — just reset attempts
+    if (this.easyMode) {
+      spawn.attemptCount = 0;
       return;
     }
 
@@ -550,7 +605,8 @@ export class PokemonSpawnManager {
    * @param attemptsRemaining - Number of attempts remaining (0-2)
    */
   onFailedCatch(pokemonId: bigint, attemptsRemaining: number): void {
-    console.log('[PokemonSpawnManager] onFailedCatch:', pokemonId.toString(), 'remaining:', attemptsRemaining);
+    console.log('[PokemonSpawnManager] onFailedCatch:', pokemonId.toString(), 'remaining:', attemptsRemaining,
+      this.easyMode ? '(easy mode — not incrementing attempts)' : '');
 
     const spawn = this.spawnsById.get(pokemonId);
     if (!spawn) {
@@ -558,16 +614,18 @@ export class PokemonSpawnManager {
       return;
     }
 
-    // Update attempt count (contract sends remaining, we track count)
-    const newAttemptCount = SPAWN_CONFIG.MAX_ATTEMPTS - attemptsRemaining;
-    spawn.attemptCount = newAttemptCount;
+    // In easy mode, keep attemptCount at 0 (unlimited throws)
+    if (!this.easyMode) {
+      const newAttemptCount = SPAWN_CONFIG.MAX_ATTEMPTS - attemptsRemaining;
+      spawn.attemptCount = newAttemptCount;
+    }
 
     // Emit event for UI layer (trigger shake animation, update counter)
     this.scene.events.emit('pokemon-catch-failed', {
       pokemonId,
       slotIndex: spawn.slotIndex,
-      attemptCount: newAttemptCount,
-      attemptsRemaining,
+      attemptCount: spawn.attemptCount,
+      attemptsRemaining: this.easyMode ? Infinity : attemptsRemaining,
       x: spawn.x,
       y: spawn.y,
     });

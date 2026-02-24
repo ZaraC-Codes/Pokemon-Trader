@@ -16,7 +16,6 @@ import { CatchResultModal, type CatchResultState } from './components/CatchResul
 import { AdminDevTools } from './components/AdminDevTools';
 import { HelpModal } from './components/HelpModal';
 import { ModeSwitcher } from './components/ModeSwitcher';
-import { ComingSoon } from './components/ComingSoon';
 import { useCaughtPokemonEvents, useFailedCatchEvents, useBallPurchasedEvents, type BallType } from './hooks/pokeballGame';
 import { useActiveWeb3React } from './hooks/useActiveWeb3React';
 import { contractService } from './services/contractService';
@@ -96,10 +95,11 @@ function AppContent() {
   // Music disabled
   // const [isMusicPlaying, setIsMusicPlaying] = useState(true);
 
-  // Game mode: 'adventure' (overworld) or 'easy' (coming soon)
+  // Game mode: 'adventure' (overworld) or 'easy' (encounter mode)
   const [gameMode, setGameMode] = useState<'adventure' | 'easy'>(() =>
     window.location.pathname === '/easy' ? 'easy' : 'adventure'
   );
+  const isEasyMode = gameMode === 'easy';
 
   // Handle browser back/forward navigation
   useEffect(() => {
@@ -282,13 +282,15 @@ function AppContent() {
       // Show the failure modal
       // Contract bug: after 3rd failed throw, throwAttempts resets to 0 BEFORE event emission
       // So contract emits 3-0=3 instead of 0. If we get 3, it means relocation happened (0 remaining).
+      // In Encounter mode: always Infinity (unlimited throws, no relocation shown)
       const rawRemaining = Number(latestEvent.args.attemptsRemaining);
-      const actualRemaining = rawRemaining === 3 ? 0 : rawRemaining;
+      const actualRemaining = isEasyMode ? Infinity : (rawRemaining === 3 ? 0 : rawRemaining);
 
       console.log('[App] Setting catchFailure state to show CatchResultModal:', {
         pokemonId: latestEvent.args.pokemonId?.toString(),
         attemptsRemaining: actualRemaining,
         txHash: latestEvent.transactionHash,
+        isEasyMode,
       });
       setCatchFailure({
         type: 'failure',
@@ -298,7 +300,7 @@ function AppContent() {
       });
       console.log('[App] CatchResultModal (failure) should now be visible');
     }
-  }, [failedEvents, account, queryClient]);
+  }, [failedEvents, account, queryClient, isEasyMode]);
 
   // Handle ball purchase events - update inventory instantly
   useEffect(() => {
@@ -584,12 +586,13 @@ function AppContent() {
   // Handle Pokemon click from Phaser scene (only fires when player is in range)
   const handlePokemonClick = useCallback((data: PokemonClickData) => {
     // Max attempts is 3, so attemptsRemaining = 3 - attemptCount
+    // In Encounter mode: unlimited throws (Infinity)
     setSelectedPokemon({
       pokemonId: data.pokemonId,
       slotIndex: data.slotIndex,
-      attemptsRemaining: 3 - data.attemptCount,
+      attemptsRemaining: isEasyMode ? Infinity : 3 - data.attemptCount,
     });
-  }, []);
+  }, [isEasyMode]);
 
   // Debounce ref for out-of-range toast to prevent double firing
   const lastOutOfRangeAtRef = useRef<number>(0);
@@ -622,13 +625,13 @@ function AppContent() {
 
   // Handle "Try Again" from failure modal - reopen catch attempt modal
   const handleTryAgain = useCallback(() => {
-    if (catchFailure?.type === 'failure' && catchFailure.attemptsRemaining > 0) {
+    if (catchFailure?.type === 'failure' && (isEasyMode || catchFailure.attemptsRemaining > 0)) {
       // We need to get the slot index from the game scene
       // For now, we'll just close the failure modal - user can click Pokemon again
       setCatchFailure(null);
       addToast('Click the Pokemon to try again!', 'warning');
     }
-  }, [catchFailure, addToast]);
+  }, [catchFailure, addToast, isEasyMode]);
 
   // Handle visual throw animation before contract call
   const handleVisualThrow = useCallback((pokemonId: bigint, ballType: BallType) => {
@@ -663,17 +666,14 @@ function AppContent() {
       <WalletConnector />
       <ModeSwitcher currentMode={gameMode} onSwitch={handleModeSwitch} />
 
-      {gameMode === 'easy' ? (
-        <ComingSoon onBack={() => handleModeSwitch('adventure')} />
-      ) : null}
-
-      {gameMode === 'adventure' && <>
+      {<>
       <GameCanvas
         onTradeClick={handleTradeClick}
         onPokemonClick={handlePokemonClick}
         onCatchOutOfRange={handleCatchOutOfRange}
         onVisualThrowRef={visualThrowRef}
         onCatchResultRef={catchResultRef}
+        isEasyMode={isEasyMode}
       />
       <GameHUD playerAddress={account} onShowHelp={handleShowHelp} />
 
@@ -730,6 +730,7 @@ function AppContent() {
         slotIndex={selectedPokemon?.slotIndex ?? 0}
         attemptsRemaining={selectedPokemon?.attemptsRemaining ?? 0}
         onVisualThrow={handleVisualThrow}
+        isEasyMode={isEasyMode}
       />
 
       {/* Catch Win Modal - Shows NFT details on successful catch */}
@@ -749,6 +750,7 @@ function AppContent() {
         onClose={handleCloseFailureModal}
         onTryAgain={handleTryAgain}
         result={catchFailure}
+        isEasyMode={isEasyMode}
       />
 
       {/* Admin/Dev Tools Panel (dev mode only) */}
@@ -824,7 +826,7 @@ function AppContent() {
       <InventoryTerminal isOpen={isInventoryOpen} onClose={handleInventoryClose} />
 
       {/* Help Modal */}
-      <HelpModal isOpen={showHelp} onClose={handleCloseHelp} />
+      <HelpModal isOpen={showHelp} onClose={handleCloseHelp} isEasyMode={isEasyMode} />
 
       {/* Music disabled */}
       </>}

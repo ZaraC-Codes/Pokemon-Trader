@@ -14,6 +14,8 @@ import { useEffect, useCallback } from 'react';
 interface HelpModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Encounter mode — shows simplified help text */
+  isEasyMode?: boolean;
 }
 
 // ============================================================
@@ -180,7 +182,7 @@ const BALL_COLORS = {
 // COMPONENT
 // ============================================================
 
-export function HelpModal({ isOpen, onClose }: HelpModalProps) {
+export function HelpModal({ isOpen, onClose, isEasyMode }: HelpModalProps) {
   // Handle ESC key to close
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -283,9 +285,19 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <div style={styles.stepTitle}>Throw & Catch</div>
               <div style={styles.stepText}>
                 Get close to a Pokemon and <span style={styles.highlight}>click on it</span> to
-                open the catch menu. Choose a ball and throw! Each Pokemon{' '}
-                <span style={styles.highlight}>relocates after 3 failed attempts</span>, so
-                choose your ball wisely.
+                open the catch menu. Choose a ball and throw!{' '}
+                {isEasyMode ? (
+                  <>
+                    <span style={styles.highlight}>Keep throwing until you catch it!</span>{' '}
+                    Pokemon won't relocate.
+                  </>
+                ) : (
+                  <>
+                    Each Pokemon{' '}
+                    <span style={styles.highlight}>relocates after 3 failed attempts</span>, so
+                    choose your ball wisely.
+                  </>
+                )}
               </div>
             </div>
           </div>

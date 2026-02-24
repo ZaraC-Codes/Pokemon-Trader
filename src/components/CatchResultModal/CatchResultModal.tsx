@@ -107,6 +107,8 @@ export interface CatchResultModalProps {
   onTryAgain?: () => void;
   /** The catch result to display */
   result: CatchResultState | null;
+  /** Encounter mode — hides attempts UI, simplified escape copy */
+  isEasyMode?: boolean;
 }
 
 // ============================================================
@@ -466,6 +468,7 @@ export function CatchResultModal({
   onClose,
   onTryAgain,
   result,
+  isEasyMode,
 }: CatchResultModalProps) {
   const [showConfetti, setShowConfetti] = useState(false);
   const [animationClass, setAnimationClass] = useState('');
@@ -589,24 +592,28 @@ export function CatchResultModal({
               <>
                 {/* Failure content */}
                 <p style={styles.failureMessage}>
-                  The Pokemon broke free!
+                  {isEasyMode
+                    ? 'The Pokemon escaped! Try again with another throw.'
+                    : 'The Pokemon broke free!'}
                 </p>
 
-                {/* Attempts remaining */}
-                <div style={styles.attemptsSection}>
-                  <div style={styles.attemptsLabel}>Attempts Remaining</div>
-                  <div
-                    style={{
-                      ...styles.attemptsValue,
-                      ...getAttemptsColor(result.attemptsRemaining),
-                    }}
-                  >
-                    {result.attemptsRemaining}
+                {/* Attempts remaining (hidden in Encounter mode) */}
+                {!isEasyMode && (
+                  <div style={styles.attemptsSection}>
+                    <div style={styles.attemptsLabel}>Attempts Remaining</div>
+                    <div
+                      style={{
+                        ...styles.attemptsValue,
+                        ...getAttemptsColor(result.attemptsRemaining),
+                      }}
+                    >
+                      {result.attemptsRemaining}
+                    </div>
+                    <AttemptsProgressBar attemptsRemaining={result.attemptsRemaining} />
                   </div>
-                  <AttemptsProgressBar attemptsRemaining={result.attemptsRemaining} />
-                </div>
+                )}
 
-                {result.attemptsRemaining <= 0 && (
+                {!isEasyMode && result.attemptsRemaining <= 0 && (
                   <p style={{ color: '#ff8888', fontSize: '14px', marginTop: '12px' }}>
                     The Pokemon has relocated!
                   </p>
@@ -663,10 +670,10 @@ export function CatchResultModal({
                   style={{
                     ...styles.button,
                     ...styles.tryAgainButton,
-                    ...(result.attemptsRemaining <= 0 ? styles.buttonDisabled : {}),
+                    ...(!isEasyMode && result.attemptsRemaining <= 0 ? styles.buttonDisabled : {}),
                   }}
                   onClick={onTryAgain}
-                  disabled={result.attemptsRemaining <= 0 || !onTryAgain}
+                  disabled={(!isEasyMode && result.attemptsRemaining <= 0) || !onTryAgain}
                 >
                   Try Again
                 </button>

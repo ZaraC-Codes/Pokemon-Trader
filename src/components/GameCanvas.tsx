@@ -44,6 +44,8 @@ interface GameCanvasProps {
    * @param pokemonId - The Pokemon ID from the event
    */
   onCatchResultRef?: React.MutableRefObject<((caught: boolean, pokemonId: bigint) => void) | null>;
+  /** Encounter mode — suppresses relocation and attempt tracking in Phaser */
+  isEasyMode?: boolean;
   // Music disabled
   // onMusicToggle?: () => void;
 }
@@ -123,7 +125,7 @@ function toManagerSpawn(contract: ContractPokemonSpawn, index: number): ManagerP
   return result;
 }
 
-export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfRange, onVisualThrowRef, onCatchResultRef }: GameCanvasProps) {
+export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfRange, onVisualThrowRef, onCatchResultRef, isEasyMode }: GameCanvasProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onTradeClickRef = useRef(onTradeClick);
@@ -150,6 +152,17 @@ export default function GameCanvas({ onTradeClick, onPokemonClick, onCatchOutOfR
   useEffect(() => {
     onCatchOutOfRangeRef.current = onCatchOutOfRange;
   }, [onCatchOutOfRange]);
+
+  // Propagate easy mode flag to PokemonSpawnManager
+  useEffect(() => {
+    const game = gameRef.current;
+    if (!game) return;
+    const scene = game.scene.getScene('GameScene') as GameScene | undefined;
+    const manager = scene?.getPokemonSpawnManager();
+    if (manager) {
+      manager.setEasyMode(!!isEasyMode);
+    }
+  }, [isEasyMode]);
 
   /**
    * Sync spawns to PokemonSpawnManager.

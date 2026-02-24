@@ -77,6 +77,8 @@ export interface CatchAttemptModalProps {
    * @param ballType - Ball type being thrown (0-3)
    */
   onVisualThrow?: (pokemonId: bigint, ballType: BallType) => void;
+  /** Encounter mode — hides attempts UI and allows unlimited throws */
+  isEasyMode?: boolean;
 }
 
 // ============================================================
@@ -508,6 +510,7 @@ export function CatchAttemptModal({
   slotIndex,
   attemptsRemaining,
   onVisualThrow,
+  isEasyMode,
 }: CatchAttemptModalProps) {
   // Track which ball type is being thrown (for button label)
   const [throwingBallType, setThrowingBallType] = React.useState<BallType | null>(null);
@@ -683,12 +686,14 @@ export function CatchAttemptModal({
           <div style={styles.pokemonId}>
             Pokemon #{pokemonId.toString()}
           </div>
-          <div style={styles.attemptsSection}>
-            <span style={styles.attemptsLabel}>Attempts remaining:</span>
-            <span style={{ ...styles.attemptsValue, ...getAttemptsColor() }}>
-              {attemptsRemaining}
-            </span>
-          </div>
+          {!isEasyMode && (
+            <div style={styles.attemptsSection}>
+              <span style={styles.attemptsLabel}>Attempts remaining:</span>
+              <span style={{ ...styles.attemptsValue, ...getAttemptsColor() }}>
+                {attemptsRemaining}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* No wallet warning */}
@@ -731,7 +736,7 @@ export function CatchAttemptModal({
                       ballType={ballType}
                       ownedCount={count}
                       onThrow={() => handleThrow(ballType)}
-                      isDisabled={attemptsRemaining <= 0}
+                      isDisabled={!isEasyMode && attemptsRemaining <= 0}
                       isThrowInProgress={isThrowInProgress}
                       isThrowingThis={
                         isThrowInProgress && throwingBallType === ballType
@@ -766,8 +771,8 @@ export function CatchAttemptModal({
           </div>
         )}
 
-        {/* No attempts warning */}
-        {attemptsRemaining <= 0 && (
+        {/* No attempts warning (hidden in Encounter mode) */}
+        {!isEasyMode && attemptsRemaining <= 0 && (
           <div style={styles.errorBox}>
             <span style={styles.errorText}>
               No attempts remaining! This Pokemon will relocate.
