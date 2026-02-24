@@ -5,7 +5,7 @@
 Pokemon Trader is a 2D pixel art game built on ApeChain that integrates Web3 functionality. Users can explore a Pokemon-style game world, interact with NPCs, view OTC marketplace trade listings as in-game icons, manage NFT inventory, and participate in NFT transactions.
 
 - **Version**: 0.0.1
-- **Status**: Active development, **mode routing** added (`/adventure` and `/easy` both active), **Vercel SPA fallback** configured
+- **Status**: Active development, **scene-switching** architecture (`/adventure` loads `GameScene`, `/easy` loads `EasyCatchScene`), **Vercel SPA fallback** configured
 - **Network**: ApeChain Mainnet (Chain ID: 33139)
 - **Domain**: `ape.catchem.gg` (landing page at `catchem.gg` in Solana repo)
 
@@ -70,7 +70,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 ```
 ├── src/                     # Main source code
 │   ├── components/              # React UI components
-│   │   ├── GameCanvas.tsx           # Phaser game wrapper + Web3 spawn sync
+│   │   ├── GameCanvas.tsx           # Phaser game wrapper + scene switching + Web3 spawn sync
 │   │   ├── WalletConnector.tsx      # Wallet connection
 │   │   ├── TradeModal.tsx           # Trade listing details
 │   │   ├── InventoryTerminal.tsx    # NFT inventory UI
@@ -114,7 +114,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   │
 │   ├── game/                    # Phaser game code
 │   │   ├── scenes/
-│   │   │   └── GameScene.ts         # Main game scene
+│   │   │   ├── GameScene.ts         # Adventure mode scene (overworld)
+│   │   │   └── EasyCatchScene.ts    # Encounter mode scene (single Pokemon, centered)
 │   │   ├── entities/                # Game objects
 │   │   │   ├── Player.ts            # Player character
 │   │   │   ├── NPC.ts               # Generic NPC
@@ -315,8 +316,10 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 
 | File | Purpose |
 |------|---------|
-| `src/App.tsx` | Root component with Web3 providers |
-| `src/game/scenes/GameScene.ts` | Main game logic, rendering, exposes `getPokemonSpawnManager()` and `getCatchMechanicsManager()` |
+| `src/App.tsx` | Root component with Web3 providers, mode routing, `key={gameMode}` remount |
+| `src/game/scenes/GameScene.ts` | Adventure mode scene (overworld), exposes `getPokemonSpawnManager()` and `getCatchMechanicsManager()` |
+| `src/game/scenes/EasyCatchScene.ts` | Encounter mode scene (centered single Pokemon, grass tilemap, ball throw arcs) |
+| `src/components/GameCanvas.tsx` | Phaser game wrapper, scene switching (`GameScene` vs `EasyCatchScene`), Web3 spawn sync |
 | `src/services/apechainConfig.ts` | ApeChain network configuration |
 | `src/services/pokeballGameConfig.ts` | Centralized PokeballGame on-chain config |
 | `src/services/thirdwebConfig.ts` | ThirdWeb SDK v5 client & chain config |
@@ -376,16 +379,33 @@ Uses vanilla History API pathname detection (no react-router-dom), matching the 
 | URL | Behavior |
 |-----|----------|
 | `/` or `/adventure` | Adventure mode — full overworld game (3 attempts per Pokemon, relocation) |
-| `/easy` | Encounter mode — same game canvas, unlimited throws, no relocation, no attempt UI |
+| `/easy` | Encounter mode — separate `EasyCatchScene` with centered single Pokemon |
 
 **Key components:**
-- `App.tsx`: `gameMode` state from `window.location.pathname`, derives `isEasyMode = gameMode === 'easy'`, threads flag to GameCanvas + modals
+- `App.tsx`: `gameMode` state from `window.location.pathname`, passes `mode={gameMode}` and `key={gameMode}` to GameCanvas (forces remount on mode switch)
+- `GameCanvas.tsx`: Loads `EasyCatchScene` for easy mode, `GameScene` for adventure mode
 - `ModeSwitcher`: Two-button toggle (ADVENTURE / ENCOUNTER) fixed at top center; internal mode key remains `'easy'`
 - `vercel.json`: SPA fallback rewrite so direct navigation to `/easy` or `/adventure` doesn't 404
 
-**Encounter Mode (isEasyMode) behavior:**
-- Same game canvas renders for both modes (no ComingSoon overlay)
-- `PokemonSpawnManager` freezes Pokemon positions — contract relocation is invisible
+**Scene-Switching Architecture:**
+- `key={gameMode}` on `<GameCanvas>` forces React to unmount/remount when mode changes, creating a fresh Phaser game instance with the correct scene class
+- Adventure mode loads `GameScene` (full overworld with player movement, NPCs, scattered Pokemon)
+- Encounter mode loads `EasyCatchScene` (centered single Pokemon, green grass tilemap, decorative trees/houses)
+- Each mode has its own listener setup: `setupAdventureListeners()` and `setupEasyListeners()`
+- Spawn sync is mode-aware: Adventure syncs all spawns to `PokemonSpawnManager`; Encounter picks first active spawn and calls `easyScene.setEncounter()`
+
+**Encounter Mode (`EasyCatchScene`) features:**
+- Single Pokemon centered at viewport with 3x scale
+- Green grass tilemap background with decorative trees/houses/bushes/rocks at edges (90px safe zone)
+- Tap Pokemon or swipe up to throw — opens `CatchAttemptModal`
+- Ball throw arc animation from bottom-center to Pokemon center
+- Struggle/wobble animation loop while waiting for VRF result
+- Success: sparkles + "CAUGHT!" effect; Failure: fragments + "ESCAPED!" effect
+- First-visit hint overlay ("Tap the Pokemon or swipe up to throw!")
+- "No wild Pokemon available" message when no spawns exist
+- Resize handling (rebuilds tilemap + repositions Pokemon)
+
+**Encounter Mode modal behavior (unchanged):**
 - `CatchAttemptModal` hides "Attempts remaining" section, throw buttons always enabled
 - `CatchResultModal` shows "The Pokemon escaped! Try again with another throw." instead of attempt counts/progress bars
 - `HelpModal` Step 3 says "Keep throwing until you catch it! Pokemon won't relocate."
@@ -401,6 +421,7 @@ Uses vanilla History API pathname detection (no react-router-dom), matching the 
 - Provider pattern: Wagmi → RainbowKit → QueryClient
 
 ### Phaser Game
+- **Scene Switching**: `GameScene` (Adventure) vs `EasyCatchScene` (Encounter), selected by `mode` prop on GameCanvas
 - **Manager Pattern**: MapManager, NPCManager, TradeIconManager
 - **Entity Pattern**: Classes extending `Phaser.GameObjects.Sprite`
 - **Scene Lifecycle**: preload → create → update
@@ -3731,13 +3752,15 @@ When gas estimation fails, the hook logs:
 - v1.4.0+ dedicated functions (`purchaseBallsWithAPE`, `purchaseBallsWithUSDC`) avoid cross-payment-type interference
 
 ### GameCanvas Component
-React ⇄ Phaser bridge component that mounts the game and syncs Web3 data:
+React ⇄ Phaser bridge component with scene-switching architecture that mounts the correct Phaser scene and syncs Web3 data:
 
 **Location:** `src/components/GameCanvas.tsx`
 
 **Props:**
 ```typescript
 interface GameCanvasProps {
+  /** Game mode: 'adventure' for overworld, 'easy' for single encounter */
+  mode?: 'adventure' | 'easy';
   onTradeClick?: (listing: TradeListing) => void;
   /** Called when player clicks Pokemon AND is in range (ready to catch) */
   onPokemonClick?: (data: PokemonClickData) => void;
@@ -3747,6 +3770,10 @@ interface GameCanvasProps {
   onVisualThrowRef?: React.MutableRefObject<((pokemonId: bigint, ballType: BallType) => void) | null>;
   /** Ref to receive catch result callback (for notifying Phaser of contract events) */
   onCatchResultRef?: React.MutableRefObject<((caught: boolean, pokemonId: bigint) => void) | null>;
+  /** Ref for throw + struggle animation sequence (Encounter mode) */
+  onThrowAndStruggleRef?: React.MutableRefObject<
+    ((pokemonId: bigint, ballType: BallType) => Promise<() => void>) | null
+  >;
 }
 
 interface PokemonClickData {
@@ -3766,17 +3793,40 @@ interface CatchOutOfRangeData {
 }
 ```
 
+**Scene-Switching Architecture:**
+```typescript
+// Derive scene class from mode
+const isEasyMode = mode === 'easy';
+const SceneClass = isEasyMode ? EasyCatchScene : GameScene;
+const sceneKey = isEasyMode ? 'EasyCatchScene' : 'GameScene';
+```
+- **Adventure mode** (`mode='adventure'`): Loads `GameScene` with full overworld, player, NPCs, scattered Pokemon
+- **Encounter mode** (`mode='easy'`): Loads `EasyCatchScene` with centered single Pokemon, grass tilemap, decorations
+- Only one scene loaded per Phaser game instance
+- `key={gameMode}` on `<GameCanvas>` in App.tsx forces React to unmount/remount when mode changes
+
+**Mode-Aware Spawn Sync (`syncSpawnsToScene`):**
+- **Adventure**: Syncs all spawns to `PokemonSpawnManager` (unchanged from before)
+- **Easy**: Filters active spawns, picks first one, calls `easyScene.setEncounter({ pokemonId, slotIndex, attemptCount })`; if none active, calls `easyScene.clearEncounter()`
+
+**Mode-Aware Listener Setup:**
+- `setupAdventureListeners(scene)`: Wires `show-trade-modal`, `pokemon-catch-ready`, `catch-out-of-range` + refs to `CatchMechanicsManager`
+- `setupEasyListeners(scene)`: Wires `pokemon-catch-ready` only + refs to `EasyCatchScene` methods:
+  - `onVisualThrowRef` → `easyScene.playBallThrow(ballType)`
+  - `onCatchResultRef` → `easyScene.handleCatchResult(caught, pokemonId)`
+  - `onThrowAndStruggleRef` → `easyScene.playBallThrowThenStruggle(ballType)`
+
 **Features:**
-- Mounts Phaser game with `GameScene`
-- Syncs on-chain Pokemon spawns to `PokemonSpawnManager` via `useGetPokemonSpawns()`
+- Mounts Phaser game with `GameScene` or `EasyCatchScene` based on `mode` prop
+- Syncs on-chain Pokemon spawns via `useGetPokemonSpawns()`
 - Handles race condition: buffers spawns if they arrive before scene is ready
 - Exposes game instance as `window.__PHASER_GAME__` for debugging
-- **Proximity-aware events**: Forwards `pokemon-catch-ready` (in range) and `catch-out-of-range` (too far) to React
-- **Coordinate Scaling**: Transforms contract coordinates (0-999) to game world pixels (0-2400)
-- **Visual Throw Bridge**: When `onVisualThrowRef` is provided, wires up callback to trigger `CatchMechanicsManager.playBallThrowById()` for throw animations
-- **Catch Result Bridge**: When `onCatchResultRef` is provided, wires up callback to notify `CatchMechanicsManager.handleCatchResult()` when contract events fire (resets state machine)
+- **Proximity-aware events** (Adventure): Forwards `pokemon-catch-ready` and `catch-out-of-range` to React
+- **Coordinate Scaling** (Adventure): Transforms contract coordinates (0-999) to game world pixels (0-2400)
+- **Visual Throw Bridge**: Wires up throw animation callbacks per mode
+- **Catch Result Bridge**: Notifies Phaser of contract events to reset state
 
-**Coordinate System:**
+**Coordinate System (Adventure mode):**
 
 The contract and game use different coordinate systems:
 - **Contract**: 0-999 (`MAX_COORDINATE = 999`) - compact uint16 storage
@@ -3796,31 +3846,34 @@ function scaleContractToWorld(contractCoord: number, worldSize: number): number 
 // Example: Contract (500, 500) → Game (~1200, 1200) pixels (near center)
 ```
 
-**Web3 → Phaser Sync Flow:**
+**Web3 → Phaser Sync Flow (Adventure):**
 ```
 useGetPokemonSpawns() polls contract (5s interval)
     ↓
 contractSpawns changes → useEffect triggers
     ↓
-syncSpawnsToManager() called
+syncSpawnsToScene() called (mode-aware)
     ↓
-toManagerSpawn() scales coordinates (0-999 → 0-2400)
+Adventure: toManagerSpawn() scales coords → manager.syncFromContract()
+Easy: filter active → easyScene.setEncounter() or clearEncounter()
     ↓
-If scene ready: manager.syncFromContract(spawns, worldBounds)
 If scene not ready: buffer to pendingSpawnsRef
-    ↓
 On scene 'create' event: flush buffered spawns
 ```
 
 **Key Functions:**
 - `scaleContractToWorld(coord, worldSize)` - Scales contract coordinate to game world pixels
 - `toManagerSpawn(contract)` - Converts contract spawn format to manager format with coordinate scaling
-- `syncSpawnsToManager(spawns)` - Syncs to `PokemonSpawnManager` with buffering
-- `setupSceneListeners(scene)` - Attaches event listeners and flushes pending spawns
+- `syncSpawnsToScene(spawns)` - Mode-aware sync: PokemonSpawnManager (Adventure) or setEncounter (Easy)
+- `setupAdventureListeners(scene)` - Attaches Adventure mode event listeners
+- `setupEasyListeners(scene)` - Attaches Encounter mode event listeners
 
 **Console Logs (for debugging):**
-- `[GameCanvas] Scene is ready, manager available: true`
+- `[GameCanvas] Mode: adventure/easy, Scene: GameScene/EasyCatchScene`
+- `[GameCanvas] Scene is ready, setting up [adventure/easy] listeners`
 - `[GameCanvas] Syncing X spawns to PokemonSpawnManager`
+- `[GameCanvas] Easy mode: setEncounter pokemonId=X slotIndex=Y`
+- `[GameCanvas] Easy mode: no active spawns, clearing encounter`
 - `[GameCanvas] Scene not ready, buffering X spawns`
 - `[GameCanvas] Flushing X buffered spawns`
 
@@ -3829,12 +3882,75 @@ On scene 'create' event: flush buffered spawns
 // Access game instance
 window.__PHASER_GAME__
 
-// Access PokemonSpawnManager
+// Access PokemonSpawnManager (Adventure mode only)
 window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()
 
-// Enable debug mode
+// Access EasyCatchScene (Encounter mode only)
+window.__PHASER_GAME__.scene.getScene('EasyCatchScene')
+
+// Enable debug mode (Adventure)
 window.__PHASER_GAME__.scene.getScene('GameScene').getPokemonSpawnManager()?.setDebugMode(true)
 ```
+
+### EasyCatchScene (Encounter Mode)
+Separate Phaser scene for Encounter mode — centered single-Pokemon view with no overworld:
+
+**Location:** `src/game/scenes/EasyCatchScene.ts` (~1100 lines, ported from Solana)
+
+**Visual Layout:**
+- Green grass tilemap background filling viewport
+- Decorative trees, houses, bushes, rocks placed at edges (90px safe zone from viewport edges)
+- Single Pokemon centered at viewport with 3x scale
+- GrassRustle effect beneath Pokemon
+
+**Public Methods:**
+```typescript
+// Spawn management (called by GameCanvas)
+setEncounter(spawn: { pokemonId: bigint; slotIndex: number; attemptCount: number }): void
+clearEncounter(): void
+
+// Ball throw animations (called via refs from React)
+playBallThrow(ballType: BallType): Promise<void>
+playBallThrowThenStruggle(ballType: BallType): Promise<() => void>  // Returns cleanup fn
+handleCatchResult(caught: boolean, pokemonId: bigint): void
+
+// Audio (for volume control)
+getMP3Music(): MP3Music | null
+
+// Manager stubs (returns undefined — EasyCatchScene doesn't use these)
+getPokemonSpawnManager(): undefined
+getCatchMechanicsManager(): undefined
+```
+
+**Key Features:**
+- **Ball throw arc**: Animated from bottom-center of viewport to Pokemon center
+- **Struggle/wobble animation**: Ball wobbles at Pokemon after throw, loops until VRF resolves
+- **Success animation**: Sparkles + "CAUGHT!" text + ball shrink
+- **Failure animation**: Ball fragments + "ESCAPED!" text + Pokemon shake
+- **First-visit hint**: Overlay with "Tap the Pokemon or swipe up to throw!" (shown once, stored in localStorage)
+- **No wild Pokemon message**: "No wild Pokemon available" when `clearEncounter()` called
+- **Swipe-up gesture**: Swipe up anywhere to trigger throw (opens CatchAttemptModal)
+- **Resize handling**: Rebuilds tilemap + repositions Pokemon + decorations on window resize
+
+**Differences from Adventure's GameScene:**
+| Feature | GameScene (Adventure) | EasyCatchScene (Encounter) |
+|---------|----------------------|---------------------------|
+| Player character | Yes | No |
+| NPC interactions | Yes | No |
+| Overworld tilemap | Full map (150×150 tiles) | Viewport-sized grass tiles |
+| Pokemon count | Up to 20 scattered | 1 centered |
+| Pokemon scale | 1x | 3x |
+| Movement | D-pad/keyboard/tap | None |
+| PokemonSpawnManager | Yes | No (returns undefined) |
+| CatchMechanicsManager | Yes | No (returns undefined) |
+| Throw input | Click Pokemon in range | Tap Pokemon or swipe up |
+| Decorations | Map-based buildings | Random trees/houses at edges |
+
+**Dependencies (all shared with GameScene):**
+- Entities: `Pokemon`, `GrassRustle`, `Tree`, `House`
+- Audio: `MP3Music`, `ChiptuneSFX`
+- Config: `TILE_SIZE` from `gameConfig`
+- Types: `BallType` from `BallInventoryManager`, `GameScene` type for Pokemon constructor cast
 
 ### SfxVolumeToggle Component
 Independent SFX volume control, separate from music:
