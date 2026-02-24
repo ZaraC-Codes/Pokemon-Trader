@@ -106,7 +106,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   │   ├── HelpModal/               # How to Play help modal
 │   │   │   ├── index.ts                 # Barrel export
 │   │   │   └── HelpModal.tsx            # Game instructions + ball info
-│   │   ├── ModeSwitcher.tsx           # ADVENTURE / ENCOUNTER mode toggle buttons
+│   │   ├── ModeSwitcher.tsx           # ADVENTURE / ENCOUNTER mode toggle + ? help button
 │   │   ├── ComingSoon.tsx             # "Encounter Mode — Coming Soon" placeholder (unused, kept for reference)
 │   │   └── FundingWidget/           # Cross-chain funding widget
 │   │       ├── index.ts                 # Barrel export
@@ -374,7 +374,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `abi_SlabMachine.json` | Slab Machine contract ABI |
 | `hardhat.config.cjs` | Hardhat compilation and deployment config |
 | `docs/UUPS_UPGRADE_GUIDE.md` | UUPS proxy upgrade documentation |
-| `src/components/ModeSwitcher.tsx` | ADVENTURE / ENCOUNTER mode toggle (top center) |
+| `src/components/ModeSwitcher.tsx` | ADVENTURE / ENCOUNTER mode toggle + ? help button (top center, z-index 900) |
 | `src/components/ComingSoon.tsx` | "Encounter Mode — Coming Soon" placeholder (unused, kept for reference) |
 | `vercel.json` | Vercel SPA fallback rewrites for `/easy` and `/adventure` routes |
 
@@ -390,7 +390,7 @@ Uses vanilla History API pathname detection (no react-router-dom), matching the 
 **Key components:**
 - `App.tsx`: `gameMode` state from `window.location.pathname`, passes `mode={gameMode}` and `key={gameMode}` to GameCanvas (forces remount on mode switch)
 - `GameCanvas.tsx`: Loads `EasyCatchScene` for easy mode, `GameScene` for adventure mode
-- `ModeSwitcher`: Two-button toggle (ADVENTURE / ENCOUNTER) fixed at top center; internal mode key remains `'easy'`
+- `ModeSwitcher`: Three-element flex row (ADVENTURE / ENCOUNTER / ?) fixed at top center (z-index 900); `onShowHelp` prop renders the ? button; internal mode key remains `'easy'`
 - `vercel.json`: SPA fallback rewrite so direct navigation to `/easy` or `/adventure` doesn't 404
 
 **Scene-Switching Architecture:**
@@ -1645,14 +1645,16 @@ interface HelpModalProps {
 - Click outside to close
 - Pixel-art styling consistent with game theme
 
-**First-Visit Auto-Open:**
-- On first visit, modal auto-opens after 1 second delay
-- Sets `localStorage.setItem('pokemonTrader_helpSeen', 'true')` to prevent re-opening
-- Users can always reopen via the "?" button in the HUD
+**? Button (always visible):**
+- Yellow "?" button is rendered inside `ModeSwitcher` via `onShowHelp` prop
+- Always visible regardless of wallet connection (unlike GameHUD which is wallet-gated)
+- When wallet IS connected, GameHUD also renders a duplicate ? button in the HUD row
+- Modal does NOT auto-open on first visit — users must click ? to open
 
-**HUD Integration:**
-- Yellow "?" button appears in GameHUD next to SHOP button
-- Button only renders when `onShowHelp` prop is provided to GameHUD
+**Z-Index Stacking:**
+- `ModeSwitcher` (toggle + ? button): z-index `900`
+- `HelpModal` overlay: z-index `1000` (covers the toggle when open)
+- Toast notifications: z-index `2000`
 
 **Usage:**
 ```tsx
@@ -1664,7 +1666,10 @@ const [showHelp, setShowHelp] = useState(false);
 // Render
 <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
 
-// Pass callback to HUD
+// ? button inside ModeSwitcher (always visible)
+<ModeSwitcher currentMode={gameMode} onSwitch={handleModeSwitch} onShowHelp={() => setShowHelp(true)} />
+
+// Also passed to GameHUD for wallet-connected duplicate
 <GameHUD playerAddress={account} onShowHelp={() => setShowHelp(true)} />
 ```
 
