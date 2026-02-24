@@ -14,8 +14,6 @@ import { useEffect, useCallback } from 'react';
 interface HelpModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Encounter mode — shows simplified help text */
-  isEasyMode?: boolean;
 }
 
 // ============================================================
@@ -148,6 +146,23 @@ const styles: Record<string, React.CSSProperties> = {
   ballRate: {
     color: '#88ff88',
   },
+  modeInfo: {
+    marginTop: '8px',
+    padding: '8px',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: '4px',
+    fontSize: '11px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  modeBullet: {
+    color: '#ccc',
+    lineHeight: 1.5,
+  },
+  modeDesc: {
+    color: '#ccc',
+  },
   footer: {
     marginTop: '24px',
     textAlign: 'center',
@@ -182,7 +197,7 @@ const BALL_COLORS = {
 // COMPONENT
 // ============================================================
 
-export function HelpModal({ isOpen, onClose, isEasyMode }: HelpModalProps) {
+export function HelpModal({ isOpen, onClose }: HelpModalProps) {
   // Handle ESC key to close
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -265,54 +280,76 @@ export function HelpModal({ isOpen, onClose, isEasyMode }: HelpModalProps) {
             </div>
           </div>
 
-          {/* Step 2: Find Pokemon */}
+          {/* Step 2: Move Around */}
           <div style={styles.step}>
             <div style={styles.stepNumber}>2</div>
             <div style={styles.stepContent}>
-              <div style={styles.stepTitle}>Find Wild Pokemon</div>
+              <div style={styles.stepTitle}>Move Around the Map</div>
               <div style={styles.stepText}>
-                Move around the map using <span style={styles.highlight}>arrow keys</span> or{' '}
-                <span style={styles.highlight}>WASD</span>. Look for rustling grass patches
-                where Pokemon are hiding!
+                On desktop, use <span style={styles.highlight}>arrow keys</span> or{' '}
+                <span style={styles.highlight}>WASD</span> to move your trainer.
+                On mobile, <span style={styles.highlight}>tap on the map</span> to move
+                in that direction.
               </div>
             </div>
           </div>
 
-          {/* Step 3: Catch */}
+          {/* Step 3: Choose a Game Mode */}
           <div style={styles.step}>
             <div style={styles.stepNumber}>3</div>
             <div style={styles.stepContent}>
-              <div style={styles.stepTitle}>Throw & Catch</div>
+              <div style={styles.stepTitle}>Choose a Game Mode</div>
               <div style={styles.stepText}>
-                Get close to a Pokemon and <span style={styles.highlight}>click on it</span> to
-                open the catch menu. Choose a ball and throw!{' '}
-                {isEasyMode ? (
-                  <>
-                    <span style={styles.highlight}>Keep throwing until you catch it!</span>{' '}
-                    Pokemon won't relocate.
-                  </>
-                ) : (
-                  <>
-                    Each Pokemon{' '}
-                    <span style={styles.highlight}>relocates after 3 failed attempts</span>, so
-                    choose your ball wisely.
-                  </>
-                )}
+                Use the <span style={styles.highlight}>toggle at the top</span> to switch
+                between Adventure and Encounter mode.
+              </div>
+              <div style={styles.modeInfo}>
+                <div style={styles.modeBullet}>
+                  <span style={styles.highlight}>Adventure:</span>{' '}
+                  <span style={styles.modeDesc}>Standard gameplay with limited attempts before a Pokemon relocates.</span>
+                </div>
+                <div style={styles.modeBullet}>
+                  <span style={styles.highlight}>Encounter:</span>{' '}
+                  <span style={styles.modeDesc}>Friendly mode with unlimited throws and no relocation.</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Step 4: Collect NFT */}
+          {/* Step 4: Find Wild Pokemon */}
           <div style={styles.step}>
             <div style={styles.stepNumber}>4</div>
+            <div style={styles.stepContent}>
+              <div style={styles.stepTitle}>Find Wild Pokemon</div>
+              <div style={styles.stepText}>
+                Look for <span style={styles.highlight}>rustling grass patches</span> where
+                Pokemon are hiding, then move close to them to start a catch.
+              </div>
+            </div>
+          </div>
+
+          {/* Step 5: Throw & Catch */}
+          <div style={styles.step}>
+            <div style={styles.stepNumber}>5</div>
+            <div style={styles.stepContent}>
+              <div style={styles.stepTitle}>Throw & Catch</div>
+              <div style={styles.stepText}>
+                Click or tap on a Pokemon to open the catch menu. Choose a ball and throw!
+                Each Pokemon <span style={styles.highlight}>relocates after 3 failed attempts</span>{' '}
+                in Adventure mode only, so choose your ball wisely there.
+              </div>
+            </div>
+          </div>
+
+          {/* Step 6: Collect NFT */}
+          <div style={styles.step}>
+            <div style={styles.stepNumber}>6</div>
             <div style={styles.stepContent}>
               <div style={styles.stepTitle}>Collect Your NFT</div>
               <div style={styles.stepText}>
                 When you catch a Pokemon, a{' '}
                 <span style={styles.highlight}>random NFT Pokemon card</span> is selected from the
-                prize pool and sent directly to your wallet. The selection uses the same{' '}
-                <span style={styles.highlight}>provably fair randomness</span> as the catch itself,
-                so every card you receive is a surprise!
+                prize pool and sent directly to your wallet. Every catch is a surprise!
               </div>
             </div>
           </div>

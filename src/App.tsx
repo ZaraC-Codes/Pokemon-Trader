@@ -824,7 +824,7 @@ function AppContent() {
       <InventoryTerminal isOpen={isInventoryOpen} onClose={handleInventoryClose} />
 
       {/* Help Modal */}
-      <HelpModal isOpen={showHelp} onClose={handleCloseHelp} isEasyMode={isEasyMode} />
+      <HelpModal isOpen={showHelp} onClose={handleCloseHelp} />
 
       {/* Music disabled */}
     </div>
