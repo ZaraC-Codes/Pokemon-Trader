@@ -31,12 +31,12 @@
  */
 
 import { apeChainMainnet, ALCHEMY_RPC_URL } from './apechainConfig';
-// Use V9 ABI with admin spawn control functions (v1.9.0)
-// v1.9.0: Adds repositionPokemon(), despawnPokemon(), setMaxActivePokemon(), getEffectiveMaxActivePokemon()
+// Use V10 ABI with dual treasury split (v1.10.0)
+// v1.10.0: Adds treasuryWalletB, accumulatedUSDCFeesB, setTreasuryWalletB(), setTreasuryWallets()
+// v1.9.0: repositionPokemon(), despawnPokemon(), setMaxActivePokemon(), getEffectiveMaxActivePokemon()
 // v1.8.0: APE reserves, gasless relay via throwBallFor()
-// v1.8.0: Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE, 1% SlabNFTManager APE
 // Must be a raw array, not a Hardhat artifact object
-import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV9.json';
+import PokeballGameABI from '../../contracts/abi/abi_PokeballGameV10.json';
 
 // ============================================================
 // CHAIN CONFIGURATION
@@ -95,8 +95,8 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
   | undefined;
 
 /**
- * PokeballGame contract ABI (v1.9.0 with admin spawn control).
- * Imported from contracts/abi/abi_PokeballGameV9.json.
+ * PokeballGame contract ABI (v1.10.0 with dual treasury split).
+ * Imported from contracts/abi/abi_PokeballGameV10.json.
  * Note: The JSON file is an array directly (not { abi: [...] }).
  *
  * Key functions:
@@ -110,16 +110,15 @@ export const POKEBALL_GAME_ADDRESS = import.meta.env.VITE_POKEBALL_GAME_ADDRESS 
  * - getAllPlayerBalls(player) - Get player inventory
  * - getAllActivePokemons() - Get spawned Pokemon
  *
- * v1.9.0 Changes (Admin Spawn Control):
- * - repositionPokemon(slot, newPosX, newPosY) - Move existing Pokemon to new position (owner only)
- * - despawnPokemon(slot) - Remove Pokemon from slot (owner only)
- * - setMaxActivePokemon(newMax) - Set max active Pokemon (owner only)
- * - getEffectiveMaxActivePokemon() - Get current max active Pokemon
+ * v1.10.0 Changes (Dual Treasury Split):
+ * - treasuryWalletB() - View treasury wallet B address
+ * - accumulatedUSDCFeesB() - View accumulated USDC.e fees for treasury B
+ * - setTreasuryWalletB(address) - Set treasury wallet B (owner only)
+ * - setTreasuryWallets(addressA, addressB) - Set both treasury wallets atomically (owner only)
+ * - Revenue split: 1.5% treasury A + 1.5% treasury B + 96% NFT pool + 0.5%+0.5% APE reserves
  *
- * v1.8.0 Changes:
- * - APE reserves for entropy fees and gas operations
- * - Revenue split: 3% treasury, 95% NFT pool, 1% PokeballGame APE, 1% SlabNFTManager APE
- * - Gasless throws via throwBallFor() with EIP-712 signatures
+ * v1.9.0: repositionPokemon, despawnPokemon, setMaxActivePokemon, getEffectiveMaxActivePokemon
+ * v1.8.0: APE reserves, gasless throws via throwBallFor(), depositAPEReserve
  */
 export const POKEBALL_GAME_ABI = PokeballGameABI as typeof PokeballGameABI;
 

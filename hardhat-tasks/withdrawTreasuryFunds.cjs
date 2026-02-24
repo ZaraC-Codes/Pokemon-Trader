@@ -1,7 +1,8 @@
 /**
  * Withdraw Treasury Funds Task
  *
- * Withdraws accumulated USDC.e fees (3%) from PokeballGame to treasury.
+ * Withdraws accumulated USDC.e fees from PokeballGame to both treasuries (v1.10.0).
+ * Treasury A receives accumulatedUSDCFees, Treasury B receives accumulatedUSDCFeesB.
  *
  * Usage:
  *   npx hardhat withdrawTreasuryFunds --all --network apechain
@@ -26,8 +27,10 @@ const {
 
 const POKEBALL_GAME_TREASURY_ABI = [
   'function accumulatedUSDCFees() external view returns (uint256)',
+  'function accumulatedUSDCFeesB() external view returns (uint256)',
   'function owner() external view returns (address)',
   'function treasuryWallet() external view returns (address)',
+  'function treasuryWalletB() external view returns (address)',
   'function withdrawUSDCFees() external',
 ];
 
@@ -41,7 +44,7 @@ task('withdrawTreasuryFunds', 'Withdraw accumulated USDC.e fees from PokeballGam
       throw new Error('Must specify --all or --amount');
     }
 
-    header('WITHDRAW TREASURY FUNDS - PokeballGame');
+    header('WITHDRAW TREASURY FUNDS - PokeballGame (v1.10.0 Dual Treasury)');
 
     const [signer] = await hre.ethers.getSigners();
     info('Signer', signer.address);
@@ -54,11 +57,15 @@ task('withdrawTreasuryFunds', 'Withdraw accumulated USDC.e fees from PokeballGam
       signer
     );
 
-    const [accumulatedFees, owner, treasuryWallet] = await Promise.all([
+    const [accumulatedFeesA, accumulatedFeesB, owner, treasuryWalletA, treasuryWalletB] = await Promise.all([
       gameContract.accumulatedUSDCFees(),
+      gameContract.accumulatedUSDCFeesB().catch(() => hre.ethers.BigNumber.from(0)),
       gameContract.owner(),
       gameContract.treasuryWallet(),
+      gameContract.treasuryWalletB().catch(() => 'N/A (pre-v1.10.0)'),
     ]);
+
+    const totalFees = accumulatedFeesA.add(accumulatedFeesB);
 
     // Verify ownership
     subheader('Ownership Check');
@@ -71,38 +78,42 @@ task('withdrawTreasuryFunds', 'Withdraw accumulated USDC.e fees from PokeballGam
     console.log();
 
     // Check current balance
-    subheader('Current State');
+    subheader('Current State (v1.10.0 Dual Treasury)');
     info('Contract', POKEBALL_GAME_PROXY);
-    info('Treasury Wallet', treasuryWallet);
-    info('Accumulated Fees', formatUSDC(accumulatedFees));
+    info('Treasury A Wallet', treasuryWalletA);
+    info('Treasury A Fees', formatUSDC(accumulatedFeesA));
+    info('Treasury B Wallet', treasuryWalletB);
+    info('Treasury B Fees', formatUSDC(accumulatedFeesB));
+    info('Total Fees', formatUSDC(totalFees));
     console.log();
 
-    if (accumulatedFees.lte(0)) {
+    if (totalFees.lte(0)) {
       warning('No fees to withdraw');
       return;
     }
 
-    // Note: The contract's withdrawUSDCFees() withdraws ALL accumulated fees
+    // Note: The contract's withdrawUSDCFees() withdraws ALL accumulated fees from both pools
     // There's no partial withdrawal function in the current contract
     if (!all && amount) {
       const requestedAmount = hre.ethers.utils.parseUnits(amount, 6);
-      if (requestedAmount.lt(accumulatedFees)) {
+      if (requestedAmount.lt(totalFees)) {
         warning(
           `Note: PokeballGame only supports full withdrawal. ` +
-          `Requested ${formatUSDC(requestedAmount)} but will withdraw all ${formatUSDC(accumulatedFees)}`
+          `Requested ${formatUSDC(requestedAmount)} but will withdraw all ${formatUSDC(totalFees)}`
         );
       }
     }
 
     subheader('Withdrawal Plan');
-    info('Will Withdraw', formatUSDC(accumulatedFees));
-    info('Destination', treasuryWallet);
+    info('Will Withdraw (A)', formatUSDC(accumulatedFeesA) + ' → ' + treasuryWalletA);
+    info('Will Withdraw (B)', formatUSDC(accumulatedFeesB) + ' → ' + treasuryWalletB);
+    info('Total', formatUSDC(totalFees));
     console.log();
 
     // Execute withdrawal
     subheader('Executing Withdrawal');
     try {
-      const tx = await gameContract.withdrawUSDCFees({ gasLimit: 200000 });
+      const tx = await gameContract.withdrawUSDCFees({ gasLimit: 300000 });
       info('TX Hash', tx.hash);
       console.log('Waiting for confirmation...');
 
@@ -111,12 +122,17 @@ task('withdrawTreasuryFunds', 'Withdraw accumulated USDC.e fees from PokeballGam
       console.log();
 
       // Check new balance
-      const newFees = await gameContract.accumulatedUSDCFees();
+      const [newFeesA, newFeesB] = await Promise.all([
+        gameContract.accumulatedUSDCFees(),
+        gameContract.accumulatedUSDCFeesB().catch(() => hre.ethers.BigNumber.from(0)),
+      ]);
 
       subheader('Result');
-      info('Previous Fees', formatUSDC(accumulatedFees));
-      info('New Fees', formatUSDC(newFees));
-      info('Withdrawn to Treasury', formatUSDC(accumulatedFees.sub(newFees)));
+      info('Previous Fees (A)', formatUSDC(accumulatedFeesA));
+      info('New Fees (A)', formatUSDC(newFeesA));
+      info('Previous Fees (B)', formatUSDC(accumulatedFeesB));
+      info('New Fees (B)', formatUSDC(newFeesB));
+      info('Total Withdrawn', formatUSDC(totalFees.sub(newFeesA).sub(newFeesB)));
       success('Withdrawal complete!');
     } catch (err) {
       error(`Withdrawal failed: ${err.message}`);

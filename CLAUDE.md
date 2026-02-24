@@ -3184,7 +3184,7 @@ const { events: catches } = useCaughtPokemonEvents();
 
 **Configuration:**
 - Contract address: `VITE_POKEBALL_GAME_ADDRESS` env var
-- ABI: `contracts/abi/abi_PokeballGameV9.json` (v1.9.0, spawn management, current)
+- ABI: `contracts/abi/abi_PokeballGameV10.json` (v1.10.0, dual treasury, current)
 - Chain: ApeChain Mainnet (33139)
 - **Important:** ABI file must be a raw array `[...]`, not a Hardhat artifact object
 
