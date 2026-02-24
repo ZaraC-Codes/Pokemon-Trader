@@ -26,7 +26,7 @@ export function ComingSoon({ onBack }: ComingSoonProps) {
           textShadow: '2px 2px 0 #aa8800',
         }}
       >
-        EASY MODE
+        ENCOUNTER MODE
       </h1>
       <p style={{ color: '#888', fontSize: '16px', marginBottom: '32px' }}>
         Coming Soon

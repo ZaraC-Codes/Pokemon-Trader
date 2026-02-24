@@ -33,7 +33,7 @@ export function ModeSwitcher({ currentMode, onSwitch }: ModeSwitcherProps) {
         ADVENTURE
       </button>
       <button style={btnStyle(currentMode === 'easy')} onClick={() => onSwitch('easy')}>
-        EASY
+        ENCOUNTER
       </button>
     </div>
   );
