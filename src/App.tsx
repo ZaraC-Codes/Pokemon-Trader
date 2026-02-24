@@ -148,9 +148,6 @@ function AppContent() {
   // Listen for FailedCatch events
   const { events: failedEvents, eventCount: failedCount } = useFailedCatchEvents();
 
-  // DEBUG: Log event counts on every render
-  console.log('[App] Event counts - Caught:', caughtCount, 'Failed:', failedCount, 'Account:', account?.slice(0, 10));
-
   // Listen for BallPurchased events (for instant inventory update)
   const { events: purchaseEvents } = useBallPurchasedEvents();
 
@@ -568,7 +565,8 @@ function AppContent() {
       const game = (window as any).__PHASER_GAME__;
       if (game && !game.destroyed) {
         try {
-          const scene = game.scene.getScene('GameScene');
+          // Try GameScene first (Adventure mode), then EasyCatchScene (Encounter mode)
+          const scene = game.scene.getScene('GameScene') || game.scene.getScene('EasyCatchScene');
           if (scene && typeof scene.getMP3Music === 'function') {
             const mp3Music = scene.getMP3Music();
             if (mp3Music && typeof mp3Music.setVolume === 'function') {
@@ -666,14 +664,14 @@ function AppContent() {
       <WalletConnector />
       <ModeSwitcher currentMode={gameMode} onSwitch={handleModeSwitch} />
 
-      {<>
       <GameCanvas
+        key={gameMode}
+        mode={gameMode}
         onTradeClick={handleTradeClick}
         onPokemonClick={handlePokemonClick}
         onCatchOutOfRange={handleCatchOutOfRange}
         onVisualThrowRef={visualThrowRef}
         onCatchResultRef={catchResultRef}
-        isEasyMode={isEasyMode}
       />
       <GameHUD playerAddress={account} onShowHelp={handleShowHelp} />
 
@@ -829,7 +827,6 @@ function AppContent() {
       <HelpModal isOpen={showHelp} onClose={handleCloseHelp} isEasyMode={isEasyMode} />
 
       {/* Music disabled */}
-      </>}
     </div>
   );
 }
