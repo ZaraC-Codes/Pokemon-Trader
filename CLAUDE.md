@@ -206,6 +206,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   ├── PokeballGameV7.sol       # Game contract v1.7.0 (random NFT selection)
 │   ├── PokeballGameV8.sol       # Game contract v1.8.0 (gasless throws, APE reserves)
 │   ├── PokeballGameV9.sol       # Game contract v1.9.0 (spawn management, repositionPokemon)
+│   ├── PokeballGameV10.sol      # Game contract v1.10.0 (dual treasury split)
 │   ├── SlabNFTManager.sol       # NFT inventory manager v1.0.0 (UUPS)
 │   ├── SlabNFTManagerV2.sol     # NFT manager v2.0.0 (max 20 NFTs)
 │   ├── SlabNFTManagerV2_1.sol   # NFT manager v2.1.0 (pull price fix)
@@ -222,7 +223,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   │   ├── abi_PokeballGameV6.json  # PokeballGame ABI v1.6.0 (Pyth Entropy)
 │   │   ├── abi_PokeballGameV7.json  # PokeballGame ABI v1.7.0 (random NFT selection)
 │   │   ├── abi_PokeballGameV8.json  # PokeballGame ABI v1.8.0 (gasless throws)
-│   │   ├── abi_PokeballGameV9.json  # PokeballGame ABI v1.9.0 (spawn management, **current**)
+│   │   ├── abi_PokeballGameV9.json  # PokeballGame ABI v1.9.0 (spawn management)
+│   │   ├── abi_PokeballGameV10.json # PokeballGame ABI v1.10.0 (dual treasury, **current**)
 │   │   ├── abi_SlabNFTManager.json  # SlabNFTManager ABI (legacy)
 │   │   ├── abi_SlabNFTManagerV2_3.json  # SlabNFTManager ABI v2.3.0
 │   │   └── abi_SlabNFTManagerV2_4.json  # SlabNFTManager ABI v2.4.0 (APE reserves, **current**)
@@ -243,7 +245,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 │   │   ├── upgrade_SlabNFTManagerV2_4.cjs # Upgrade to v2.4.0 (APE reserves, auto-purchase loop)
 │   │   ├── upgrade_PokeballGameV7.cjs     # Upgrade to v1.7.0 (random NFT selection)
 │   │   ├── upgrade_PokeballGameV8.cjs     # Upgrade to v1.8.0 (gasless throws, APE reserves)
-│   │   └── upgrade_PokeballGameV9.cjs     # Upgrade to v1.9.0 (spawn management)
+│   │   ├── upgrade_PokeballGameV9.cjs     # Upgrade to v1.9.0 (spawn management)
+│   │   └── upgrade_PokeballGameV10.cjs    # Upgrade to v1.10.0 (dual treasury split)
 │   ├── addresses.json           # Contract addresses & token config
 │   └── wallets.json             # Wallet configuration
 │
@@ -336,6 +339,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `contracts/PokeballGameV7.sol` | Game contract v1.7.0 (random NFT selection) |
 | `contracts/PokeballGameV8.sol` | Game contract v1.8.0 (gasless throws, APE reserves) |
 | `contracts/PokeballGameV9.sol` | Game contract v1.9.0 (spawn management, repositionPokemon) |
+| `contracts/PokeballGameV10.sol` | Game contract v1.10.0 (dual treasury split: 1.5% A + 1.5% B) |
 | `contracts/SlabNFTManager.sol` | NFT inventory manager v1.0.0 |
 | `contracts/SlabNFTManagerV2.sol` | NFT manager v2.0.0 (max 20 NFTs) |
 | `contracts/SlabNFTManagerV2_3.sol` | NFT manager v2.3.0 (random NFT selection) |
@@ -347,7 +351,8 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `contracts/abi/abi_PokeballGameV6.json` | PokeballGame ABI v1.6.0 (Pyth Entropy) |
 | `contracts/abi/abi_PokeballGameV7.json` | PokeballGame ABI v1.7.0 (random NFT selection) |
 | `contracts/abi/abi_PokeballGameV8.json` | PokeballGame ABI v1.8.0 (gasless throws) |
-| `contracts/abi/abi_PokeballGameV9.json` | PokeballGame ABI v1.9.0 (spawn management, **current**) |
+| `contracts/abi/abi_PokeballGameV9.json` | PokeballGame ABI v1.9.0 (spawn management) |
+| `contracts/abi/abi_PokeballGameV10.json` | PokeballGame ABI v1.10.0 (dual treasury, **current**) |
 | `contracts/abi/abi_SlabNFTManagerV2_3.json` | SlabNFTManager ABI v2.3.0 (random NFT selection) |
 | `contracts/abi/abi_SlabNFTManagerV2_4.json` | SlabNFTManager ABI v2.4.0 (APE reserves, auto-purchase loop, **current**) |
 | `contracts/deployment/deployProxies.cjs` | Unified deployment script for both proxies |
@@ -357,6 +362,7 @@ npx hardhat run scripts/setRelayerAddress.cjs --network apechain  # Authorize re
 | `contracts/deployment/upgrade_PokeballGameV4_NativeAPE.cjs` | Upgrade to v1.4.0 (native APE payments) |
 | `contracts/deployment/upgrade_PokeballGameV5.cjs` | Upgrade to v1.5.0 (unified payments, auto-swap) |
 | `contracts/deployment/upgrade_PokeballGameV9.cjs` | Upgrade to v1.9.0 (spawn management) |
+| `contracts/deployment/upgrade_PokeballGameV10.cjs` | Upgrade to v1.10.0 (dual treasury split) |
 | `contracts/deployment/set_slabNFTManager.cjs` | Configure SlabNFTManager on PokeballGame |
 | `contracts/deployment/upgrade_SlabNFTManagerV2.cjs` | Upgrade to v2.0.0 (max 20 NFTs) |
 | `scripts/spawnInitialPokemon.cjs` | Spawn 3 initial Pokemon (slots 0-2) |
@@ -452,7 +458,9 @@ Uses vanilla History API pathname detection (no react-router-dom), matching the 
 
 **Note:** On ApeChain, APE is the native gas token. PokeballGame uses **Pyth Entropy** for randomness (replaced POP VRNG which required whitelisting). Both APE and USDC.e payments result in USDC.e for the NFT pool. APE is auto-swapped via Camelot DEX.
 
-**v1.9.0 (Current - Deployed 2026-01-26):** Spawn management improvements: `repositionPokemon()` to move Pokemon without despawning, `despawnPokemon()` to remove from slots, and configurable `maxActivePokemon` soft cap. All v1.8.0 features unchanged: gasless throws, APE reserves, meta-transactions, revenue split (0.5%+0.5% APE reserves, 96% NFT pool, 3% treasury). SlabNFTManager v2.4.0 includes auto-purchase loop (continues until 20 NFTs OR funds depleted).
+**v1.10.0 (Latest):** Dual treasury split — the existing 3% treasury fee is split into two 1.5% fees sent to `treasuryWallet` (A) and `treasuryWalletB` (B). All other economics unchanged: 0.5%+0.5% APE reserves, 96% NFT pool. Total RTP remains ~95%.
+
+**v1.9.0 (Deployed 2026-01-26):** Spawn management improvements: `repositionPokemon()` to move Pokemon without despawning, `despawnPokemon()` to remove from slots, and configurable `maxActivePokemon` soft cap. All v1.8.0 features unchanged: gasless throws, APE reserves, meta-transactions. SlabNFTManager v2.4.0 includes auto-purchase loop (continues until 20 NFTs OR funds depleted).
 
 ### Multicall3 Configuration
 
@@ -1784,7 +1792,8 @@ Pokemon catching mini-game with provably fair mechanics:
 | v1.6.0 | 20 | Pyth Entropy for randomness (replaces POP VRNG, no whitelist needed) | Superseded |
 | v1.7.0 | 20 | Random NFT selection using Pyth Entropy random number | Superseded |
 | v1.8.0 | 20 | Gasless throws, APE reserves, meta-transactions | Superseded |
-| v1.9.0 | 20 | **Spawn management: repositionPokemon, despawnPokemon, configurable max** | **Latest** |
+| v1.9.0 | 20 | Spawn management: repositionPokemon, despawnPokemon, configurable max | Superseded |
+| v1.10.0 | 20 | **Dual treasury split: 1.5% A + 1.5% B (was 3% single)** | **Latest** |
 
 **Deployed Addresses:**
 - Proxy: `0xB6e86aF8a85555c6Ac2D812c8B8BE8a60C1C432f`
@@ -1804,7 +1813,8 @@ User pays in APE or USDC.e
 APE → auto-swap to USDC.e via Camelot DEX
 USDC.e → pass through directly
     ↓
-Split: 3% → treasury (accumulatedUSDCFees)
+Split: 1.5% → treasury A (accumulatedUSDCFees)
+       1.5% → treasury B (accumulatedUSDCFeesB)
        95% → SlabNFTManager.depositRevenue() (NFT pool)
        1% → PokeballGame APE reserve (for Entropy fees)
        1% → SlabNFTManager APE reserve (for SlabMachine pulls)
@@ -1839,16 +1849,16 @@ The `throwBallFor()` function enables meta-transactions where a relayer pays gas
 - WAPE: `0x48b62137EdfA95a428D35C09E44256a739F6B557`
 - Slippage: Configurable (default 1%)
 
-**Fee Structure (v1.8.0 - APE Reserves):**
+**Fee Structure (v1.10.0 - Dual Treasury):**
 Users pay the **exact ball price** with no markup. Fees are split internally:
-| User Pays | Treasury (3%) | NFT Pool (95%) | PokeballGame APE (1%) | SlabNFTManager APE (1%) |
-|-----------|--------------|----------------|----------------------|------------------------|
-| $1.00 | $0.03 | $0.95 | $0.01 | $0.01 |
-| $10.00 | $0.30 | $9.50 | $0.10 | $0.10 |
-| $25.00 | $0.75 | $23.75 | $0.25 | $0.25 |
-| $49.90 | $1.50 | $47.41 | $0.50 | $0.50 |
+| User Pays | Treasury A (1.5%) | Treasury B (1.5%) | NFT Pool (95%) | PokeballGame APE (1%) | SlabNFTManager APE (1%) |
+|-----------|-------------------|-------------------|----------------|----------------------|------------------------|
+| $1.00 | $0.015 | $0.015 | $0.95 | $0.01 | $0.01 |
+| $10.00 | $0.15 | $0.15 | $9.50 | $0.10 | $0.10 |
+| $25.00 | $0.375 | $0.375 | $23.75 | $0.25 | $0.25 |
+| $49.90 | $0.75 | $0.75 | $47.41 | $0.50 | $0.50 |
 
-The APE reserves fund Entropy fees and SlabMachine pull gas. Players see ~95% RTP.
+The APE reserves fund Entropy fees and SlabMachine pull gas (operational, not treasury revenue). Treasury A/B columns are USDC.e only. Players see ~95% RTP.
 
 **v1.4.1 Bug Fix:** Previous versions calculated fees from `msg.value` (which could include user-sent buffer), causing users to overpay. Now fees are calculated from the exact required amount.
 
@@ -2013,12 +2023,42 @@ uint256[32] private __gap;
 - `repositionPokemon()` resets `throwAttempts` to 0 (fresh start at new location)
 - `repositionPokemon()` emits both `PokemonRepositioned` (detailed) AND `PokemonRelocated` (frontend-compatible)
 
-**v1.8.0 Revenue Split Constants:**
+**New Functions (v1.10.0 - Dual Treasury Split):**
+- `initializeV1100(treasuryB)` - Initialize v1.10.0: sets treasury wallet B, splits any existing accumulated fees 50/50
+- `setTreasuryWalletB(address)` - Set treasury wallet B independently (owner only)
+- `setTreasuryWallets(addressA, addressB)` - Set both treasury wallets atomically (owner only)
+- `treasuryWalletB()` - View treasury wallet B address
+- `accumulatedUSDCFeesB()` - View accumulated USDC.e fees for treasury B
+- `TREASURY_FEE_A_BPS()` - Constant: 150 (1.5%)
+- `TREASURY_FEE_B_BPS()` - Constant: 150 (1.5%)
+
+**v1.10.0 Unchanged APE Functions:**
+- `withdrawAPEFees()` - Unchanged from V9. Sends to `treasuryWallet` (A) only. APE is operational reserve (Entropy fees, gas), not dual-treasury revenue.
+- `withdrawAllAPE()` - Unchanged from V9. Emergency withdraw to `treasuryWallet` (A) only.
+
+**v1.10.0 Events:**
+- `TreasuryWalletsUpdated(oldA, newA, oldB, newB)` - Emitted when both treasury wallets updated via `setTreasuryWallets()`
+- `USDCFeesWithdrawnDual(recipientA, amountA, recipientB, amountB)` - Emitted when USDC.e fees withdrawn to both treasuries
+
+**v1.10.0 Storage Layout:**
 ```solidity
-APE_RESERVE_BPS = 50;        // 0.5% APE to PokeballGame reserve
-SLAB_APE_RESERVE_BPS = 50;   // 0.5% APE to SlabNFTManager reserve
-TREASURY_FEE_BPS = 300;      // 3% USDC.e to treasury
-NFT_POOL_BPS = 9600;         // 96% USDC.e to NFT pool
+// Added after v1.9.0 variables, before __gap
+address public treasuryWalletB;          // Second treasury wallet (1.5%)
+uint256 public accumulatedUSDCFeesB;     // Accumulated fees for treasury B
+bool private _v1100Initialized;          // One-time initialization flag
+
+// Storage gap reduced from 32 to 29 slots to accommodate 3 new slots
+uint256[29] private __gap;
+```
+
+**v1.10.0 Revenue Split Constants:**
+```solidity
+APE_RESERVE_BPS = 50;          // 0.5% APE to PokeballGame reserve
+SLAB_APE_RESERVE_BPS = 50;     // 0.5% APE to SlabNFTManager reserve
+TREASURY_FEE_A_BPS = 150;      // 1.5% USDC.e to treasury A
+TREASURY_FEE_B_BPS = 150;      // 1.5% USDC.e to treasury B
+TREASURY_FEE_BPS = 300;        // 3% total (A + B) - kept for compatibility
+NFT_POOL_BPS = 9600;           // 96% USDC.e to NFT pool
 ```
 
 **Internal Callback Handlers:**
@@ -2056,14 +2096,18 @@ npx hardhat run contracts/deployment/upgrade_PokeballGameV8.cjs --network apecha
 
 # Upgrade to v1.9.0 (Spawn Management - no SlabNFTManager changes required)
 npx hardhat run contracts/deployment/upgrade_PokeballGameV9.cjs --network apechain
+
+# Upgrade to v1.10.0 (Dual Treasury - no SlabNFTManager changes required)
+TREASURY_WALLET_B=0xYourAddress npx hardhat run contracts/deployment/upgrade_PokeballGameV10.cjs --network apechain
 ```
 
-**v1.7.0 Payment Flow:**
-- **APE payments**: User sends native APE → contract wraps to WAPE → swaps via Camelot to USDC.e → splits 3% treasury / ~96.5% NFT pool / ~0.5% APE buffer
-- **USDC.e payments**: User sends USDC.e (requires approval) → same split
-- **Both paths**: ~96.5% goes to `SlabNFTManager.depositRevenue()` then `checkAndPurchaseNFT()`
-- **APE buffer**: ~0.5% retained in APE to fund Entropy fees and SlabMachine pull gas (platform-controlled, not player rewards)
-- **Fee withdrawal**: Owner calls `withdrawUSDCFees()` to send accumulated USDC.e to treasury
+**v1.10.0 Payment Flow:**
+- **APE payments**: User sends native APE → 0.5% kept as PokeballGame APE reserve → 0.5% sent to SlabNFTManager APE reserve → remainder wraps to WAPE → swaps via Camelot to USDC.e → `_processUSDCPayment()` splits: 1.5% treasury A + 1.5% treasury B + 96% NFT pool
+- **USDC.e payments**: User sends USDC.e (requires approval) → 0.5% swapped to APE for PokeballGame reserve → 0.5% swapped to APE for SlabNFTManager reserve → `_processUSDCPayment()` splits remainder: 1.5% treasury A + 1.5% treasury B + 96% NFT pool
+- **Both paths**: ~96% of USDC.e goes to `SlabNFTManager.depositRevenue()` then `checkAndPurchaseNFT()`
+- **APE reserves**: ~1% retained in APE (0.5% each for PokeballGame and SlabNFTManager). These are **operational** (Entropy fees, gas), NOT treasury revenue
+- **USDC.e fee withdrawal**: Owner calls `withdrawUSDCFees()` to send accumulated USDC.e to both treasuries
+- **APE withdrawal**: Owner calls `withdrawAPEFees()` or `withdrawAllAPE()` — sends to `treasuryWallet` (A) only, since APE is operational reserve not dual-treasury revenue
 
 **Post-Upgrade Configuration (v1.3.0):**
 ```solidity
@@ -2091,6 +2135,7 @@ await pokeballGame.setRevertOnNoNFT(true);
 - v1.7.0 adds random NFT selection using same Entropy random number from catch determination
 - v1.8.0 adds gasless throws, APE reserves, meta-transaction support
 - v1.9.0 adds spawn management: `repositionPokemon()`, `despawnPokemon()`, configurable `maxActivePokemon`
+- v1.10.0 splits 3% treasury into two 1.5% treasuries (`treasuryWallet` A + `treasuryWalletB`)
 - See `docs/UPGRADE_V1.2.0_20_POKEMON.md` for v1.2.0 upgrade guide
 
 ### SlabNFTManager Contract (v2.3.0)
