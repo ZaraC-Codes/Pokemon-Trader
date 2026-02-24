@@ -1627,9 +1627,12 @@ interface HelpModalProps {
 ```
 
 **Features:**
-- Step-by-step gameplay instructions (Buy Balls → Find Pokemon → Throw & Catch → Collect NFT)
+- Step-by-step gameplay instructions (Buy Balls → Move Around → Choose Mode → Find Pokemon → Throw & Catch → Collect NFT)
 - Ball type info with catch rates (2%, 20%, 50%, 99%)
 - Color-coded ball indicators matching game UI
+- Adventure vs Encounter mode explanation with styled info box
+- Desktop (arrow keys / WASD) and mobile (tap to move) controls documented
+- Relocation note scoped to "Adventure mode only"
 - ESC key to close
 - Click outside to close
 - Pixel-art styling consistent with game theme
