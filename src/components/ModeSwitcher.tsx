@@ -24,7 +24,7 @@ export function ModeSwitcher({ currentMode, onSwitch }: ModeSwitcherProps) {
         top: '12px',
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 1500,
+        zIndex: 900,
         display: 'flex',
         gap: '4px',
       }}
